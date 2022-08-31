@@ -1,0 +1,3 @@
+[submodule "src/libfranka"]
+	path = src/libfranka
+	url = git@github.com:nataliya-dev/libfranka.git
