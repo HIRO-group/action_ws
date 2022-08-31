@@ -1,3 +1,9 @@
 [submodule "src/libfranka"]
 	path = src/libfranka
 	url = git@github.com:nataliya-dev/libfranka.git
+[submodule "src/franka_ros"]
+	path = src/franka_ros
+	url = git@github.com:nataliya-dev/franka_ros.git
+[submodule "src/boost_sml"]
+	path = src/boost_sml
+	url = git@github.com:PickNikRobotics/boost_sml.git
