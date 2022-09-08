@@ -7,3 +7,12 @@
 [submodule "src/boost_sml"]
 	path = src/boost_sml
 	url = git@github.com:PickNikRobotics/boost_sml.git
+[submodule "src/omplapp"]
+	path = src/omplapp
+	url = git@github.com:nataliya-dev/omplapp.git
+[submodule "src/moveit_tutorials"]
+	path = src/moveit_tutorials
+	url = git@github.com:ros-planning/moveit_tutorials.git
+[submodule "src/panda_moveit_config"]
+	path = src/panda_moveit_config
+	url = https://github.com/ros-planning/panda_moveit_config.git
