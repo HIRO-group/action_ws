@@ -1,7 +1,7 @@
 #!/bin/bash
 
-BLUE='\033[0;34m' 
-NC='\033[0m' 
+BLUE='\033[0;34m'
+NC='\033[0m'
 echo -e "${BLUE}Start!${NC}"
 
 set -eo pipefail
@@ -29,7 +29,7 @@ install_common_dependencies()
 
     # libfranka
     echo -e "${BLUE}Installing libfranka dependencies${NC}"
-    ${SUDO} apt -y install build-essential cmake git libpoco-dev libeigen3-dev 
+    ${SUDO} apt -y install build-essential cmake git libpoco-dev libeigen3-dev
 }
 
 install_libfranka()
@@ -63,6 +63,29 @@ install_omplapp()
   ${SUDO} make install
   cd ../../../../
 }
+
+set_upstream_branches(){
+  cd src/libfranka
+  git remote add upstream git@github.com:frankaemika/libfranka.git
+  cd ../../
+
+  cd src/franka_ros
+  git remote add upstream git@github.com:frankaemika/franka_ros.git
+  cd ../../
+
+  cd src/omplapp
+  git remote add upstream git@github.com:ompl/omplapp.git
+
+  cd ompl
+  git remote add upstream git@github.com:ompl/ompl.git
+  cd ../../../
+}
+
+set_upstream_branches
+
+git submodule foreach -q --recursive 'branch="$(git config -f $toplevel/.gitmodules submodule.$name.branch)"; git checkout $branch'
+
+git submodule update --init --recursive --remote
 
 install_common_dependencies
 install_libfranka

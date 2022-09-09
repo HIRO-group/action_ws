@@ -1,18 +1,24 @@
 [submodule "src/libfranka"]
 	path = src/libfranka
 	url = git@github.com:nataliya-dev/libfranka.git
+  branch = master
 [submodule "src/franka_ros"]
 	path = src/franka_ros
 	url = git@github.com:nataliya-dev/franka_ros.git
+  branch = develop
 [submodule "src/boost_sml"]
 	path = src/boost_sml
 	url = git@github.com:PickNikRobotics/boost_sml.git
+  branch = master
 [submodule "src/omplapp"]
 	path = src/omplapp
 	url = git@github.com:nataliya-dev/omplapp.git
+  branch = main
 [submodule "src/moveit_tutorials"]
 	path = src/moveit_tutorials
 	url = git@github.com:ros-planning/moveit_tutorials.git
+  branch = master
 [submodule "src/panda_moveit_config"]
 	path = src/panda_moveit_config
 	url = https://github.com/ros-planning/panda_moveit_config.git
+  branch = melodic-devel
