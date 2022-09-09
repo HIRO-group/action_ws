@@ -17,7 +17,7 @@
 [submodule "src/moveit_tutorials"]
 	path = src/moveit_tutorials
 	url = git@github.com:ros-planning/moveit_tutorials.git
-  branch = master
+  branch = melodic-devel
 [submodule "src/panda_moveit_config"]
 	path = src/panda_moveit_config
 	url = https://github.com/ros-planning/panda_moveit_config.git
@@ -25,3 +25,4 @@
 [submodule "src/moveit"]
 	path = src/moveit
 	url = git@github.com:ros-planning/moveit.git
+  branch = melodic-devel

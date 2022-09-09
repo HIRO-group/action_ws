@@ -10,6 +10,8 @@ SUDO="sudo -H"
 
 ubuntu_version=`lsb_release -rs | sed 's/\.//'`
 
+ROS_DISTRO=melodic
+
 install_common_dependencies()
 {
     # install most dependencies via apt-get
@@ -30,6 +32,11 @@ install_common_dependencies()
     # libfranka
     echo -e "${BLUE}Installing libfranka dependencies${NC}"
     ${SUDO} apt -y install build-essential cmake git libpoco-dev libeigen3-dev
+
+    # moveit
+    echo -e "${BLUE}Installing moveit dependencies${NC}"
+    sudo apt install python3-wstool python3-catkin-tools clang-format-10 python3-rosdep
+    sudo apt install ros-${ROS_DISTRO}-rosparam-shortcuts
 }
 
 install_libfranka()
@@ -66,17 +73,21 @@ install_omplapp()
 
 set_upstream_branches(){
   cd src/libfranka
+  git remote rm upstream
   git remote add upstream git@github.com:frankaemika/libfranka.git
   cd ../../
 
   cd src/franka_ros
+  git remote rm upstream
   git remote add upstream git@github.com:frankaemika/franka_ros.git
   cd ../../
 
   cd src/omplapp
+  git remote rm upstream
   git remote add upstream git@github.com:ompl/omplapp.git
 
   cd ompl
+  git remote rm upstream
   git remote add upstream git@github.com:ompl/ompl.git
   cd ../../../
 }
