@@ -10,7 +10,7 @@ SUDO="sudo -H"
 
 ubuntu_version=`lsb_release -rs | sed 's/\.//'`
 
-ROS_DISTRO=melodic
+ROS_DISTRO=noetic
 
 install_common_dependencies()
 {
@@ -73,22 +73,34 @@ install_omplapp()
 
 set_upstream_branches(){
   cd src/libfranka
-  git remote rm upstream
-  git remote add upstream git@github.com:frankaemika/libfranka.git
+  if git ls-remote --exit-code upstream; then
+    echo -e "${BLUE}libfranka upstream already eists${NC}"
+  else
+    git remote add upstream git@github.com:frankaemika/libfranka.git
+  fi
   cd ../../
 
   cd src/franka_ros
-  git remote rm upstream
-  git remote add upstream git@github.com:frankaemika/franka_ros.git
+  if git ls-remote --exit-code upstream; then
+    echo -e "${BLUE}franka_ros upstream already eists${NC}"
+  else
+    git remote add upstream git@github.com:frankaemika/franka_ros.git
+  fi
   cd ../../
 
   cd src/omplapp
-  git remote rm upstream
-  git remote add upstream git@github.com:ompl/omplapp.git
+  if git ls-remote --exit-code upstream; then
+    echo -e "${BLUE}omplapp upstream already eists${NC}"
+  else
+    git remote add upstream git@github.com:ompl/omplapp.git
+  fi
 
   cd ompl
-  git remote rm upstream
-  git remote add upstream git@github.com:ompl/ompl.git
+  if git ls-remote --exit-code upstream; then
+    echo -e "${BLUE}ompl upstream already eists${NC}"
+  else
+    git remote add upstream git@github.com:ompl/ompl.git
+  fi
   cd ../../../
 }
 
