@@ -10,7 +10,7 @@ SUDO="sudo -H"
 
 ubuntu_version=`lsb_release -rs | sed 's/\.//'`
 
-ROS_DISTRO=melodic
+ROS_DISTRO=noetic
 
 install_common_dependencies()
 {
@@ -92,7 +92,7 @@ set_upstream_branches(){
   cd ../../../
 }
 
-set_upstream_branches
+#set_upstream_branches
 
 git submodule foreach -q --recursive 'branch="$(git config -f $toplevel/.gitmodules submodule.$name.branch)"; git checkout $branch'
 
