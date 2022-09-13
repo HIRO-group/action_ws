@@ -5,7 +5,7 @@
 [submodule "src/franka_ros"]
 	path = src/franka_ros
 	url = git@github.com:nataliya-dev/franka_ros.git
-  branch = develop
+  branch = noetic-devel
 [submodule "src/boost_sml"]
 	path = src/boost_sml
 	url = git@github.com:PickNikRobotics/boost_sml.git
@@ -21,8 +21,4 @@
 [submodule "src/panda_moveit_config"]
 	path = src/panda_moveit_config
 	url = https://github.com/ros-planning/panda_moveit_config.git
-  branch = noetic-devel
-[submodule "src/moveit"]
-	path = src/moveit
-	url = git@github.com:ros-planning/moveit.git
   branch = noetic-devel
