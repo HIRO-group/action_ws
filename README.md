@@ -15,6 +15,22 @@ Setup your environment -- you can do this every time you work with this particul
 source ~/action_ws/devel/setup.bash # or .zsh, depending on your shell
 ```
 
+## Getting started
+```
+roslaunch franka_gazebo panda.launch rviz:=true
+roslaunch pick_and_place main.launch
+```
+
+If you are developing the pick_and_place package, you may notice that building can take time. To build the package and ignore dependencies use:
+```
+catkin build pick_and_place --no-deps
+```
+
+otherwise:
+```
+catkin build
+```
+
 ## Submodule overview
 | library              | origin            | upstream  |
 | :---                 |   :---            | :--- |
@@ -29,6 +45,9 @@ source ~/action_ws/devel/setup.bash # or .zsh, depending on your shell
 
 
 ## TODO
-- If an upstream branch exists, pull from upstream branches and merge with the origin master branch.
-- Check that the moveit library is using the action_ws ompl library.
-- Build according to ros version, preferrably noetic.
+- Simulate trajectory execution
+- Add obstacles to scene
+- Real trajectory execution on a robot
+- Create a new motion planner or start mofifying an existing one
+- See what perception, heuristic, or other values that can be channeled to ompl for RRT or other planners, what are the moving parts?
+
