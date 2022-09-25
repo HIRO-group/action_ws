@@ -22,12 +22,12 @@ find_package(catkin REQUIRED
     moveit_visual_tools
     pluginlib
     geometric_shapes
-    pcl_ros
-    pcl_conversions
-    rosbag
-    tf2_ros
-    tf2_eigen
-    tf2_geometry_msgs
+    # pcl_ros
+    # pcl_conversions
+    # rosbag
+    # tf2_ros
+    # tf2_eigen
+    # tf2_geometry_msgs
 )
 
 find_package(Eigen3 REQUIRED)
@@ -134,7 +134,7 @@ CATKIN_DEPENDS
   moveit_visual_tools
   moveit_ros_planning_interface
   interactive_markers
-  tf2_geometry_msgs
+  # tf2_geometry_msgs
 DEPENDS
   EIGEN3
 )
@@ -180,7 +180,7 @@ add_executable(${PROJECT_NAME}_node src/pick_and_place_node.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
-  ${catkin_LIBRARIES} 
+  ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
 )
 

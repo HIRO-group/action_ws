@@ -15,9 +15,6 @@
 
   <env name="ROSCONSOLE_CONFIG_FILE" value="$(find pick_and_place)/config/rosconsole.conf"/>
 
-  <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
-
-  <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
 
   <include file="$(find panda_moveit_config)/launch/planning_context.launch">
     <arg name="load_robot_description" value="false"/>
@@ -38,12 +35,30 @@
 
   <!-- If needed, broadcast static tf for robot root -->
   <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="virtual_joint_broadcaster" args="0 0 0 0 0 0 world $(arg arm_id)_link0" /> -->
+  <arg name="fake_execution_type" default="interpolate" />
 
   <node name="pick_and_place_node" pkg="pick_and_place" type="pick_and_place_node" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
     <param name="planning_plugin" value="$(arg planning_plugin)" />
     <param name="request_adapters" value="$(arg planning_adapters)" />
-      <param name="start_state_max_bounds_error" value="$(arg start_state_max_bounds_error)" />
+    <param name="start_state_max_bounds_error" value="$(arg start_state_max_bounds_error)" />
     <param name="jiggle_fraction" value="$(arg jiggle_fraction)" />
+
+  <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
+
+  <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
+<!--
+  <param name="moveit_controller_manager" value="moveit_simple_controller_manager/MoveItSimpleControllerManager" />
+
+  <rosparam param="controller_list" file="$(find panda_moveit_config)/config/simple_moveit_controllers.yaml" /> -->
+
+
+  <!-- Set the param that trajectory_execution_manager needs to find the controller plugin -->
+  <param name="moveit_controller_manager" value="moveit_fake_controller_manager/MoveItFakeControllerManager"/>
+
+  <!-- The rest of the params are specific to this plugin -->
+  <rosparam subst_value="true" file="$(find moveit_resources_panda_moveit_config)/config/fake_controllers.yaml"/>
+
+
   </node>
 
 

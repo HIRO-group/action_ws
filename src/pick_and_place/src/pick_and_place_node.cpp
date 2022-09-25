@@ -3,11 +3,14 @@
 #include <ros/ros.h>
 // MoveIt
 #include <moveit/kinematic_constraints/utils.h>
+#include <moveit/plan_execution/plan_execution.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_pipeline/planning_pipeline.h>
+#include <moveit/planning_scene_monitor/current_state_monitor.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_state/conversions.h>
+#include <moveit/trajectory_execution_manager/trajectory_execution_manager.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
@@ -26,6 +29,71 @@ void printPlannerConfigMap(
       ROS_INFO_NAMED(LOGNAME, "\t\tValue: %s", setting.second.c_str());
     }
   }
+}
+
+void printJointTrajectory(
+    const trajectory_msgs::JointTrajectory& joint_trajectory) {
+  ROS_INFO_NAMED(LOGNAME, "Num joints: %ld",
+                 joint_trajectory.joint_names.size());
+  ROS_INFO_NAMED(LOGNAME, "Num points: %ld", joint_trajectory.points.size());
+
+  for (int i = 0; i < joint_trajectory.joint_names.size(); i++) {
+    std::string name = joint_trajectory.joint_names[i];
+    std::cout << name << " ";
+  }
+
+  for (int i = 0; i < joint_trajectory.points.size(); i++) {
+    trajectory_msgs::JointTrajectoryPoint traj_point =
+        joint_trajectory.points[i];
+    std::cout << "\npositions" << std::endl;
+    for (int k = 0; k < traj_point.positions.size(); k++) {
+      double position = traj_point.positions[k];
+      std::cout << position << " ";
+    }
+
+    std::cout << "\nvelocities" << std::endl;
+    for (int k = 0; k < traj_point.velocities.size(); k++) {
+      double velocity = traj_point.velocities[k];
+      std::cout << velocity << " ";
+    }
+
+    std::cout << "\naccelerations" << std::endl;
+    for (int k = 0; k < traj_point.accelerations.size(); k++) {
+      double accel = traj_point.accelerations[k];
+      std::cout << accel << " ";
+    }
+
+    std::cout << "\neffort" << std::endl;
+    for (int k = 0; k < traj_point.effort.size(); k++) {
+      double effort = traj_point.effort[k];
+      std::cout << effort << " ";
+    }
+  }
+}
+
+void printControllers(
+    const moveit_controller_manager::MoveItControllerManagerPtr&
+        controller_manager) {
+  std::vector<std::string> active_controllers;
+  controller_manager->getActiveControllers(active_controllers);
+  std::vector<std::string> known_controllers;
+  controller_manager->getControllersList(known_controllers);
+
+  ROS_INFO_NAMED(LOGNAME, "Active controllers: %ld", active_controllers.size());
+  for (auto controller : active_controllers) {
+    std::cout << controller << ", " << std::endl;
+  }
+
+  ROS_INFO_NAMED(LOGNAME, "Known controllers: %ld", known_controllers.size());
+  for (auto controller : known_controllers) {
+    std::cout << controller << ", " << std::endl;
+  }
+}
+
+void promptAnyInput() {
+  std::cout << std::endl;
+  std::cout << "Press any key to continue: ";
+  getchar();
 }
 
 void addPlannerConfigurationSettings(
@@ -67,6 +135,8 @@ int main(int argc, char** argv) {
      objects and update the internal planning scene accordingly*/
   psm->startStateMonitor();
 
+  psm->updateSceneWithCurrentState();
+
   /* We can also use the RobotModelLoader to get a robot model which contains
    * the robot's kinematic information */
   moveit::core::RobotModelPtr robot_model = robot_model_loader->getModel();
@@ -76,15 +146,16 @@ int main(int argc, char** argv) {
      underlying scene isn't updated while we are reading it's state.
      RobotState's are useful for computing the forward and inverse kinematics of
      the robot among many other uses */
-  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
-      planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
+  // moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
+  //     planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
 
-  // robot_state->printStateInfo();
+  planning_scene_monitor::CurrentStateMonitorPtr csm = psm->getStateMonitor();
+
+  moveit::core::RobotStatePtr robot_state = csm->getCurrentState();
 
   /* Create a JointModelGroup to keep track of the current robot pose and
      planning group. The Joint Model group is useful for dealing with one set of
      joints at a time such as a left arm or a end effector */
-
   const std::string group_name = "panda_arm";
   const moveit::core::JointModelGroup* joint_model_group =
       robot_state->getJointModelGroup(group_name);
@@ -99,24 +170,6 @@ int main(int argc, char** argv) {
   const planning_interface::PlannerManagerPtr planner_manager =
       planning_pipeline->getPlannerManager();
 
-  planning_interface::PlannerConfigurationMap planner_config_map;
-  std::map<std::string, std::string> setting_map;
-  setting_map["type"] = "geometric::EST";
-  setting_map["range"] = "0.0";
-  setting_map["goal_bias"] = "0.05";
-
-  addPlannerConfigurationSettings(planner_config_map, group_name, setting_map);
-
-  planner_manager->setPlannerConfigurations(planner_config_map);
-
-  printPlannerConfigMap(planner_config_map);
-
-  std::vector<std::string> planning_algos;
-  planner_manager->getPlanningAlgorithms(planning_algos);
-  for (auto algo : planning_algos) {
-    ROS_INFO_NAMED(LOGNAME, "Available planning algorithm %s", algo.c_str());
-  }
-
   // Pose Goal
   // ^^^^^^^^^
   // ^^^^^^^^^
@@ -124,6 +177,29 @@ int main(int argc, char** argv) {
   // specifying the desired pose of the end-effector as input.
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
+
+  robot_state->printStatePositions();
+
+  // robot_state->zeroVelocities();
+  // robot_state->zeroAccelerations();
+  // robot_state->zeroEffort();
+
+  // std_msgs::Header header;
+  // header.stamp = ros::Time::now();
+  // req.start_state.joint_state.header = header;
+
+  // std::vector<std::string> names = robot_model->getVariableNames();
+  // std::size_t num_joints = robot_model->getVariableCount();
+  // double* positions = robot_state->getVariablePositions();
+  // double* velocities = robot_state->getVariableVelocities();
+  // double* efforts = robot_state->getVariableEffort();
+  // for (std::size_t i = 0; i < num_joints; ++i) {
+  //   req.start_state.joint_state.name.push_back(names[i]);
+  //   req.start_state.joint_state.position.push_back(positions[i]);
+  //   req.start_state.joint_state.velocity.push_back(velocities[i]);
+  //   req.start_state.joint_state.effort.push_back(efforts[i]);
+  // }
+
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = "panda_link0";
   pose.pose.position.x = 0.5;
@@ -141,7 +217,7 @@ int main(int argc, char** argv) {
 
   req.group_name = group_name;
   req.allowed_planning_time = 5.0;
-  req.planner_id = "geometric::EST";
+  req.planner_id = "panda_arm[EST]";
 
   moveit_msgs::Constraints pose_goal =
       kinematic_constraints::constructGoalConstraints(
@@ -169,7 +245,8 @@ int main(int argc, char** argv) {
   // objects, robots, and trajectories in RViz as well as debugging tools such
   // as step-by-step introspection of a script.
   namespace rvt = rviz_visual_tools;
-  moveit_visual_tools::MoveItVisualTools visual_tools("panda_link0");
+  moveit_visual_tools::MoveItVisualTools visual_tools(
+      "panda_link0", rviz_visual_tools::RVIZ_MARKER_TOPIC, psm);
   visual_tools.deleteAllMarkers();
 
   ros::Publisher display_publisher =
@@ -189,58 +266,30 @@ int main(int argc, char** argv) {
                                      joint_model_group);
   visual_tools.trigger();
 
-  // Move Robot
+  // Execute Trajectory
   // ^^^^^^^^^^^^^^^^^^^^
   // ^^^^^^^^^^^^^^^^^^^^
   moveit_msgs::RobotTrajectory robot_trajectory = response.trajectory;
   trajectory_msgs::JointTrajectory joint_trajectory =
       robot_trajectory.joint_trajectory;
 
-  ROS_INFO_NAMED(LOGNAME, "Num joints: %ld",
-                 joint_trajectory.joint_names.size());
-  ROS_INFO_NAMED(LOGNAME, "Num points: %ld", joint_trajectory.points.size());
+  trajectory_execution_manager::TrajectoryExecutionManagerPtr
+      traj_execution_manager(
+          new trajectory_execution_manager::TrajectoryExecutionManager(
+              robot_model, csm));
 
-  for (int i = 0; i < joint_trajectory.joint_names.size(); i++) {
-    std::string name = joint_trajectory.joint_names[i];
-    std::cout << name << " ";
-  }
+  moveit_controller_manager::MoveItControllerManagerPtr controller_manager =
+      traj_execution_manager->getControllerManager();
 
-  for (int i = 0; i < joint_trajectory.points.size(); i++) {
-    trajectory_msgs::JointTrajectoryPoint traj_point =
-        joint_trajectory.points[i];
-    std::cout << "\npositions" << std::endl;
-    for (int k = 0; k < traj_point.positions.size(); k++) {
-      double position = traj_point.positions[k];
-      std::cout << position << " ";
-    }
+  printControllers(controller_manager);
 
-    std::cout << "\nvelocities" << std::endl;
-    for (int k = 0; k < traj_point.velocities.size(); k++) {
-      double velocity = traj_point.velocities[k];
-      std::cout << velocity << " ";
-    }
+  traj_execution_manager->push(robot_trajectory);
+  moveit_controller_manager::ExecutionStatus status =
+      traj_execution_manager->executeAndWait();
 
-    std::cout << "\naccelerations" << std::endl;
-    for (int k = 0; k < traj_point.accelerations.size(); k++) {
-      double accel = traj_point.accelerations[k];
-      std::cout << accel << " ";
-    }
+  ROS_INFO_NAMED(LOGNAME, "Status: %s", status.asString().c_str());
 
-    std::cout << "\neffort" << std::endl;
-    for (int k = 0; k < traj_point.effort.size(); k++) {
-      double effort = traj_point.effort[k];
-      std::cout << effort << " ";
-    }
-  }
-
-  std::cout << std::endl;
-
-  // std_msgs/Header header
-  // string[] joint_names
-  // trajectory_msgs/JointTrajectoryPoint[] points
-
-  std::cout << "Press any key to continue: ";
-  getchar();
+  promptAnyInput();
 
   std::cout << "Finished!" << std::endl;
   return 0;
