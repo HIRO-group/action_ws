@@ -1,15 +1,11 @@
 
-#include <pluginlib/class_loader.h>
 #include <ros/ros.h>
 // MoveIt
 #include <moveit/kinematic_constraints/utils.h>
-#include <moveit/plan_execution/plan_execution.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_pipeline/planning_pipeline.h>
 #include <moveit/planning_scene_monitor/current_state_monitor.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
-#include <moveit/robot_model_loader/robot_model_loader.h>
-#include <moveit/robot_state/conversions.h>
 #include <moveit/trajectory_execution_manager/trajectory_execution_manager.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
@@ -108,6 +104,27 @@ void addPlannerConfigurationSettings(
   planner_config_map[key] = planner_settings;
 }
 
+void setCurToStartState(
+    planning_interface::MotionPlanRequest& req,
+    const moveit::core::RobotStatePtr robot_state,
+    const moveit::core::JointModelGroup* joint_model_group) {
+  req.start_state.joint_state.header.stamp = ros::Time::now();
+  req.start_state.joint_state.name = joint_model_group->getVariableNames();
+
+  std::vector<double> start_joint_values;
+  robot_state->copyJointGroupPositions(joint_model_group, start_joint_values);
+  req.start_state.joint_state.position = start_joint_values;
+
+  start_joint_values.clear();
+  robot_state->copyJointGroupVelocities(joint_model_group, start_joint_values);
+  req.start_state.joint_state.velocity = start_joint_values;
+
+  start_joint_values.clear();
+  robot_state->copyJointGroupAccelerations(joint_model_group,
+                                           start_joint_values);
+  req.start_state.joint_state.effort = start_joint_values;
+}
+
 int main(int argc, char** argv) {
   ros::init(argc, argv, "pick_and_place_node");
   ros::AsyncSpinner spinner(1);
@@ -135,8 +152,6 @@ int main(int argc, char** argv) {
      objects and update the internal planning scene accordingly*/
   psm->startStateMonitor();
 
-  psm->updateSceneWithCurrentState();
-
   /* We can also use the RobotModelLoader to get a robot model which contains
    * the robot's kinematic information */
   moveit::core::RobotModelPtr robot_model = robot_model_loader->getModel();
@@ -150,6 +165,7 @@ int main(int argc, char** argv) {
   //     planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
 
   planning_scene_monitor::CurrentStateMonitorPtr csm = psm->getStateMonitor();
+  csm->enableCopyDynamics(true);
 
   moveit::core::RobotStatePtr robot_state = csm->getCurrentState();
 
@@ -159,6 +175,18 @@ int main(int argc, char** argv) {
   const std::string group_name = "panda_arm";
   const moveit::core::JointModelGroup* joint_model_group =
       robot_state->getJointModelGroup(group_name);
+
+  const std::vector<std::string>& link_model_names =
+      joint_model_group->getLinkModelNames();
+  ROS_INFO_NAMED(LOGNAME, "end effector name %s\n",
+                 link_model_names.back().c_str());
+
+  robot_state->setToDefaultValues(joint_model_group, "ready");
+  robot_state->update();
+  psm->updateSceneWithCurrentState();
+
+  ROS_INFO_NAMED(LOGNAME, "Robot State Positions");
+  robot_state->printStatePositions();
 
   // We can now setup the PlanningPipeline object, which will use the ROS
   // parameter server to determine the set of request adapters and the planning
@@ -177,28 +205,7 @@ int main(int argc, char** argv) {
   // specifying the desired pose of the end-effector as input.
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
-
-  robot_state->printStatePositions();
-
-  // robot_state->zeroVelocities();
-  // robot_state->zeroAccelerations();
-  // robot_state->zeroEffort();
-
-  // std_msgs::Header header;
-  // header.stamp = ros::Time::now();
-  // req.start_state.joint_state.header = header;
-
-  // std::vector<std::string> names = robot_model->getVariableNames();
-  // std::size_t num_joints = robot_model->getVariableCount();
-  // double* positions = robot_state->getVariablePositions();
-  // double* velocities = robot_state->getVariableVelocities();
-  // double* efforts = robot_state->getVariableEffort();
-  // for (std::size_t i = 0; i < num_joints; ++i) {
-  //   req.start_state.joint_state.name.push_back(names[i]);
-  //   req.start_state.joint_state.position.push_back(positions[i]);
-  //   req.start_state.joint_state.velocity.push_back(velocities[i]);
-  //   req.start_state.joint_state.effort.push_back(efforts[i]);
-  // }
+  setCurToStartState(req, robot_state, joint_model_group);
 
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = "panda_link0";
@@ -283,14 +290,20 @@ int main(int argc, char** argv) {
 
   printControllers(controller_manager);
 
+  traj_execution_manager->clear();
+
   traj_execution_manager->push(robot_trajectory);
   moveit_controller_manager::ExecutionStatus status =
       traj_execution_manager->executeAndWait();
 
   ROS_INFO_NAMED(LOGNAME, "Status: %s", status.asString().c_str());
 
+  ROS_INFO_NAMED(LOGNAME, "Robot State Positions");
+  robot_state->printStatePositions();
+
   promptAnyInput();
 
   std::cout << "Finished!" << std::endl;
+
   return 0;
 }
