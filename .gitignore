@@ -248,6 +248,3 @@ cython_debug/
 #.idea/
 #VS
 .vscode/
-
-#Other
-panda_description/urdf/panda.urdf

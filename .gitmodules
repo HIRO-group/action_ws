@@ -30,3 +30,7 @@
 	path = src/moveit_msgs
 	url = git@github.com:ros-planning/moveit_msgs.git
   branch = master
+[submodule "src/moveit"]
+	path = src/moveit
+	url = git@github.com:nataliya-dev/moveit.git
+  branch = noetic-devel

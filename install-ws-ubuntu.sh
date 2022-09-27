@@ -82,7 +82,7 @@ set_upstream_branches(){
 
   cd src/franka_ros
   if git ls-remote --exit-code upstream; then
-    echo -e "${BLUE}franka_ros upstream already eists${NC}"
+    echo -e "${BLUE}franka_ros upstream already exists${NC}"
   else
     git remote add upstream git@github.com:frankaemika/franka_ros.git
   fi
@@ -90,18 +90,26 @@ set_upstream_branches(){
 
   cd src/omplapp
   if git ls-remote --exit-code upstream; then
-    echo -e "${BLUE}omplapp upstream already eists${NC}"
+    echo -e "${BLUE}omplapp upstream already exists${NC}"
   else
     git remote add upstream git@github.com:ompl/omplapp.git
   fi
 
   cd ompl
   if git ls-remote --exit-code upstream; then
-    echo -e "${BLUE}ompl upstream already eists${NC}"
+    echo -e "${BLUE}ompl upstream already exists${NC}"
   else
     git remote add upstream git@github.com:ompl/ompl.git
   fi
   cd ../../../
+
+  cd src/moveit
+  if git ls-remote --exit-code upstream; then
+    echo -e "${BLUE}moveit upstream already exists${NC}"
+  else
+    git remote add upstream git@github.com:ros-planning/moveit.git
+  fi
+  cd ../../
 }
 
 set_upstream_branches
