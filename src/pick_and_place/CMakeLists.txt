@@ -22,6 +22,7 @@ find_package(catkin REQUIRED
     moveit_visual_tools
     pluginlib
     geometric_shapes
+    moveit_planners_ompl
     # pcl_ros
     # pcl_conversions
     # rosbag
@@ -32,6 +33,7 @@ find_package(catkin REQUIRED
 
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED system filesystem date_time thread)
+find_package(ompl REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -128,7 +130,9 @@ catkin_package(
 #  CATKIN_DEPENDS interactive_markers moveit_core moveit_ros_planning
 #  DEPENDS system_lib
 LIBRARIES
+  # moveit_ompl_interface
 INCLUDE_DIRS
+    # moveit/moveit_planners/ompl/ompl_interface/include
 CATKIN_DEPENDS
   moveit_core
   moveit_visual_tools
@@ -137,6 +141,7 @@ CATKIN_DEPENDS
   # tf2_geometry_msgs
 DEPENDS
   EIGEN3
+  OMPL
 )
 
 ###########
@@ -145,12 +150,15 @@ DEPENDS
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
+# include_directories(moveit/moveit_planners/ompl/ompl_interface/include)
+
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  # moveit_ompl_interface
 )
 
-include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS})
+include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS})
 
 
 ## Declare a C++ library
@@ -182,6 +190,8 @@ add_executable(${PROJECT_NAME}_node src/pick_and_place_node.cpp)
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
+  ${OMPL_LIBRARIES}
+  # moveit_ompl_interface
 )
 
 #############

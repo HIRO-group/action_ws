@@ -2,14 +2,24 @@
 #include <ros/ros.h>
 // MoveIt
 #include <moveit/kinematic_constraints/utils.h>
+#include <moveit/ompl_interface/detail/state_validity_checker.h>
+#include <moveit/ompl_interface/model_based_planning_context.h>
+#include <moveit/ompl_interface/parameterization/joint_space/joint_model_state_space.h>
+#include <moveit/ompl_interface/parameterization/joint_space/joint_model_state_space_factory.h>
+#include <moveit/ompl_interface/parameterization/model_based_state_space.h>
+#include <moveit/ompl_interface/parameterization/work_space/pose_model_state_space_factory.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_pipeline/planning_pipeline.h>
+#include <moveit/planning_scene/planning_scene.h>
 #include <moveit/planning_scene_monitor/current_state_monitor.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit/trajectory_execution_manager/trajectory_execution_manager.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
+#include <ompl/base/Goal.h>
+#include <ompl/geometric/SimpleSetup.h>
+#include <ompl/geometric/planners/rrt/VFRRT.h>
 
 constexpr char LOGNAME[] = "pick_and_place_node";
 
@@ -123,6 +133,77 @@ void setCurToStartState(
   robot_state->copyJointGroupAccelerations(joint_model_group,
                                            start_joint_values);
   req.start_state.joint_state.effort = start_joint_values;
+}
+
+void plannerSetup(const moveit::core::RobotModelPtr& robot_model,
+                  const std::string& group_name) {
+  ompl_interface::ModelBasedStateSpaceSpecification space_spec(robot_model,
+                                                               group_name);
+  ompl_interface::ModelBasedStateSpacePtr state_space =
+      std::make_shared<ompl_interface::JointModelStateSpace>(space_spec);
+  state_space->computeLocations();
+  // ompl_interface::ModelBasedStateSpaceFactoryPtr factory(
+  //     ompl_interface::ModelBasedStateSpaceFactoryPtr(
+  //         new ompl_interface::JointModelStateSpaceFactory()));
+  // ompl_interface::ModelBasedStateSpaceFactoryPtr factory(
+  //     ModelBasedStateSpaceFactoryPtr(new PoseModelStateSpaceFactory()));
+  ompl::geometric::SimpleSetupPtr ompl_simple_setup =
+      std::make_shared<ompl::geometric::SimpleSetup>(state_space);
+
+  ompl::base::SpaceInformationPtr si = ompl_simple_setup->getSpaceInformation();
+  ompl::base::PlannerPtr planner(new ompl::geometric::RRT(si));
+  ompl_simple_setup->setPlanner(planner);
+
+  ompl::base::ScopedState<> ompl_start_state(state_space);
+  moveit::core::RobotState complete_initial_robot_state =
+      state_space->getRobotModel();
+  state_space->copyToOMPLState(ompl_start_state.get(),
+                               complete_initial_robot_state);
+  ompl_simple_setup->setStartState(ompl_start_state);
+
+  ompl_interface::ModelBasedPlanningContextSpecification planning_context_spec;
+  planning_context_spec.state_space_ = state_space;
+  planning_context_spec.ompl_simple_setup_ = ompl_simple_setup;
+  ompl_interface::ModelBasedPlanningContextPtr planning_context =
+      std::make_shared<ompl_interface::ModelBasedPlanningContext>(
+          group_name, planning_context_spec);
+  planning_scene::PlanningScenePtr planning_scene =
+      std::make_shared<planning_scene::PlanningScene>(robot_model);
+  planning_context->setPlanningScene(planning_scene);
+  moveit::core::RobotState start_state(robot_model);
+  start_state.setToDefaultValues();
+  planning_context->setCompleteInitialState(start_state);
+  ompl::base::StateValidityCheckerPtr svc(ompl::base::StateValidityCheckerPtr(
+      new ompl_interface::StateValidityChecker(planning_context.get())));
+  svc->isValid(ompl_start_state.get());
+  ompl_simple_setup->setStateValidityChecker(svc);
+
+  planning_interface::MotionPlanRequest req;
+  geometry_msgs::PoseStamped pose;
+  pose.header.frame_id = "panda_link0";
+  pose.pose.position.x = 0.5;
+  pose.pose.position.y = 0.0;
+  pose.pose.position.z = 0.75;
+  pose.pose.orientation.w = 1.0;
+  pose.pose.orientation.x = 0.0;
+  pose.pose.orientation.y = 0.0;
+  pose.pose.orientation.z = 0.0;
+
+  moveit_msgs::MoveItErrorCodes* error_code;
+
+  planning_context->setGoalConstraints(req.goal_constraints,
+                                       req.path_constraints, error_code);
+
+  ompl::geometric::SimpleSetupPtr context_ss =
+      planning_context->getOMPLSimpleSetup();
+
+  ompl::base::GoalPtr goal = context_ss->getGoal();
+
+  ompl_simple_setup->setGoal(goal);
+
+  // see if it will be possible to set the simple set up into the context after
+  // having it configured compare these results with the results obtained by
+  // just going through the ompl planning library
 }
 
 int main(int argc, char** argv) {
