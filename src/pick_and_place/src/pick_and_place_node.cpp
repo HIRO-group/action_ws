@@ -2,6 +2,7 @@
 #include <ros/ros.h>
 // MoveIt
 #include <moveit/kinematic_constraints/utils.h>
+#include <moveit/ompl_interface/detail/constrained_goal_sampler.h>
 #include <moveit/ompl_interface/detail/state_validity_checker.h>
 #include <moveit/ompl_interface/model_based_planning_context.h>
 #include <moveit/ompl_interface/ompl_interface.h>
@@ -14,6 +15,7 @@
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
+#include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/VFRRT.h>
@@ -82,18 +84,6 @@ void promptAnyInput() {
   getchar();
 }
 
-void addPlannerConfigurationSettings(
-    planning_interface::PlannerConfigurationMap& planner_config_map,
-    const std::string& group_name,
-    const std::map<std::string, std::string>& setting_map) {
-  planning_interface::PlannerConfigurationSettings planner_settings;
-  planner_settings.group = group_name;
-  planner_settings.name = setting_map.at("type");
-  planner_settings.config = setting_map;
-  std::string key = group_name + "[" + setting_map.at("type") + "]";
-  planner_config_map[key] = planner_settings;
-}
-
 void setCurToStartState(
     planning_interface::MotionPlanRequest& req,
     const moveit::core::RobotStatePtr robot_state,
@@ -122,6 +112,42 @@ std::unique_ptr<ompl_interface::OMPLInterface> getOMPLInterface(
   return ompl_interface;
 }
 
+void setPlanningContextParams(
+    ompl_interface::ModelBasedPlanningContextPtr& context) {
+  unsigned int max_goal_samples_ = 10;
+  unsigned int max_state_sampling_attempts_ = 4;
+  unsigned int max_goal_sampling_attempts_ = 1000;
+  unsigned int max_planning_threads_ = 4;
+  double max_solution_segment_length_ = 0.0;
+  unsigned int minimum_waypoint_count_ = 2;
+  double goal_threshold_ = 0.005;
+
+  context->setMaximumPlanningThreads(max_planning_threads_);
+  context->setMaximumGoalSamples(max_goal_samples_);
+  context->setMaximumStateSamplingAttempts(max_state_sampling_attempts_);
+  context->setMaximumGoalSamplingAttempts(max_goal_sampling_attempts_);
+  context->setMaximumSolutionSegmentLength(max_solution_segment_length_);
+  context->setMinimumWaypointCount(minimum_waypoint_count_);
+  context->setGoalThreshold(goal_threshold_);
+}
+
+planning_interface::PlannerConfigurationSettings getPlannerConfigSettings(
+    const planning_interface::PlannerConfigurationMap& pconfig_map,
+    const std::string& planner_id) {
+  auto pc = pconfig_map.end();
+  pc = pconfig_map.find(planner_id);
+  if (pc == pconfig_map.end()) {
+    ROS_ERROR_NAMED(LOGNAME,
+                    "Cannot find planning configuration for planner %s ",
+                    planner_id.c_str());
+    return planning_interface::PlannerConfigurationSettings();
+  } else {
+    ROS_INFO_NAMED(LOGNAME, "Found planning configuration for planner %s.",
+                   planner_id.c_str());
+  }
+  return pc->second;
+}
+
 ompl_interface::ModelBasedPlanningContextPtr createPlanningContext(
     const planning_scene::PlanningSceneConstPtr& planning_scene,
     const moveit::core::RobotModelPtr& robot_model,
@@ -138,27 +164,12 @@ ompl_interface::ModelBasedPlanningContextPtr createPlanningContext(
 
   planning_interface::PlannerConfigurationMap pconfig_map =
       ompl_interface->getPlannerConfigurations();
-  // printPlannerConfigMap(pconfig_map);
+
+  planning_interface::PlannerConfigurationSettings pconfig_settings =
+      getPlannerConfigSettings(pconfig_map, req.planner_id);
 
   ompl_interface::PlanningContextManager planning_context_manager =
       ompl_interface->getPlanningContextManager();
-
-  auto pc = pconfig_map.end();
-  pc = pconfig_map.find(req.planner_id);
-  if (pc == pconfig_map.end()) {
-    ROS_WARN_NAMED(LOGNAME,
-                   "Cannot find planning configuration for group '%s' using "
-                   "planner '%s'. Will use defaults instead.",
-                   req.group_name.c_str(), req.planner_id.c_str());
-    return ompl_interface::ModelBasedPlanningContextPtr();
-  } else {
-    ROS_INFO_NAMED(
-        LOGNAME, "Found planning configuration for group %s, using planner %s.",
-        req.group_name.c_str(), req.planner_id.c_str());
-  }
-
-  planning_interface::PlannerConfigurationSettings pconfig_settings =
-      pc->second;
 
   ompl_interface::ModelBasedPlanningContextSpecification context_spec;
   context_spec.config_ = pconfig_settings.config;
@@ -176,22 +187,7 @@ ompl_interface::ModelBasedPlanningContextPtr createPlanningContext(
       std::make_shared<ompl_interface::ModelBasedPlanningContext>(group_name,
                                                                   context_spec);
 
-  unsigned int max_goal_samples_ = 10;
-  unsigned int max_state_sampling_attempts_ = 4;
-  unsigned int max_goal_sampling_attempts_ = 1000;
-  unsigned int max_planning_threads_ = 4;
-  double max_solution_segment_length_ = 0.0;
-  unsigned int minimum_waypoint_count_ = 2;
-
-  context->setMaximumPlanningThreads(max_planning_threads_);
-  context->setMaximumGoalSamples(max_goal_samples_);
-  context->setMaximumStateSamplingAttempts(max_state_sampling_attempts_);
-  context->setMaximumGoalSamplingAttempts(max_goal_sampling_attempts_);
-  if (max_solution_segment_length_ >
-      std::numeric_limits<double>::epsilon()) {  // wtf is this
-    context->setMaximumSolutionSegmentLength(max_solution_segment_length_);
-  }
-  context->setMinimumWaypointCount(minimum_waypoint_count_);
+  setPlanningContextParams(context);
 
   context->clear();
 
@@ -205,13 +201,15 @@ ompl_interface::ModelBasedPlanningContextPtr createPlanningContext(
   context->setPlanningVolume(req.workspace_parameters);
   moveit_msgs::MoveItErrorCodes error_code;
   if (!context->setPathConstraints(req.path_constraints, &error_code)) {
-    ROS_ERROR_NAMED(LOGNAME, "context->setPathConstraints() error");
+    ROS_ERROR_NAMED(LOGNAME, "context->setPathConstraints() error: %d",
+                    error_code.val);
     return ompl_interface::ModelBasedPlanningContextPtr();
   }
 
   if (!context->setGoalConstraints(req.goal_constraints, req.path_constraints,
                                    &error_code)) {
-    ROS_ERROR_NAMED(LOGNAME, "context->setGoalConstraints() error");
+    ROS_ERROR_NAMED(LOGNAME, "context->setGoalConstraints() error %d",
+                    error_code.val);
     return ompl_interface::ModelBasedPlanningContextPtr();
   }
 
@@ -229,10 +227,44 @@ ompl_interface::ModelBasedPlanningContextPtr createPlanningContext(
   return context;
 }
 
+void printStateSpace(
+    const ompl_interface::ModelBasedStateSpacePtr& state_space) {
+  int type = state_space->getType();
+  ROS_INFO_NAMED(LOGNAME, "state type %d", type);
+
+  double measure = state_space->getMeasure();
+  ROS_INFO_NAMED(LOGNAME, "state measure %f", measure);
+
+  int dim = state_space->getDimension();
+  ROS_INFO_NAMED(LOGNAME, "dimension %d", dim);
+
+  state_space->Diagram(std::cout);
+  state_space->List(std::cout);
+}
+
+std::vector<double> jnt_goal_pos_ = {-1.0, 0.7, 0.7, -1.0, -0.7, 2.0, 0.0};
+Eigen::VectorXd field(const ompl::base::State* state) {
+  const ompl::base::RealVectorStateSpace::StateType& x =
+      *state->as<ompl::base::RealVectorStateSpace::StateType>();
+  Eigen::VectorXd v(7);
+  v[0] = jnt_goal_pos_[0] - x[0];
+  v[1] = jnt_goal_pos_[1] - x[1];
+  v[2] = jnt_goal_pos_[2] - x[2];
+  v[3] = jnt_goal_pos_[3] - x[3];
+  v[4] = jnt_goal_pos_[4] - x[4];
+  v[5] = jnt_goal_pos_[5] - x[5];
+  v[6] = jnt_goal_pos_[6] - x[6];
+  v.normalize();
+  return v;
+}
+
 ompl::base::PlannerPtr createPlanner(
     const ompl::base::SpaceInformationPtr& si) {
-  ompl::base::PlannerPtr planner =
-      std::make_shared<ompl::geometric::RRTConnect>(si);
+  double exploration = 0.7;
+  double initial_lambda = 1.0;
+  unsigned int update_freq = 100;
+  ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::VFRRT>(
+      si, field, exploration, initial_lambda, update_freq);
   return planner;
 }
 
@@ -245,12 +277,47 @@ void changePlanner(ompl_interface::ModelBasedPlanningContextPtr& context) {
 
 bool generatePlan(const ompl_interface::ModelBasedPlanningContextPtr& context,
                   planning_interface::MotionPlanResponse& res) {
+  res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
   bool is_solved = context->solve(res);
   std::size_t state_count = res.trajectory_->getWayPointCount();
   ROS_DEBUG_STREAM("Motion planner reported a solution path with "
                    << state_count << " states");
   ROS_INFO_NAMED(LOGNAME, "Is plan generated? %d", is_solved);
   return is_solved;
+}
+
+moveit_msgs::Constraints createPoseGoal() {
+  geometry_msgs::PoseStamped pose;
+  pose.header.frame_id = "panda_link0";
+  pose.pose.position.x = 0.5;
+  pose.pose.position.y = 0.0;
+  pose.pose.position.z = 0.75;
+  pose.pose.orientation.w = 1.0;
+  pose.pose.orientation.x = 0.0;
+  pose.pose.orientation.y = 0.0;
+  pose.pose.orientation.z = 0.0;
+
+  // A tolerance of 0.01 m is specified in position
+  // and 0.01 radians in orientation
+  std::vector<double> tolerance_pose(3, 0.01);
+  std::vector<double> tolerance_angle(3, 0.01);
+
+  moveit_msgs::Constraints pose_goal =
+      kinematic_constraints::constructGoalConstraints(
+          "panda_link8", pose, tolerance_pose, tolerance_angle);
+  return pose_goal;
+}
+
+moveit_msgs::Constraints createJointGoal(
+    const moveit::core::RobotStatePtr& robot_state,
+    const moveit::core::JointModelGroup* joint_model_group) {
+  moveit::core::RobotState goal_state(*robot_state);
+  goal_state.setJointGroupPositions(joint_model_group, jnt_goal_pos_);
+  double tolerance = 0.001;
+  moveit_msgs::Constraints joint_goal =
+      kinematic_constraints::constructGoalConstraints(
+          goal_state, joint_model_group, tolerance);
+  return joint_goal;
 }
 
 int main(int argc, char** argv) {
@@ -291,7 +358,6 @@ int main(int argc, char** argv) {
      that the underlying scene isn't updated while we are reading it's state.
      RobotState's are useful for computing the forward and inverse kinematics
      of the robot among many other uses */
-
   planning_scene_monitor::CurrentStateMonitorPtr csm = psm->getStateMonitor();
   csm->enableCopyDynamics(true);
 
@@ -316,17 +382,15 @@ int main(int argc, char** argv) {
   ROS_INFO_NAMED(LOGNAME, "Robot State Positions");
   robot_state->printStatePositions();
 
-  // // We can now setup the PlanningPipeline object, which will use the ROS
-  // // parameter server to determine the set of request adapters and the
-  // planning
-  // // plugin to use
-  // planning_pipeline::PlanningPipelinePtr planning_pipeline(
-  //     new planning_pipeline::PlanningPipeline(
-  //         robot_model, node_handle, "planning_plugin",
-  //         "request_adapters"));
+  // We can now setup the PlanningPipeline object, which will use the ROS
+  // parameter server to determine the set of request adapters and the
+  // planning plugin to use
+  planning_pipeline::PlanningPipelinePtr planning_pipeline(
+      new planning_pipeline::PlanningPipeline(
+          robot_model, node_handle, "planning_plugin", "request_adapters"));
 
-  // const planning_interface::PlannerManagerPtr planner_manager =
-  //     planning_pipeline->getPlannerManager();
+  const planning_interface::PlannerManagerPtr planner_manager =
+      planning_pipeline->getPlannerManager();
 
   // Pose Goal
   // ^^^^^^^^^
@@ -337,29 +401,14 @@ int main(int argc, char** argv) {
   planning_interface::MotionPlanResponse res;
   setCurToStartState(req, robot_state, joint_model_group);
 
-  geometry_msgs::PoseStamped pose;
-  pose.header.frame_id = "panda_link0";
-  pose.pose.position.x = 0.5;
-  pose.pose.position.y = 0.0;
-  pose.pose.position.z = 0.75;
-  pose.pose.orientation.w = 1.0;
-  pose.pose.orientation.x = 0.0;
-  pose.pose.orientation.y = 0.0;
-  pose.pose.orientation.z = 0.0;
-
-  // A tolerance of 0.01 m is specified in position
-  // and 0.01 radians in orientation
-  std::vector<double> tolerance_pose(3, 0.01);
-  std::vector<double> tolerance_angle(3, 0.01);
+  req.goal_constraints.clear();
+  moveit_msgs::Constraints goal =
+      createJointGoal(robot_state, joint_model_group);
+  req.goal_constraints.push_back(goal);
 
   req.group_name = group_name;
-  req.allowed_planning_time = 5.0;
+  req.allowed_planning_time = 1.0;
   req.planner_id = "panda_arm[RRT]";
-
-  moveit_msgs::Constraints pose_goal =
-      kinematic_constraints::constructGoalConstraints(
-          "panda_link8", pose, tolerance_pose, tolerance_angle);
-  req.goal_constraints.push_back(pose_goal);
 
   // Before planning, we will need a Read Only lock on the planning scene so
   // that it does not modify the world representation while planning
@@ -377,10 +426,11 @@ int main(int argc, char** argv) {
 
   // /* Now, call the pipeline and check whether planning was successful. */
   // /* Check that the planning was successful */
-  // if (res.error_code_.val != res.error_code_.SUCCESS) {
-  //   ROS_ERROR("Could not compute plan successfully");
-  //   return 0;
-  // }
+  if (res.error_code_.val != res.error_code_.SUCCESS) {
+    ROS_ERROR("Could not compute plan successfully. Error code: %d",
+              res.error_code_.val);
+    return 0;
+  }
 
   // Visualize the result
   // ^^^^^^^^^^^^^^^^^^^^
