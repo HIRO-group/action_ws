@@ -20,9 +20,43 @@
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/VFRRT.h>
 
+#include <Eigen/Core>
+#include <Eigen/LU>
+#include <Eigen/SVD>
+
 #include "ompl/geometric/planners/est/EST.h"
 
 constexpr char LOGNAME[] = "pick_and_place_node";
+
+// SHARED VARIABLES
+const moveit::core::JointModelGroup* joint_model_group_;
+const std::vector<double> obstacle_pos_ = {1.0, 0.0, 1.0};
+const std::vector<double> joint_goal_pos_ = {-1.0, 0.7, 0.7, -1.0,
+                                             -0.7, 2.0, 0.0};
+const std::string group_name_ = "panda_arm";
+robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
+planning_scene_monitor::PlanningSceneMonitorPtr psm_;
+moveit::core::RobotModelPtr robot_model_;
+
+inline void pseudoInverse(const Eigen::MatrixXd& M_, Eigen::MatrixXd& M_pinv_,
+                          bool damped = true) {
+  double lambda_ = damped ? 0.2 : 0.0;
+
+  Eigen::JacobiSVD<Eigen::MatrixXd> svd(
+      M_, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Eigen::JacobiSVD<Eigen::MatrixXd>::SingularValuesType sing_vals_ =
+      svd.singularValues();
+  Eigen::MatrixXd S_ =
+      M_;  // copying the dimensions of M_, its content is not needed.
+  S_.setZero();
+
+  for (int i = 0; i < sing_vals_.size(); i++)
+    S_(i, i) =
+        (sing_vals_(i)) / (sing_vals_(i) * sing_vals_(i) + lambda_ * lambda_);
+
+  M_pinv_ = Eigen::MatrixXd(svd.matrixV() * S_.transpose() *
+                            svd.matrixU().transpose());
+}
 
 void printPlannerConfigMap(
     const planning_interface::PlannerConfigurationMap& planner_config_map) {
@@ -242,18 +276,89 @@ void printStateSpace(
   state_space->List(std::cout);
 }
 
-std::vector<double> jnt_goal_pos_ = {-1.0, 0.7, 0.7, -1.0, -0.7, 2.0, 0.0};
+std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
+  os << "position (x,y,z): " << pose.position.x << ", " << pose.position.y
+     << ", " << pose.position.z << "\n";
+  os << "orientation (x,y,z,w): " << pose.orientation.x << ", "
+     << pose.orientation.y << ", " << pose.orientation.z << ", "
+     << pose.orientation.w << "\n";
+  return os;
+}
+
+Eigen::VectorXd obstaclefield(
+    const ompl::base::State* base_state,
+    const moveit::core::RobotStatePtr& robot_state,
+    const moveit::core::JointModelGroup* joint_model_group) {
+  const ompl::base::RealVectorStateSpace::StateType& vec_state =
+      *base_state->as<ompl::base::RealVectorStateSpace::StateType>();
+  std::vector<double> joint_angles;
+  for (std::size_t i = 0; i < 7; i++) {
+    joint_angles.emplace_back(vec_state[i]);
+  }
+
+  const kinematics::KinematicsBaseConstPtr kinematics_solver =
+      joint_model_group->getSolverInstance();
+  std::vector<std::string> link_names = joint_model_group->getLinkModelNames();
+  std::vector<geometry_msgs::Pose> poses;
+  bool is_success =
+      kinematics_solver->getPositionFK(link_names, joint_angles, poses);
+  std::cout << "is_success: " << is_success << std::endl;
+
+  std::size_t dof = link_names.size();
+  for (std::size_t i = 0; i < dof; i++) {
+    std::cout << link_names[i] << std::endl;
+    std::cout << poses[i] << std::endl;
+  }
+
+  std::vector<Eigen::Vector3d> link_to_obs_vec(7);
+  for (std::size_t i = 0; i < dof; i++) {
+    geometry_msgs::Pose pose = poses[i];
+    geometry_msgs::Point pt = pose.position;
+    Eigen::Vector3d vec(3);
+    vec[0] = pt.x - obstacle_pos_[0];
+    vec[1] = pt.y - obstacle_pos_[1];
+    vec[2] = pt.z - obstacle_pos_[2];
+    link_to_obs_vec.emplace_back(vec);
+  }
+
+  moveit::core::RobotState cur_state(*robot_state);
+  cur_state.setJointGroupPositions(joint_model_group, joint_angles);
+
+  Eigen::MatrixXd jacobian = cur_state.getJacobian(joint_model_group);
+  std::cout << "jacobian:\n " << jacobian << std::endl;
+
+  Eigen::VectorXd d_q_out(7);
+  for (std::size_t i = 0; i < dof; i++) {
+    Eigen::MatrixXd link_jac = jacobian.block(0, 0, 6, i);
+    std::cout << "link_jac:\n " << link_jac << std::endl;
+    Eigen::MatrixXd jac_pinv_;
+    pseudoInverse(link_jac, jac_pinv_);
+
+    Eigen::Vector3d vec = link_to_obs_vec[i];
+    Eigen::VectorXd rob_vec(6);
+    rob_vec[0] = vec[0];
+    rob_vec[1] = vec[1];
+    rob_vec[2] = vec[2];
+    std::cout << "rob_vec:\n " << rob_vec << std::endl;
+    Eigen::VectorXd d_q = jac_pinv_ * rob_vec;
+    std::cout << "d_q:\n " << d_q << std::endl;
+    d_q_out[i] = d_q[i];
+  }
+  d_q_out.normalize();
+  return d_q_out;
+}
+
 Eigen::VectorXd field(const ompl::base::State* state) {
   const ompl::base::RealVectorStateSpace::StateType& x =
       *state->as<ompl::base::RealVectorStateSpace::StateType>();
   Eigen::VectorXd v(7);
-  v[0] = jnt_goal_pos_[0] - x[0];
-  v[1] = jnt_goal_pos_[1] - x[1];
-  v[2] = jnt_goal_pos_[2] - x[2];
-  v[3] = jnt_goal_pos_[3] - x[3];
-  v[4] = jnt_goal_pos_[4] - x[4];
-  v[5] = jnt_goal_pos_[5] - x[5];
-  v[6] = jnt_goal_pos_[6] - x[6];
+  v[0] = joint_goal_pos_[0] - x[0];
+  v[1] = joint_goal_pos_[1] - x[1];
+  v[2] = joint_goal_pos_[2] - x[2];
+  v[3] = joint_goal_pos_[3] - x[3];
+  v[4] = joint_goal_pos_[4] - x[4];
+  v[5] = joint_goal_pos_[5] - x[5];
+  v[6] = joint_goal_pos_[6] - x[6];
   v.normalize();
   return v;
 }
@@ -312,7 +417,7 @@ moveit_msgs::Constraints createJointGoal(
     const moveit::core::RobotStatePtr& robot_state,
     const moveit::core::JointModelGroup* joint_model_group) {
   moveit::core::RobotState goal_state(*robot_state);
-  goal_state.setJointGroupPositions(joint_model_group, jnt_goal_pos_);
+  goal_state.setJointGroupPositions(joint_model_group, joint_goal_pos_);
   double tolerance = 0.001;
   moveit_msgs::Constraints joint_goal =
       kinematic_constraints::constructGoalConstraints(
@@ -331,53 +436,60 @@ int main(int argc, char** argv) {
   // Initialization
   // ^^^^^^^^^^^^^^
   // ^^^^^^^^^^^^^^
-  robot_model_loader::RobotModelLoaderPtr robot_model_loader(
-      new robot_model_loader::RobotModelLoader("robot_description"));
+  robot_model_loader_ = std::make_shared<robot_model_loader::RobotModelLoader>(
+      "robot_description");
 
-  planning_scene_monitor::PlanningSceneMonitorPtr psm(
-      new planning_scene_monitor::PlanningSceneMonitor(robot_model_loader));
+  robot_model_ = robot_model_loader_->getModel();
+
+  psm_ = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
+      robot_model_loader_);
 
   /* listen for planning scene messages on topic /XXX and apply them to
                        the internal planning scene accordingly */
-  psm->startSceneMonitor();
+  psm_->startSceneMonitor();
   /* listens to changes of world geometry, collision objects, and (optionally)
    * octomaps */
-  psm->startWorldGeometryMonitor();
+  psm_->startWorldGeometryMonitor();
   /* listen to joint state updates as well as changes in attached collision
      objects and update the internal planning scene accordingly*/
-  psm->startStateMonitor();
-
-  /* We can also use the RobotModelLoader to get a robot model which contains
-   * the robot's kinematic information */
-  moveit::core::RobotModelPtr robot_model = robot_model_loader->getModel();
-
-  const std::string group_name = "panda_arm";
+  psm_->startStateMonitor();
 
   /* We can get the most up to date robot state from the PlanningSceneMonitor
      by locking the internal planning scene for reading. This lock ensures
      that the underlying scene isn't updated while we are reading it's state.
      RobotState's are useful for computing the forward and inverse kinematics
      of the robot among many other uses */
-  planning_scene_monitor::CurrentStateMonitorPtr csm = psm->getStateMonitor();
+  planning_scene_monitor::CurrentStateMonitorPtr csm = psm_->getStateMonitor();
   csm->enableCopyDynamics(true);
 
   moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
-      planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
+      planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
 
   /* Create a JointModelGroup to keep track of the current robot pose and
      planning group. The Joint Model group is useful for dealing with one set
      of joints at a time such as a left arm or a end effector */
-  const moveit::core::JointModelGroup* joint_model_group =
-      robot_state->getJointModelGroup(group_name);
+  joint_model_group_ = robot_model_->getJointModelGroup(group_name_);
+
+  std::vector<std::string> link_model_name_vector =
+      joint_model_group_->getLinkModelNames();
+  for (auto link_name : link_model_name_vector) {
+    std::cout << "link_name: " << link_name << std::endl;
+    const moveit::core::LinkModel* link_model =
+        joint_model_group_->getLinkModel(link_name);
+    const moveit::core::JointModel* joint_model =
+        link_model->getParentJointModel();
+    std::string parent_joint_name = joint_model->getName();
+    std::cout << "parent_joint_name: " << parent_joint_name << std::endl;
+  }
 
   const std::vector<std::string>& link_model_names =
-      joint_model_group->getLinkModelNames();
+      joint_model_group_->getLinkModelNames();
   ROS_INFO_NAMED(LOGNAME, "end effector name %s\n",
                  link_model_names.back().c_str());
 
-  robot_state->setToDefaultValues(joint_model_group, "ready");
+  robot_state->setToDefaultValues(joint_model_group_, "ready");
   robot_state->update();
-  psm->updateSceneWithCurrentState();
+  psm_->updateSceneWithCurrentState();
 
   ROS_INFO_NAMED(LOGNAME, "Robot State Positions");
   robot_state->printStatePositions();
@@ -385,12 +497,13 @@ int main(int argc, char** argv) {
   // We can now setup the PlanningPipeline object, which will use the ROS
   // parameter server to determine the set of request adapters and the
   // planning plugin to use
-  planning_pipeline::PlanningPipelinePtr planning_pipeline(
-      new planning_pipeline::PlanningPipeline(
-          robot_model, node_handle, "planning_plugin", "request_adapters"));
+  // planning_pipeline::PlanningPipelinePtr planning_pipeline(
+  //     new planning_pipeline::PlanningPipeline(
+  //         robot_model_loader_->getModel(), node_handle, "planning_plugin",
+  //         "request_adapters"));
 
-  const planning_interface::PlannerManagerPtr planner_manager =
-      planning_pipeline->getPlannerManager();
+  // const planning_interface::PlannerManagerPtr planner_manager =
+  //     planning_pipeline->getPlannerManager();
 
   // Pose Goal
   // ^^^^^^^^^
@@ -399,23 +512,23 @@ int main(int argc, char** argv) {
   // specifying the desired pose of the end-effector as input.
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
-  setCurToStartState(req, robot_state, joint_model_group);
+  setCurToStartState(req, robot_state, joint_model_group_);
 
   req.goal_constraints.clear();
   moveit_msgs::Constraints goal =
-      createJointGoal(robot_state, joint_model_group);
+      createJointGoal(robot_state, joint_model_group_);
   req.goal_constraints.push_back(goal);
 
-  req.group_name = group_name;
+  req.group_name = group_name_;
   req.allowed_planning_time = 1.0;
   req.planner_id = "panda_arm[RRT]";
 
   // Before planning, we will need a Read Only lock on the planning scene so
   // that it does not modify the world representation while planning
-  planning_scene_monitor::LockedPlanningSceneRO lscene(psm);
+  planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
 
   ompl_interface::ModelBasedPlanningContextPtr context =
-      createPlanningContext(lscene, robot_model, req, node_handle);
+      createPlanningContext(lscene, robot_model_, req, node_handle);
 
   changePlanner(context);
 
@@ -440,7 +553,7 @@ int main(int argc, char** argv) {
   // as step-by-step introspection of a script.
   namespace rvt = rviz_visual_tools;
   moveit_visual_tools::MoveItVisualTools visual_tools(
-      "panda_link0", rviz_visual_tools::RVIZ_MARKER_TOPIC, psm);
+      "panda_link0", rviz_visual_tools::RVIZ_MARKER_TOPIC, psm_);
   visual_tools.deleteAllMarkers();
 
   ros::Publisher display_publisher =
@@ -457,7 +570,7 @@ int main(int argc, char** argv) {
   display_trajectory.trajectory.push_back(response.trajectory);
   display_publisher.publish(display_trajectory);
   visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(),
-                                     joint_model_group);
+                                     joint_model_group_);
   visual_tools.trigger();
 
   // Execute Trajectory
