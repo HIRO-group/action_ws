@@ -2,6 +2,7 @@
 #include <ros/ros.h>
 // MoveIt
 #include <moveit/kinematic_constraints/utils.h>
+#include <moveit/kinematics_metrics/kinematics_metrics.h>
 #include <moveit/ompl_interface/detail/constrained_goal_sampler.h>
 #include <moveit/ompl_interface/detail/state_validity_checker.h>
 #include <moveit/ompl_interface/model_based_planning_context.h>
@@ -40,6 +41,7 @@ const moveit::core::JointModelGroup* joint_model_group_;
 robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
 planning_scene_monitor::PlanningSceneMonitorPtr psm_;
 moveit::core::RobotModelPtr robot_model_;
+kinematics_metrics::KinematicsMetricsPtr kinematics_metrics_;
 
 // ==========================================
 // ==========================================
@@ -115,6 +117,21 @@ void printJointTrajectory(
       double effort = traj_point.effort[k];
       std::cout << effort << " ";
     }
+  }
+}
+
+void visualizeJointOrigin() {
+  std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
+
+  Eigen::Isometry3d joint_origin_tf = Eigen::Isometry3d::Identity();
+  std::size_t dof = 7;
+  for (std::size_t i = 0; i < dof; i++) {
+    const moveit::core::LinkModel* link_model =
+        joint_model_group_->getLinkModel(link_names[i]);
+    Eigen::Isometry3d temp_tf =
+        joint_origin_tf * link_model->getJointOriginTransform();
+    joint_origin_tf = temp_tf;
+    auto translation = joint_origin_tf.translation();
   }
 }
 
@@ -296,14 +313,18 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
       planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
 
   std::size_t dof = 7;  // get this from robot model
-  std::cout << "dof: " << dof << std::endl;
+  // std::cout << "dof: " << dof << std::endl;
 
+  // ROS_INFO_NAMED(LOGNAME, "Base state angles");
   const ompl::base::RealVectorStateSpace::StateType& vec_state =
       *base_state->as<ompl::base::RealVectorStateSpace::StateType>();
   std::vector<double> joint_angles;
   for (std::size_t i = 0; i < dof; i++) {
     joint_angles.emplace_back(vec_state[i]);
+    // std::cout << vec_state[i] << ", ";
   }
+
+  // std::cout << std::endl;
 
   const kinematics::KinematicsBaseConstPtr kinematics_solver =
       joint_model_group_->getSolverInstance();
@@ -313,16 +334,18 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
 
   Eigen::Isometry3d joint_origin_tf = Eigen::Isometry3d::Identity();
   for (std::size_t i = 0; i < dof; i++) {
-    std::cout << link_names[i] << std::endl;
+    // std::cout << link_names[i] << std::endl;
     const moveit::core::LinkModel* link_model =
         joint_model_group_->getLinkModel(link_names[i]);
-    joint_origin_tf = joint_origin_tf * link_model->getJointOriginTransform();
+    Eigen::Isometry3d temp_tf =
+        joint_origin_tf * link_model->getJointOriginTransform();
+    joint_origin_tf = temp_tf;
     link_positions.emplace_back(joint_origin_tf);
-    std::cout << "joint_origin_tf.translation(): "
-              << joint_origin_tf.translation().transpose() << std::endl;
+    // std::cout << "joint_origin_tf.translation(): "
+    //           << joint_origin_tf.translation().transpose() << std::endl;
   }
 
-  std::vector<Eigen::Vector3d> link_to_obs_vec(7);
+  std::vector<Eigen::Vector3d> link_to_obs_vec(dof);
   for (std::size_t i = 0; i < dof; i++) {
     Eigen::Isometry3d position = link_positions[i];
     auto translation = position.translation();
@@ -330,27 +353,37 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     vec[0] = (double)translation.x() - obstacle_pos_[0];
     vec[1] = (double)translation.y() - obstacle_pos_[1];
     vec[2] = (double)translation.z() - obstacle_pos_[2];
-    std::cout << "translation.x(): " << (double)translation.x() << std::endl;
-    std::cout << "translation.y(): " << (double)translation.y() << std::endl;
-    std::cout << "translation.z(): " << (double)translation.z() << std::endl;
-    link_to_obs_vec.emplace_back(vec);
+    // std::cout << "translation.x(): " << (double)translation.x() << std::endl;
+    // std::cout << "translation.y(): " << (double)translation.y() << std::endl;
+    // std::cout << "translation.z(): " << (double)translation.z() << std::endl;
+    // std::cout << "vec:\n " << vec << std::endl;
+
+    link_to_obs_vec[i] = (vec);
   }
 
   robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
 
+  // ROS_INFO_NAMED(LOGNAME, "Robot State Positions");
+  // robot_state->printStatePositions();
+
+  // Eigen::MatrixXcd eigen_values;
+  // Eigen::MatrixXcd eigen_vectors;
+  // bool is_found = kinematics_metrics_->getManipulabilityEllipsoid(
+  //     *robot_state, joint_model_group_, eigen_values, eigen_vectors);
+
   Eigen::MatrixXd jacobian = robot_state->getJacobian(joint_model_group_);
-  std::cout << "jacobian:\n " << jacobian << std::endl;
+  // std::cout << "jacobian:\n " << jacobian << std::endl;
 
   Eigen::VectorXd d_q_out(dof);
   for (std::size_t i = 0; i < dof; i++) {
     Eigen::MatrixXd link_jac = jacobian.block(0, 0, 6, i + 1);
-    std::cout << "link_jac:\n " << link_jac << std::endl;
+    // std::cout << "link_jac:\n " << link_jac << std::endl;
     Eigen::MatrixXd jac_pinv_;
     pseudoInverse(link_jac, jac_pinv_);
-    std::cout << "jac_pinv_:\n " << jac_pinv_ << std::endl;
+    // std::cout << "jac_pinv_:\n " << jac_pinv_ << std::endl;
 
     Eigen::Vector3d vec = link_to_obs_vec[i];
-    std::cout << "vec:\n " << vec << std::endl;
+    // std::cout << "vec:\n " << vec << std::endl;
 
     Eigen::VectorXd rob_vec(6);
     rob_vec[0] = vec[0];
@@ -360,11 +393,12 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     rob_vec[4] = 0.0;
     rob_vec[5] = 0.0;
 
-    std::cout << "rob_vec:\n " << rob_vec << std::endl;
+    // std::cout << "rob_vec:\n " << rob_vec << std::endl;
     Eigen::VectorXd d_q = jac_pinv_ * rob_vec;
-    std::cout << "d_q:\n " << d_q << std::endl;
+    // std::cout << "d_q:\n " << d_q << std::endl;
     d_q_out[i] = d_q[i];
   }
+  d_q_out.normalize();
   return d_q_out;
 }
 
@@ -379,6 +413,7 @@ Eigen::VectorXd goalField(const ompl::base::State* state) {
   v[4] = joint_goal_pos_[4] - x[4];
   v[5] = joint_goal_pos_[5] - x[5];
   v[6] = joint_goal_pos_[6] - x[6];
+  v.normalize();
   return v;
 }
 
@@ -386,8 +421,11 @@ Eigen::VectorXd totalField(const ompl::base::State* state) {
   const ompl::base::RealVectorStateSpace::StateType& x =
       *state->as<ompl::base::RealVectorStateSpace::StateType>();
   Eigen::VectorXd goal_vec = goalField(state);
+  std::cout << "goal_vec: " << goal_vec << std::endl;
   Eigen::VectorXd obstacle_vec = obstacleField(state);
+  std::cout << "obstacle_vec: " << obstacle_vec << std::endl;
   Eigen::VectorXd total_vec = goal_vec + obstacle_vec;
+  std::cout << "total_vec: " << total_vec << std::endl;
   total_vec.normalize();
   return total_vec;
 }
@@ -398,7 +436,7 @@ ompl::base::PlannerPtr createPlanner(
   double initial_lambda = 1.0;
   unsigned int update_freq = 100;
   ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::VFRRT>(
-      si, totalField, exploration, initial_lambda, update_freq);
+      si, obstacleField, exploration, initial_lambda, update_freq);
   return planner;
 }
 
@@ -483,6 +521,9 @@ int main(int argc, char** argv) {
      objects and update the internal planning scene accordingly*/
   psm_->startStateMonitor();
 
+  kinematics_metrics_ = std::make_shared<kinematics_metrics::KinematicsMetrics>(
+      psm_->getRobotModel());
+
   /* We can get the most up to date robot state from the PlanningSceneMonitor
      by locking the internal planning scene for reading. This lock ensures
      that the underlying scene isn't updated while we are reading it's state.
@@ -549,7 +590,7 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = group_name_;
-  req.allowed_planning_time = 1.0;
+  req.allowed_planning_time = 5.0;
   req.planner_id = "panda_arm[RRT]";
 
   // Before planning, we will need a Read Only lock on the planning scene so
@@ -573,6 +614,8 @@ int main(int argc, char** argv) {
               res.error_code_.val);
     return 0;
   }
+
+  promptAnyInput();
 
   // Visualize the result
   // ^^^^^^^^^^^^^^^^^^^^
