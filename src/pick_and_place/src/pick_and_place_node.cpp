@@ -31,7 +31,7 @@ constexpr char LOGNAME[] = "pick_and_place_node";
 
 // ======================= SHARED VARIABLES
 // ==========================================
-const std::vector<double> obstacle_pos_ = {1.0, 0.0, 1.0};
+const std::vector<double> obstacle_pos_ = {0.5, 0.0, 0.5};
 const std::vector<double> joint_goal_pos_ = {-1.0, 0.7, 0.7, -1.0,
                                              -0.7, 2.0, 0.0};
 
@@ -44,7 +44,18 @@ moveit::core::RobotModelPtr robot_model_;
 kinematics_metrics::KinematicsMetricsPtr kinematics_metrics_;
 moveit::core::RobotStatePtr robot_state_;
 
+std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
+
 ros::Publisher marker_pub_;
+ros::Publisher arrow_pub_;
+ros::Publisher trajectory_publisher_;
+
+std::size_t viz_link_num_ = 2;
+std::vector<Eigen::Vector3d> viz_link_to_obs_vec_;
+std::vector<Eigen::Vector3d> viz_link_origin_vec_;
+
+std::vector<std::vector<double>> sample_joint_angles_;
+std::vector<std::vector<double>> sample_desired_angles_;
 
 // ==========================================
 // ==========================================
@@ -123,25 +134,110 @@ void printJointTrajectory(
   }
 }
 
-void visualizeJointOrigin() {
-  // ros::Rate rate(1);
+void visualizeVectorField() {
+  visualization_msgs::MarkerArray marker_array;
 
+  std::size_t num_arrows = viz_link_to_obs_vec_.size();
+  std::cout << "num_arrows: " << num_arrows << std::endl;
+
+  for (std::size_t i = 0; i < num_arrows; i++) {
+    Eigen::Vector3d vec = viz_link_to_obs_vec_[i];
+    Eigen::Vector3d origin = viz_link_origin_vec_[i];
+    vec.normalize();
+    Eigen::Vector3d dir = origin + vec * 0.05;
+    // std::cout << "origin: " << origin.transpose() << std::endl;
+
+    uint32_t shape = visualization_msgs::Marker::ARROW;
+
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "world";
+    marker.header.stamp = ros::Time::now();
+    // marker.ns = "basic_shapes";
+    marker.id = i;
+    marker.type = shape;
+
+    // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+    marker.action = visualization_msgs::Marker::ADD;
+
+    geometry_msgs::Point start_pt;
+    start_pt.x = origin[0];
+    start_pt.y = origin[1];
+    start_pt.z = origin[2];
+
+    geometry_msgs::Point end_pt;
+    end_pt.x = dir[0];
+    end_pt.y = dir[1];
+    end_pt.z = dir[2];
+
+    marker.points.push_back(start_pt);
+    marker.points.push_back(end_pt);
+
+    // marker.pose.position.x = origin[0];
+    // marker.pose.position.y = origin[1];
+    // marker.pose.position.z = origin[2];
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    marker.scale.x = 0.01;
+    marker.scale.y = 0.01;
+    marker.scale.z = 0.01;
+
+    marker.color.r = 1.0f;
+    marker.color.g = 0.0f;
+    marker.color.b = 0.0f;
+    marker.color.a = 1.0;
+
+    marker.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker);
+  }
+  arrow_pub_.publish(marker_array);
+}
+
+visualization_msgs::Marker getObstacleMarker() {
+  uint32_t shape = visualization_msgs::Marker::SPHERE;
+
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "world";
+  marker.header.stamp = ros::Time::now();
+  // marker.ns = "basic_shapes";
+  marker.id = 10;
+  marker.type = shape;
+
+  // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+  marker.action = visualization_msgs::Marker::ADD;
+
+  marker.pose.position.x = obstacle_pos_[0];
+  marker.pose.position.y = obstacle_pos_[1];
+  marker.pose.position.z = obstacle_pos_[2];
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0;
+
+  marker.scale.x = 0.05;
+  marker.scale.y = 0.05;
+  marker.scale.z = 0.05;
+
+  marker.color.r = 1.0f;
+  marker.color.g = 0.0f;
+  marker.color.b = 0.0f;
+  marker.color.a = 1.0;
+
+  marker.lifetime = ros::Duration();
+
+  return marker;
+}
+
+void visualizeJointOrigin() {
   std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
   moveit::core::RobotStatePtr robot_state =
       std::make_shared<moveit::core::RobotState>(*robot_state_);
 
-  std::cout << "link_names.size(): " << link_names.size() << std::endl;
-
-  visualization_msgs::MarkerArray marker_array;
-
-  // robot_state->getRobotMarkers(marker_array, link_names);
-
-  std::cout << "marker_array.markers.size(): " << marker_array.markers.size()
-            << std::endl;
-
-  // while (ros::ok()) {
   Eigen::Isometry3d joint_origin_tf = Eigen::Isometry3d::Identity();
   std::size_t dof = 7;
+  visualization_msgs::MarkerArray marker_array;
   for (std::size_t i = 0; i < dof; i++) {
     const moveit::core::LinkModel* link_model =
         robot_state->getLinkModel(link_names[i]);
@@ -152,7 +248,6 @@ void visualizeJointOrigin() {
     std::cout << "translation for " << link_names[i] << "\n"
               << translation << std::endl;
 
-    // Set our initial shape type to be a sphere
     uint32_t shape = visualization_msgs::Marker::SPHERE;
 
     visualization_msgs::Marker marker;
@@ -186,9 +281,87 @@ void visualizeJointOrigin() {
 
     marker_array.markers.push_back(marker);
   }
+
+  visualization_msgs::Marker marker = getObstacleMarker();
+  marker_array.markers.push_back(marker);
   marker_pub_.publish(marker_array);
-  // rate.sleep();
-  // }
+}
+
+void visualizeTrajectory(const planning_interface::MotionPlanResponse& res) {
+  ROS_INFO("Visualizing the trajectory");
+
+  visual_tools_->deleteAllMarkers();
+
+  moveit_msgs::DisplayTrajectory display_trajectory;
+  moveit_msgs::MotionPlanResponse response;
+  res.getMessage(response);
+
+  display_trajectory.trajectory_start = response.trajectory_start;
+  display_trajectory.trajectory.push_back(response.trajectory);
+  trajectory_publisher_.publish(display_trajectory);
+  visual_tools_->publishTrajectoryLine(display_trajectory.trajectory.back(),
+                                       joint_model_group_);
+  visual_tools_->trigger();
+}
+
+void visualizeRepulsedState() {
+  visual_tools_->deleteAllMarkers();
+
+  moveit_msgs::DisplayTrajectory display_trajectory;
+  moveit_msgs::MotionPlanResponse response;
+
+  sensor_msgs::JointState joint_start_state;
+  std::vector<std::string> names =
+      joint_model_group_->getActiveJointModelNames();
+
+  std::size_t num_joints = names.size();
+  std::vector<double> joint_angles = sample_joint_angles_.front();
+  joint_start_state.name = names;
+  joint_start_state.position = joint_angles;
+  joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
+  joint_start_state.effort = std::vector<double>(num_joints, 0.0);
+
+  moveit_msgs::RobotState robot_start_state;
+  robot_start_state.joint_state = joint_start_state;
+
+  response.group_name = group_name_;
+  response.trajectory_start = robot_start_state;
+
+  trajectory_msgs::JointTrajectory joint_trajectory;
+  joint_trajectory.joint_names = names;
+
+  trajectory_msgs::JointTrajectoryPoint point;
+
+  joint_angles = sample_joint_angles_.front();
+  point.positions = joint_angles;
+  point.velocities = std::vector<double>(num_joints, 0.0);
+  point.accelerations = std::vector<double>(num_joints, 0.0);
+  point.effort = std::vector<double>(num_joints, 0.0);
+  point.time_from_start = ros::Duration(0.1);
+  joint_trajectory.points.push_back(point);
+
+  joint_angles = sample_desired_angles_.front();
+  point.positions = joint_angles;
+  point.velocities = std::vector<double>(num_joints, 0.0);
+  point.accelerations = std::vector<double>(num_joints, 0.0);
+  point.effort = std::vector<double>(num_joints, 0.0);
+  point.time_from_start = ros::Duration(1.5);
+  joint_trajectory.points.push_back(point);
+
+  moveit_msgs::RobotTrajectory robot_trajectory;
+  robot_trajectory.joint_trajectory = joint_trajectory;
+
+  response.trajectory = robot_trajectory;
+
+  display_trajectory.trajectory_start = response.trajectory_start;
+  display_trajectory.trajectory.push_back(response.trajectory);
+  trajectory_publisher_.publish(display_trajectory);
+
+  // this keeps crashing, not sure why
+  //  visual_tools_->publishTrajectoryPath(robot_trajectory, robot_state_);
+  //  visual_tools_->publishTrajectoryPoint(point, group_name_);
+
+  visual_tools_->trigger();
 }
 
 void promptAnyInput() {
@@ -368,21 +541,20 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
   moveit::core::RobotStatePtr robot_state =
       std::make_shared<moveit::core::RobotState>(*robot_state_);
   std::size_t dof = 7;  // get this from robot model
-  // std::cout << "dof: " << dof << std::endl;
-
-  // ROS_INFO_NAMED(LOGNAME, "Base state angles");
   const ompl::base::RealVectorStateSpace::StateType& vec_state =
       *base_state->as<ompl::base::RealVectorStateSpace::StateType>();
   std::vector<double> joint_angles;
   for (std::size_t i = 0; i < dof; i++) {
     joint_angles.emplace_back(vec_state[i]);
-    // std::cout << vec_state[i] << ", ";
+    // std::cout << vec_state[i] << ", " << std::endl;
   }
+  sample_joint_angles_.emplace_back(joint_angles);
 
-  // std::cout << std::endl;
+  robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
+  robot_state->update();
 
-  const kinematics::KinematicsBaseConstPtr kinematics_solver =
-      joint_model_group_->getSolverInstance();
+  // const kinematics::KinematicsBaseConstPtr kinematics_solver =
+  //     joint_model_group_->getSolverInstance();
 
   std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
   std::vector<Eigen::Isometry3d> link_positions;
@@ -390,11 +562,12 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
   Eigen::Isometry3d joint_origin_tf = Eigen::Isometry3d::Identity();
   for (std::size_t i = 0; i < dof; i++) {
     // std::cout << link_names[i] << std::endl;
+
     const moveit::core::LinkModel* link_model =
-        joint_model_group_->getLinkModel(link_names[i]);
-    Eigen::Isometry3d temp_tf =
-        joint_origin_tf * link_model->getJointOriginTransform();
-    joint_origin_tf = temp_tf;
+        robot_state->getLinkModel(link_names[i]);
+    Eigen::Isometry3d joint_origin_tf =
+        robot_state->getGlobalLinkTransform(link_model);
+
     link_positions.emplace_back(joint_origin_tf);
     // std::cout << "joint_origin_tf.translation(): "
     //           << joint_origin_tf.translation().transpose() << std::endl;
@@ -413,10 +586,17 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     // std::cout << "translation.z(): " << (double)translation.z() << std::endl;
     // std::cout << "vec:\n " << vec << std::endl;
 
+    if (i == viz_link_num_) {
+      viz_link_to_obs_vec_.emplace_back(vec);
+      Eigen::Vector3d link_pos_vec(3);
+      link_pos_vec[0] = (double)translation.x();
+      link_pos_vec[1] = (double)translation.y();
+      link_pos_vec[2] = (double)translation.z();
+      viz_link_origin_vec_.emplace_back(link_pos_vec);
+    }
+
     link_to_obs_vec[i] = (vec);
   }
-
-  robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
 
   // ROS_INFO_NAMED(LOGNAME, "Robot State Positions");
   // robot_state->printStatePositions();
@@ -438,6 +618,7 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     // std::cout << "jac_pinv_:\n " << jac_pinv_ << std::endl;
 
     Eigen::Vector3d vec = link_to_obs_vec[i];
+    vec.normalize();
     // std::cout << "vec:\n " << vec << std::endl;
 
     Eigen::VectorXd rob_vec(6);
@@ -453,8 +634,25 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     // std::cout << "d_q:\n " << d_q << std::endl;
     d_q_out[i] = d_q[i];
   }
-  // d_q_out.normalize();
-  d_q_out = d_q_out * 0.1;
+
+  std::cout << "qo: ";
+  for (std::size_t i = 0; i < dof; i++) {
+    std::cout << joint_angles[i] << ", ";
+  }
+
+  std::cout << std::endl;
+
+  std::cout << "qd: ";
+  std::cout << d_q_out.transpose() << std::endl;
+
+  std::vector<double> desired_angles;
+  for (std::size_t i = 0; i < dof; i++) {
+    desired_angles.emplace_back(d_q_out[i]);
+  }
+  sample_desired_angles_.emplace_back(desired_angles);
+
+  d_q_out.normalize();
+  d_q_out = d_q_out * 0.01;
   return d_q_out;
 }
 
@@ -469,7 +667,7 @@ Eigen::VectorXd goalField(const ompl::base::State* state) {
   v[4] = joint_goal_pos_[4] - x[4];
   v[5] = joint_goal_pos_[5] - x[5];
   v[6] = joint_goal_pos_[6] - x[6];
-  // v.normalize();
+  v.normalize();
   return v;
 }
 
@@ -507,9 +705,11 @@ bool generatePlan(const ompl_interface::ModelBasedPlanningContextPtr& context,
                   planning_interface::MotionPlanResponse& res) {
   res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
   bool is_solved = context->solve(res);
-  std::size_t state_count = res.trajectory_->getWayPointCount();
-  ROS_DEBUG_STREAM("Motion planner reported a solution path with "
-                   << state_count << " states");
+  if (is_solved) {
+    std::size_t state_count = res.trajectory_->getWayPointCount();
+    ROS_DEBUG_STREAM("Motion planner reported a solution path with "
+                     << state_count << " states");
+  }
   ROS_INFO_NAMED(LOGNAME, "Is plan generated? %d", is_solved);
   return is_solved;
 }
@@ -605,8 +805,17 @@ int main(int argc, char** argv) {
   robot_state_ = std::make_shared<moveit::core::RobotState>(*robot_state);
 
   marker_pub_ = node_handle.advertise<visualization_msgs::MarkerArray>(
-      "visualization_marker_array", 10, true);
+      "robot_state", 10, true);
+  arrow_pub_ = node_handle.advertise<visualization_msgs::MarkerArray>(
+      "vector_field", 100, true);
+  trajectory_publisher_ = node_handle.advertise<moveit_msgs::DisplayTrajectory>(
+      "/move_group/display_planned_path", 1, true);
+
   visualizeJointOrigin();
+
+  // namespace rvt = rviz_visual_tools;
+  visual_tools_ = std::make_shared<moveit_visual_tools::MoveItVisualTools>(
+      "panda_link0", rviz_visual_tools::RVIZ_MARKER_TOPIC, robot_model_);
 
   // We can now setup the PlanningPipeline object, which will use the ROS
   // parameter server to determine the set of request adapters and the
@@ -622,8 +831,6 @@ int main(int argc, char** argv) {
   // Pose Goal
   // ^^^^^^^^^
   // ^^^^^^^^^
-  // We will now create a motion plan request for the right arm of the Panda
-  // specifying the desired pose of the end-effector as input.
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
   setCurToStartState(req, robot_state, joint_model_group_);
@@ -648,6 +855,8 @@ int main(int argc, char** argv) {
 
   generatePlan(context, res);
 
+  visualizeVectorField();
+
   // /* Now, call the pipeline and check whether planning was successful. */
   // planning_pipeline->generatePlan(lscene, req, res);
 
@@ -656,44 +865,21 @@ int main(int argc, char** argv) {
   if (res.error_code_.val != res.error_code_.SUCCESS) {
     ROS_ERROR("Could not compute plan successfully. Error code: %d",
               res.error_code_.val);
-    return 0;
+    // return 0;
   }
-
+  visualizeRepulsedState();
   promptAnyInput();
 
   // Visualize the result
   // ^^^^^^^^^^^^^^^^^^^^
   // ^^^^^^^^^^^^^^^^^^^^
-  // The package MoveItVisualTools provides many capabilities for visualizing
-  // objects, robots, and trajectories in RViz as well as debugging tools such
-  // as step-by-step introspection of a script.
-  namespace rvt = rviz_visual_tools;
-  moveit_visual_tools::MoveItVisualTools visual_tools(
-      "panda_link0", rviz_visual_tools::RVIZ_MARKER_TOPIC, psm_);
-  visual_tools.deleteAllMarkers();
 
-  ros::Publisher display_publisher =
-      node_handle.advertise<moveit_msgs::DisplayTrajectory>(
-          "/move_group/display_planned_path", 1, true);
-  moveit_msgs::DisplayTrajectory display_trajectory;
-
-  /* Visualize the trajectory */
-  ROS_INFO("Visualizing the trajectory");
-  moveit_msgs::MotionPlanResponse response;
-  res.getMessage(response);
-
-  display_trajectory.trajectory_start = response.trajectory_start;
-  display_trajectory.trajectory.push_back(response.trajectory);
-  display_publisher.publish(display_trajectory);
-  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(),
-                                     joint_model_group_);
-  visual_tools.trigger();
+  // visualizeTrajectory(res);
 
   // Execute Trajectory
   // ^^^^^^^^^^^^^^^^^^^^
   // ^^^^^^^^^^^^^^^^^^^^
-
-  promptAnyInput();
+  // promptAnyInput();
 
   std::cout << "Finished!" << std::endl;
 
