@@ -42,6 +42,9 @@ robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
 planning_scene_monitor::PlanningSceneMonitorPtr psm_;
 moveit::core::RobotModelPtr robot_model_;
 kinematics_metrics::KinematicsMetricsPtr kinematics_metrics_;
+moveit::core::RobotStatePtr robot_state_;
+
+ros::Publisher marker_pub_;
 
 // ==========================================
 // ==========================================
@@ -121,18 +124,71 @@ void printJointTrajectory(
 }
 
 void visualizeJointOrigin() {
-  std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
+  // ros::Rate rate(1);
 
+  std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
+  moveit::core::RobotStatePtr robot_state =
+      std::make_shared<moveit::core::RobotState>(*robot_state_);
+
+  std::cout << "link_names.size(): " << link_names.size() << std::endl;
+
+  visualization_msgs::MarkerArray marker_array;
+
+  // robot_state->getRobotMarkers(marker_array, link_names);
+
+  std::cout << "marker_array.markers.size(): " << marker_array.markers.size()
+            << std::endl;
+
+  // while (ros::ok()) {
   Eigen::Isometry3d joint_origin_tf = Eigen::Isometry3d::Identity();
   std::size_t dof = 7;
   for (std::size_t i = 0; i < dof; i++) {
     const moveit::core::LinkModel* link_model =
-        joint_model_group_->getLinkModel(link_names[i]);
-    Eigen::Isometry3d temp_tf =
-        joint_origin_tf * link_model->getJointOriginTransform();
-    joint_origin_tf = temp_tf;
+        robot_state->getLinkModel(link_names[i]);
+    Eigen::Isometry3d joint_origin_tf =
+        robot_state->getGlobalLinkTransform(link_model);
+
     auto translation = joint_origin_tf.translation();
+    std::cout << "translation for " << link_names[i] << "\n"
+              << translation << std::endl;
+
+    // Set our initial shape type to be a sphere
+    uint32_t shape = visualization_msgs::Marker::SPHERE;
+
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "world";
+    marker.header.stamp = ros::Time::now();
+    // marker.ns = "basic_shapes";
+    marker.id = i;
+    marker.type = shape;
+
+    // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+    marker.action = visualization_msgs::Marker::ADD;
+
+    marker.pose.position.x = (double)translation.x();
+    marker.pose.position.y = (double)translation.y();
+    marker.pose.position.z = (double)translation.z();
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    marker.scale.x = 0.05;
+    marker.scale.y = 0.05;
+    marker.scale.z = 0.05;
+
+    marker.color.r = 0.0f;
+    marker.color.g = 1.0f;
+    marker.color.b = 0.0f;
+    marker.color.a = 1.0;
+
+    marker.lifetime = ros::Duration();
+
+    marker_array.markers.push_back(marker);
   }
+  marker_pub_.publish(marker_array);
+  // rate.sleep();
+  // }
 }
 
 void promptAnyInput() {
@@ -309,9 +365,8 @@ std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
 }
 
 Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
-  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
-      planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
-
+  moveit::core::RobotStatePtr robot_state =
+      std::make_shared<moveit::core::RobotState>(*robot_state_);
   std::size_t dof = 7;  // get this from robot model
   // std::cout << "dof: " << dof << std::endl;
 
@@ -398,7 +453,8 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     // std::cout << "d_q:\n " << d_q << std::endl;
     d_q_out[i] = d_q[i];
   }
-  d_q_out.normalize();
+  // d_q_out.normalize();
+  d_q_out = d_q_out * 0.1;
   return d_q_out;
 }
 
@@ -413,7 +469,7 @@ Eigen::VectorXd goalField(const ompl::base::State* state) {
   v[4] = joint_goal_pos_[4] - x[4];
   v[5] = joint_goal_pos_[5] - x[5];
   v[6] = joint_goal_pos_[6] - x[6];
-  v.normalize();
+  // v.normalize();
   return v;
 }
 
@@ -421,11 +477,11 @@ Eigen::VectorXd totalField(const ompl::base::State* state) {
   const ompl::base::RealVectorStateSpace::StateType& x =
       *state->as<ompl::base::RealVectorStateSpace::StateType>();
   Eigen::VectorXd goal_vec = goalField(state);
-  std::cout << "goal_vec: " << goal_vec << std::endl;
+  // std::cout << "goal_vec\n" << goal_vec << std::endl;
   Eigen::VectorXd obstacle_vec = obstacleField(state);
-  std::cout << "obstacle_vec: " << obstacle_vec << std::endl;
+  // std::cout << "obstacle_vec\n" << obstacle_vec << std::endl;
   Eigen::VectorXd total_vec = goal_vec + obstacle_vec;
-  std::cout << "total_vec: " << total_vec << std::endl;
+  // std::cout << "total_vec\n" << total_vec << std::endl;
   total_vec.normalize();
   return total_vec;
 }
@@ -436,7 +492,7 @@ ompl::base::PlannerPtr createPlanner(
   double initial_lambda = 1.0;
   unsigned int update_freq = 100;
   ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::VFRRT>(
-      si, obstacleField, exploration, initial_lambda, update_freq);
+      si, totalField, exploration, initial_lambda, update_freq);
   return planner;
 }
 
@@ -522,7 +578,7 @@ int main(int argc, char** argv) {
   psm_->startStateMonitor();
 
   kinematics_metrics_ = std::make_shared<kinematics_metrics::KinematicsMetrics>(
-      psm_->getRobotModel());
+      planning_scene_monitor::LockedPlanningSceneRO(psm_)->getRobotModel());
 
   /* We can get the most up to date robot state from the PlanningSceneMonitor
      by locking the internal planning scene for reading. This lock ensures
@@ -540,29 +596,17 @@ int main(int argc, char** argv) {
      of joints at a time such as a left arm or a end effector */
   joint_model_group_ = robot_model_->getJointModelGroup(group_name_);
 
-  std::vector<std::string> link_model_name_vector =
-      joint_model_group_->getLinkModelNames();
-  for (auto link_name : link_model_name_vector) {
-    std::cout << "link_name: " << link_name << std::endl;
-    const moveit::core::LinkModel* link_model =
-        joint_model_group_->getLinkModel(link_name);
-    const moveit::core::JointModel* joint_model =
-        link_model->getParentJointModel();
-    std::string parent_joint_name = joint_model->getName();
-    std::cout << "parent_joint_name: " << parent_joint_name << std::endl;
-  }
-
-  const std::vector<std::string>& link_model_names =
-      joint_model_group_->getLinkModelNames();
-  ROS_INFO_NAMED(LOGNAME, "end effector name %s\n",
-                 link_model_names.back().c_str());
-
   robot_state->setToDefaultValues(joint_model_group_, "ready");
   robot_state->update();
   psm_->updateSceneWithCurrentState();
 
   ROS_INFO_NAMED(LOGNAME, "Robot State Positions");
   robot_state->printStatePositions();
+  robot_state_ = std::make_shared<moveit::core::RobotState>(*robot_state);
+
+  marker_pub_ = node_handle.advertise<visualization_msgs::MarkerArray>(
+      "visualization_marker_array", 10, true);
+  visualizeJointOrigin();
 
   // We can now setup the PlanningPipeline object, which will use the ROS
   // parameter server to determine the set of request adapters and the
@@ -590,7 +634,7 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = group_name_;
-  req.allowed_planning_time = 5.0;
+  req.allowed_planning_time = 1.0;
   req.planner_id = "panda_arm[RRT]";
 
   // Before planning, we will need a Read Only lock on the planning scene so
