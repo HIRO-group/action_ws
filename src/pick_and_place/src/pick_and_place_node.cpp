@@ -49,8 +49,9 @@ std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 ros::Publisher marker_pub_;
 ros::Publisher arrow_pub_;
 ros::Publisher trajectory_publisher_;
+ros::Publisher rep_state_publisher_;
 
-std::size_t viz_link_num_ = 2;
+std::size_t viz_link_num_ = 6;
 std::vector<Eigen::Vector3d> viz_link_to_obs_vec_;
 std::vector<Eigen::Vector3d> viz_link_origin_vec_;
 
@@ -355,9 +356,9 @@ void visualizeRepulsedState() {
 
   display_trajectory.trajectory_start = response.trajectory_start;
   display_trajectory.trajectory.push_back(response.trajectory);
-  trajectory_publisher_.publish(display_trajectory);
+  rep_state_publisher_.publish(display_trajectory);
 
-  // this keeps crashing, not sure why
+  // // this crashes, not sure why
   //  visual_tools_->publishTrajectoryPath(robot_trajectory, robot_state_);
   //  visual_tools_->publishTrajectoryPoint(point, group_name_);
 
@@ -609,7 +610,7 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
   Eigen::MatrixXd jacobian = robot_state->getJacobian(joint_model_group_);
   // std::cout << "jacobian:\n " << jacobian << std::endl;
 
-  Eigen::VectorXd d_q_out(dof);
+  Eigen::VectorXd d_q_out = Eigen::VectorXd::Zero(dof);
   for (std::size_t i = 0; i < dof; i++) {
     Eigen::MatrixXd link_jac = jacobian.block(0, 0, 6, i + 1);
     // std::cout << "link_jac:\n " << link_jac << std::endl;
@@ -632,7 +633,10 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     // std::cout << "rob_vec:\n " << rob_vec << std::endl;
     Eigen::VectorXd d_q = jac_pinv_ * rob_vec;
     // std::cout << "d_q:\n " << d_q << std::endl;
-    d_q_out[i] = d_q[i];
+
+    if (i == viz_link_num_) {
+      d_q_out[i] = d_q[i];
+    }
   }
 
   std::cout << "qo: ";
@@ -643,7 +647,10 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
   std::cout << std::endl;
 
   std::cout << "qd: ";
-  std::cout << d_q_out.transpose() << std::endl;
+  for (std::size_t i = 0; i < dof; i++) {
+    std::cout << d_q_out[i] << ", ";
+  }
+  std::cout << std::endl;
 
   std::vector<double> desired_angles;
   for (std::size_t i = 0; i < dof; i++) {
@@ -809,7 +816,10 @@ int main(int argc, char** argv) {
   arrow_pub_ = node_handle.advertise<visualization_msgs::MarkerArray>(
       "vector_field", 100, true);
   trajectory_publisher_ = node_handle.advertise<moveit_msgs::DisplayTrajectory>(
-      "/move_group/display_planned_path", 1, true);
+      "planned_path", 1, true);
+
+  rep_state_publisher_ = node_handle.advertise<moveit_msgs::DisplayTrajectory>(
+      "repulsed_state", 1, true);
 
   visualizeJointOrigin();
 
@@ -874,12 +884,12 @@ int main(int argc, char** argv) {
   // ^^^^^^^^^^^^^^^^^^^^
   // ^^^^^^^^^^^^^^^^^^^^
 
-  // visualizeTrajectory(res);
+  visualizeTrajectory(res);
 
   // Execute Trajectory
   // ^^^^^^^^^^^^^^^^^^^^
   // ^^^^^^^^^^^^^^^^^^^^
-  // promptAnyInput();
+  promptAnyInput();
 
   std::cout << "Finished!" << std::endl;
 
