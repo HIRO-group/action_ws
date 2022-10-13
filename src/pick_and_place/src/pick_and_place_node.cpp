@@ -1,5 +1,10 @@
 
+// ROS
 #include <ros/ros.h>
+
+// C++
+#include <valarray>
+
 // MoveIt
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit/kinematics_metrics/kinematics_metrics.h>
@@ -16,16 +21,19 @@
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
+
+// OMPL
 #include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/VFRRT.h>
 
+#include "ompl/geometric/planners/est/EST.h"
+
+// Eigen
 #include <Eigen/Core>
 #include <Eigen/LU>
 #include <Eigen/SVD>
-
-#include "ompl/geometric/planners/est/EST.h"
 
 constexpr char LOGNAME[] = "pick_and_place_node";
 
@@ -51,12 +59,13 @@ ros::Publisher arrow_pub_;
 ros::Publisher trajectory_publisher_;
 ros::Publisher rep_state_publisher_;
 
-std::size_t viz_link_num_ = 6;
-std::vector<Eigen::Vector3d> viz_link_to_obs_vec_;
-std::vector<Eigen::Vector3d> viz_link_origin_vec_;
-
+int repulsed_state_idx_ = 0;
 std::vector<std::vector<double>> sample_joint_angles_;
 std::vector<std::vector<double>> sample_desired_angles_;
+
+std::size_t focus_link_num_ = 3;
+std::vector<std::vector<double>> repulsed_vec_at_link_;
+std::vector<std::vector<double>> repulsed_origin_at_link_;
 
 // ==========================================
 // ==========================================
@@ -135,64 +144,73 @@ void printJointTrajectory(
   }
 }
 
-void visualizeVectorField() {
+void visualizeRepulseVec(std::size_t state_num, std::size_t link_num) {
   visualization_msgs::MarkerArray marker_array;
 
-  std::size_t num_arrows = viz_link_to_obs_vec_.size();
-  std::cout << "num_arrows: " << num_arrows << std::endl;
+  auto repulsed_origin_at_link = repulsed_origin_at_link_[state_num];
+  auto repulsed_vec_at_link = repulsed_vec_at_link_[state_num];
 
-  for (std::size_t i = 0; i < num_arrows; i++) {
-    Eigen::Vector3d vec = viz_link_to_obs_vec_[i];
-    Eigen::Vector3d origin = viz_link_origin_vec_[i];
-    vec.normalize();
-    Eigen::Vector3d dir = origin + vec * 0.05;
-    // std::cout << "origin: " << origin.transpose() << std::endl;
+  std::valarray<double> origin = {repulsed_origin_at_link[link_num * 3],
+                                  repulsed_origin_at_link[link_num * 3 + 1],
+                                  repulsed_origin_at_link[link_num * 3 + 2]};
 
-    uint32_t shape = visualization_msgs::Marker::ARROW;
+  std::valarray<double> dir = {repulsed_vec_at_link[link_num * 3],
+                               repulsed_vec_at_link[link_num * 3 + 1],
+                               repulsed_vec_at_link[link_num * 3 + 2]};
 
-    visualization_msgs::Marker marker;
-    marker.header.frame_id = "world";
-    marker.header.stamp = ros::Time::now();
-    // marker.ns = "basic_shapes";
-    marker.id = i;
-    marker.type = shape;
-
-    // Set the marker action.  Options are ADD, DELETE, and DELETEALL
-    marker.action = visualization_msgs::Marker::ADD;
-
-    geometry_msgs::Point start_pt;
-    start_pt.x = origin[0];
-    start_pt.y = origin[1];
-    start_pt.z = origin[2];
-
-    geometry_msgs::Point end_pt;
-    end_pt.x = dir[0];
-    end_pt.y = dir[1];
-    end_pt.z = dir[2];
-
-    marker.points.push_back(start_pt);
-    marker.points.push_back(end_pt);
-
-    // marker.pose.position.x = origin[0];
-    // marker.pose.position.y = origin[1];
-    // marker.pose.position.z = origin[2];
-    marker.pose.orientation.x = 0.0;
-    marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
-
-    marker.scale.x = 0.01;
-    marker.scale.y = 0.01;
-    marker.scale.z = 0.01;
-
-    marker.color.r = 1.0f;
-    marker.color.g = 0.0f;
-    marker.color.b = 0.0f;
-    marker.color.a = 1.0;
-
-    marker.lifetime = ros::Duration();
-    marker_array.markers.push_back(marker);
+  std::cout << "origin" << std::endl;
+  for (auto pt : origin) {
+    std::cout << pt << std::endl;
   }
+
+  std::cout << "dir" << std::endl;
+  for (auto pt : dir) {
+    std::cout << pt << std::endl;
+  }
+
+  std::valarray<double> vec = origin + dir;
+  std::cout << "vec" << std::endl;
+  for (auto pt : vec) {
+    std::cout << pt << std::endl;
+  }
+
+  uint32_t shape = visualization_msgs::Marker::ARROW;
+
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "world";
+  marker.header.stamp = ros::Time::now();
+  // marker.ns = "basic_shapes";
+  marker.id = 0;  // state_num;
+  marker.type = shape;
+
+  // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+  marker.action = visualization_msgs::Marker::ADD;
+
+  geometry_msgs::Point start_pt;
+  start_pt.x = origin[0];
+  start_pt.y = origin[1];
+  start_pt.z = origin[2];
+
+  geometry_msgs::Point end_pt;
+  end_pt.x = vec[0];
+  end_pt.y = vec[1];
+  end_pt.z = vec[2];
+
+  marker.points.push_back(start_pt);
+  marker.points.push_back(end_pt);
+
+  marker.scale.x = 0.01;
+  marker.scale.y = 0.01;
+  marker.scale.z = 0.01;
+
+  marker.color.r = 1.0f;
+  marker.color.g = 0.0f;
+  marker.color.b = 0.0f;
+  marker.color.a = 1.0;
+
+  marker.lifetime = ros::Duration();
+  marker_array.markers.push_back(marker);
+
   arrow_pub_.publish(marker_array);
 }
 
@@ -231,11 +249,14 @@ visualization_msgs::Marker getObstacleMarker() {
   return marker;
 }
 
-void visualizeJointOrigin() {
-  std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
+void visualizeLinkOrigin(std::size_t state_num) {
+  std::vector<double> joint_angles = sample_joint_angles_[state_num];
   moveit::core::RobotStatePtr robot_state =
       std::make_shared<moveit::core::RobotState>(*robot_state_);
+  robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
+  robot_state->update();
 
+  std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
   Eigen::Isometry3d joint_origin_tf = Eigen::Isometry3d::Identity();
   std::size_t dof = 7;
   visualization_msgs::MarkerArray marker_array;
@@ -306,63 +327,71 @@ void visualizeTrajectory(const planning_interface::MotionPlanResponse& res) {
 }
 
 void visualizeRepulsedState() {
-  visual_tools_->deleteAllMarkers();
+  std::string user_input = " ";
 
-  moveit_msgs::DisplayTrajectory display_trajectory;
-  moveit_msgs::MotionPlanResponse response;
+  while (user_input != "q") {
+    std::cout << "Displaying repulsed state with idx: " << repulsed_state_idx_
+              << std::endl;
 
-  sensor_msgs::JointState joint_start_state;
-  std::vector<std::string> names =
-      joint_model_group_->getActiveJointModelNames();
+    moveit_msgs::DisplayTrajectory display_trajectory;
+    moveit_msgs::MotionPlanResponse response;
 
-  std::size_t num_joints = names.size();
-  std::vector<double> joint_angles = sample_joint_angles_.front();
-  joint_start_state.name = names;
-  joint_start_state.position = joint_angles;
-  joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
-  joint_start_state.effort = std::vector<double>(num_joints, 0.0);
+    sensor_msgs::JointState joint_start_state;
+    std::vector<std::string> names =
+        joint_model_group_->getActiveJointModelNames();
 
-  moveit_msgs::RobotState robot_start_state;
-  robot_start_state.joint_state = joint_start_state;
+    std::size_t num_joints = names.size();
+    std::vector<double> joint_angles =
+        sample_joint_angles_[repulsed_state_idx_];
+    joint_start_state.name = names;
+    joint_start_state.position = joint_angles;
+    joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
+    joint_start_state.effort = std::vector<double>(num_joints, 0.0);
 
-  response.group_name = group_name_;
-  response.trajectory_start = robot_start_state;
+    moveit_msgs::RobotState robot_start_state;
+    robot_start_state.joint_state = joint_start_state;
 
-  trajectory_msgs::JointTrajectory joint_trajectory;
-  joint_trajectory.joint_names = names;
+    response.group_name = group_name_;
+    response.trajectory_start = robot_start_state;
 
-  trajectory_msgs::JointTrajectoryPoint point;
+    trajectory_msgs::JointTrajectory joint_trajectory;
+    joint_trajectory.joint_names = names;
 
-  joint_angles = sample_joint_angles_.front();
-  point.positions = joint_angles;
-  point.velocities = std::vector<double>(num_joints, 0.0);
-  point.accelerations = std::vector<double>(num_joints, 0.0);
-  point.effort = std::vector<double>(num_joints, 0.0);
-  point.time_from_start = ros::Duration(0.1);
-  joint_trajectory.points.push_back(point);
+    trajectory_msgs::JointTrajectoryPoint point;
 
-  joint_angles = sample_desired_angles_.front();
-  point.positions = joint_angles;
-  point.velocities = std::vector<double>(num_joints, 0.0);
-  point.accelerations = std::vector<double>(num_joints, 0.0);
-  point.effort = std::vector<double>(num_joints, 0.0);
-  point.time_from_start = ros::Duration(1.5);
-  joint_trajectory.points.push_back(point);
+    joint_angles = sample_joint_angles_[repulsed_state_idx_];
+    point.positions = joint_angles;
+    point.velocities = std::vector<double>(num_joints, 0.0);
+    point.accelerations = std::vector<double>(num_joints, 0.0);
+    point.effort = std::vector<double>(num_joints, 0.0);
+    point.time_from_start = ros::Duration(0.1);
+    joint_trajectory.points.push_back(point);
 
-  moveit_msgs::RobotTrajectory robot_trajectory;
-  robot_trajectory.joint_trajectory = joint_trajectory;
+    joint_angles = sample_desired_angles_[repulsed_state_idx_];
+    point.positions = joint_angles;
+    point.velocities = std::vector<double>(num_joints, 0.0);
+    point.accelerations = std::vector<double>(num_joints, 0.0);
+    point.effort = std::vector<double>(num_joints, 0.0);
+    point.time_from_start = ros::Duration(1.5);
+    joint_trajectory.points.push_back(point);
 
-  response.trajectory = robot_trajectory;
+    moveit_msgs::RobotTrajectory robot_trajectory;
+    robot_trajectory.joint_trajectory = joint_trajectory;
 
-  display_trajectory.trajectory_start = response.trajectory_start;
-  display_trajectory.trajectory.push_back(response.trajectory);
-  rep_state_publisher_.publish(display_trajectory);
+    response.trajectory = robot_trajectory;
 
-  // // this crashes, not sure why
-  //  visual_tools_->publishTrajectoryPath(robot_trajectory, robot_state_);
-  //  visual_tools_->publishTrajectoryPoint(point, group_name_);
+    display_trajectory.trajectory_start = response.trajectory_start;
+    display_trajectory.trajectory.push_back(response.trajectory);
+    rep_state_publisher_.publish(display_trajectory);
 
-  visual_tools_->trigger();
+    visualizeRepulseVec(repulsed_state_idx_, focus_link_num_);
+    visualizeLinkOrigin(repulsed_state_idx_);
+
+    repulsed_state_idx_++;
+
+    std::cout << "Press enter or 'q' to quit or c to continue " << std::endl;
+    std::cin >> user_input;
+  }
 }
 
 void promptAnyInput() {
@@ -541,6 +570,7 @@ std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
 Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
   moveit::core::RobotStatePtr robot_state =
       std::make_shared<moveit::core::RobotState>(*robot_state_);
+
   std::size_t dof = 7;  // get this from robot model
   const ompl::base::RealVectorStateSpace::StateType& vec_state =
       *base_state->as<ompl::base::RealVectorStateSpace::StateType>();
@@ -559,22 +589,21 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
 
   std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
   std::vector<Eigen::Isometry3d> link_positions;
-
   Eigen::Isometry3d joint_origin_tf = Eigen::Isometry3d::Identity();
   for (std::size_t i = 0; i < dof; i++) {
     // std::cout << link_names[i] << std::endl;
-
     const moveit::core::LinkModel* link_model =
         robot_state->getLinkModel(link_names[i]);
     Eigen::Isometry3d joint_origin_tf =
         robot_state->getGlobalLinkTransform(link_model);
-
     link_positions.emplace_back(joint_origin_tf);
     // std::cout << "joint_origin_tf.translation(): "
     //           << joint_origin_tf.translation().transpose() << std::endl;
   }
 
   std::vector<Eigen::Vector3d> link_to_obs_vec(dof);
+  std::vector<double> repulsed_vec_all;
+  std::vector<double> repulsed_origin_all;
   for (std::size_t i = 0; i < dof; i++) {
     Eigen::Isometry3d position = link_positions[i];
     auto translation = position.translation();
@@ -582,22 +611,22 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     vec[0] = (double)translation.x() - obstacle_pos_[0];
     vec[1] = (double)translation.y() - obstacle_pos_[1];
     vec[2] = (double)translation.z() - obstacle_pos_[2];
-    // std::cout << "translation.x(): " << (double)translation.x() << std::endl;
-    // std::cout << "translation.y(): " << (double)translation.y() << std::endl;
-    // std::cout << "translation.z(): " << (double)translation.z() << std::endl;
-    // std::cout << "vec:\n " << vec << std::endl;
-
-    if (i == viz_link_num_) {
-      viz_link_to_obs_vec_.emplace_back(vec);
-      Eigen::Vector3d link_pos_vec(3);
-      link_pos_vec[0] = (double)translation.x();
-      link_pos_vec[1] = (double)translation.y();
-      link_pos_vec[2] = (double)translation.z();
-      viz_link_origin_vec_.emplace_back(link_pos_vec);
-    }
-
+    double norm = vec.norm();
+    vec = vec * (1.0 / norm);
     link_to_obs_vec[i] = (vec);
+
+    // for vizualization only
+    repulsed_origin_all.emplace_back((double)translation.x());
+    repulsed_origin_all.emplace_back((double)translation.y());
+    repulsed_origin_all.emplace_back((double)translation.z());
+
+    repulsed_vec_all.emplace_back(vec[0]);
+    repulsed_vec_all.emplace_back(vec[1]);
+    repulsed_vec_all.emplace_back(vec[2]);
   }
+
+  repulsed_vec_at_link_.emplace_back(repulsed_vec_all);
+  repulsed_origin_at_link_.emplace_back(repulsed_origin_all);
 
   // ROS_INFO_NAMED(LOGNAME, "Robot State Positions");
   // robot_state->printStatePositions();
@@ -619,7 +648,6 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     // std::cout << "jac_pinv_:\n " << jac_pinv_ << std::endl;
 
     Eigen::Vector3d vec = link_to_obs_vec[i];
-    vec.normalize();
     // std::cout << "vec:\n " << vec << std::endl;
 
     Eigen::VectorXd rob_vec(6);
@@ -634,7 +662,7 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     Eigen::VectorXd d_q = jac_pinv_ * rob_vec;
     // std::cout << "d_q:\n " << d_q << std::endl;
 
-    if (i == viz_link_num_) {
+    if (i == focus_link_num_) {
       d_q_out[i] = d_q[i];
     }
   }
@@ -812,16 +840,13 @@ int main(int argc, char** argv) {
   robot_state_ = std::make_shared<moveit::core::RobotState>(*robot_state);
 
   marker_pub_ = node_handle.advertise<visualization_msgs::MarkerArray>(
-      "robot_state", 10, true);
+      "robot_state", 1, true);
   arrow_pub_ = node_handle.advertise<visualization_msgs::MarkerArray>(
-      "vector_field", 100, true);
+      "vector_field", 1, true);
   trajectory_publisher_ = node_handle.advertise<moveit_msgs::DisplayTrajectory>(
       "planned_path", 1, true);
-
   rep_state_publisher_ = node_handle.advertise<moveit_msgs::DisplayTrajectory>(
       "repulsed_state", 1, true);
-
-  visualizeJointOrigin();
 
   // namespace rvt = rviz_visual_tools;
   visual_tools_ = std::make_shared<moveit_visual_tools::MoveItVisualTools>(
@@ -864,8 +889,6 @@ int main(int argc, char** argv) {
   changePlanner(context);
 
   generatePlan(context, res);
-
-  visualizeVectorField();
 
   // /* Now, call the pipeline and check whether planning was successful. */
   // planning_pipeline->generatePlan(lscene, req, res);
