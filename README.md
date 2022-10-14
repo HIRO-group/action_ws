@@ -45,8 +45,6 @@ catkin build
 
 
 ## TODO
-- Step through the repulsed states via keyboard input
-- Add repulsive vectors to every joint on visualizer for repulsed states
 - Add a function to reduce the vector based on distance from obstacle
 - Add a way to reduce the vector based on manipulability and direction vectors (if the repulsive vector does not align with manipulability the reduce it or remove it)
 - Visualize trajectory via "original" planner (VFRRT or RRT) vs our contact planner. Publish them to different topics.
