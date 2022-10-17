@@ -34,14 +34,28 @@
 
 // Eigen
 #include <Eigen/Core>
+#include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 #include <Eigen/LU>
 #include <Eigen/SVD>
 
 constexpr char LOGNAME[] = "pick_and_place_node";
 
+struct Manipulability {
+  Eigen::MatrixXd eigen_values;
+  Eigen::MatrixXd eigen_vectors;
+
+  Eigen::Vector3d getVector(std::size_t i) {
+    Eigen::Vector3d eig_vec(eigen_vectors(0, i), eigen_vectors(1, i),
+                            eigen_vectors(2, i));
+    return eig_vec;
+  }
+  bool pass = false;
+};
+
 // ======================= SHARED VARIABLES
 // ==========================================
-const Eigen::Vector3d obstacle_pos_(0.4, 0.0, 0.5);
+const Eigen::Vector3d obstacle_pos_(0.5, 0.0, 0.6);
 const std::vector<double> joint_goal_pos_ = {-1.0, 0.7, 0.7, -1.0,
                                              -0.7, 2.0, 0.0};
 
@@ -58,9 +72,9 @@ std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 
 ros::Publisher marker_pub_;
 ros::Publisher arrow_pub_;
+ros::Publisher manipulability_pub_;
 ros::Publisher trajectory_publisher_;
 ros::Publisher rep_state_publisher_;
-
 std::size_t dof_ = 7;  // get this from robot model
 
 std::vector<std::vector<double>> sample_joint_angles_;
@@ -70,6 +84,7 @@ std::size_t viz_state_idx_ = 0;
 std::size_t sample_state_count_ = 0;
 std::vector<Eigen::VectorXd> repulsed_vec_at_link_;
 std::vector<Eigen::VectorXd> repulsed_origin_at_link_;
+std::vector<std::vector<Manipulability>> manipulability_;
 
 // ==========================================
 // ==========================================
@@ -148,21 +163,86 @@ void printJointTrajectory(
   }
 }
 
+void visualizeManipVec(std::size_t state_num) {
+  visualization_msgs::MarkerArray marker_array;
+  auto repulsed_origin_at_link = repulsed_origin_at_link_[state_num];
+  std::vector<Manipulability> manip_per_joint = manipulability_[state_num];
+
+  for (std::size_t link_num = 0; link_num < dof_; link_num++) {
+    Eigen::Vector3d origin(repulsed_origin_at_link[link_num * 3],
+                           repulsed_origin_at_link[link_num * 3 + 1],
+                           repulsed_origin_at_link[link_num * 3 + 2]);
+    Manipulability manip = manip_per_joint[link_num];
+
+    for (std::size_t vec_num = 0; vec_num < 3; vec_num++) {
+      Eigen::Vector3d dir = manip.getVector(vec_num);
+      Eigen::Vector3d vec = origin + dir;
+      vec.normalize();
+      vec = vec * 0.1;
+
+      uint32_t shape = visualization_msgs::Marker::ARROW;
+
+      visualization_msgs::Marker marker;
+      marker.header.frame_id = "world";
+      marker.header.stamp = ros::Time::now();
+      // marker.ns = "basic_shapes";
+      marker.id = link_num * 3 + vec_num;
+      marker.type = shape;
+
+      // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+      marker.action = visualization_msgs::Marker::ADD;
+
+      geometry_msgs::Point start_pt;
+      start_pt.x = origin[0];
+      start_pt.y = origin[1];
+      start_pt.z = origin[2];
+
+      geometry_msgs::Point end_pt;
+      end_pt.x = vec[0];
+      end_pt.y = vec[1];
+      end_pt.z = vec[2];
+
+      marker.points.push_back(start_pt);
+      marker.points.push_back(end_pt);
+
+      marker.scale.x = 0.01;
+      marker.scale.y = 0.01;
+      marker.scale.z = 0.01;
+
+      if (manip.pass) {
+        marker.color.r = 0.0f;
+        marker.color.g = 1.0f;
+        marker.color.b = 0.0f;
+        marker.color.a = 1.0;
+      } else {
+        marker.color.r = 1.0f;
+        marker.color.g = 0.0f;
+        marker.color.b = 0.0f;
+        marker.color.a = 1.0;
+      }
+
+      marker.lifetime = ros::Duration();
+      marker_array.markers.push_back(marker);
+    }
+  }
+  manipulability_pub_.publish(marker_array);
+}
+
 void visualizeRepulseVec(std::size_t state_num) {
   visualization_msgs::MarkerArray marker_array;
+  auto repulsed_origin_at_link = repulsed_origin_at_link_[state_num];
+  auto repulsed_vec_at_link = repulsed_vec_at_link_[state_num];
+
   for (std::size_t link_num = 0; link_num < dof_; link_num++) {
-    auto repulsed_origin_at_link = repulsed_origin_at_link_[state_num];
-    auto repulsed_vec_at_link = repulsed_vec_at_link_[state_num];
+    Eigen::Vector3d origin(repulsed_origin_at_link[link_num * 3],
+                           repulsed_origin_at_link[link_num * 3 + 1],
+                           repulsed_origin_at_link[link_num * 3 + 2]);
 
-    std::valarray<double> origin = {repulsed_origin_at_link[link_num * 3],
-                                    repulsed_origin_at_link[link_num * 3 + 1],
-                                    repulsed_origin_at_link[link_num * 3 + 2]};
+    Eigen::Vector3d dir(repulsed_vec_at_link[link_num * 3],
+                        repulsed_vec_at_link[link_num * 3 + 1],
+                        repulsed_vec_at_link[link_num * 3 + 2]);
 
-    std::valarray<double> dir = {repulsed_vec_at_link[link_num * 3],
-                                 repulsed_vec_at_link[link_num * 3 + 1],
-                                 repulsed_vec_at_link[link_num * 3 + 2]};
-
-    std::valarray<double> vec = origin + dir;
+    Eigen::Vector3d vec = origin + dir;
 
     uint32_t shape = visualization_msgs::Marker::ARROW;
 
@@ -193,9 +273,9 @@ void visualizeRepulseVec(std::size_t state_num) {
     marker.scale.y = 0.01;
     marker.scale.z = 0.01;
 
-    marker.color.r = 1.0f;
+    marker.color.r = 0.0f;
     marker.color.g = 0.0f;
-    marker.color.b = 0.0f;
+    marker.color.b = 1.0f;
     marker.color.a = 1.0;
 
     marker.lifetime = ros::Duration();
@@ -369,6 +449,7 @@ void visualizeRepulsedState() {
 
     visualizeRepulseVec(viz_state_idx_);
     visualizeRepulseOrigin(viz_state_idx_);
+    visualizeManipVec(viz_state_idx_);
 
     viz_state_idx_++;
 
@@ -380,9 +461,9 @@ void visualizeRepulsedState() {
 }
 
 void promptAnyInput() {
-  std::cout << std::endl;
-  std::cout << "Press any key to continue: ";
-  getchar();
+  std::string user_input = " ";
+  std::cout << "Press any key to continue..." << std::endl;
+  std::cin >> user_input;
 }
 
 void setCurToStartState(
@@ -650,37 +731,81 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     saveOriginVec(origin, vec, i);
   }
 
-  Eigen::MatrixXcd eigen_values;
-  Eigen::MatrixXcd eigen_vectors;
-  bool is_found = kinematics_metrics_->getManipulabilityEllipsoid(
-      *robot_state, joint_model_group_, eigen_values, eigen_vectors);
-  if (!is_found) {
-    ROS_INFO_NAMED(LOGNAME, "Unable to get manipulability ellipsoid");
-  }
-
   Eigen::MatrixXd jacobian = robot_state->getJacobian(joint_model_group_);
+
+  std::vector<Manipulability> manip_per_joint;
+
   // std::cout << "jacobian:\n " << jacobian << std::endl;
   Eigen::VectorXd d_q_out = toEigen(joint_angles);
-
   for (std::size_t i = 0; i < dof_; i++) {
-    Eigen::MatrixXd link_jac = jacobian.block(0, 0, 6, i + 1);
+    Eigen::MatrixXd link_jac = jacobian.block(0, 0, 3, i + 1);
     // std::cout << "link_jac:\n " << link_jac << std::endl;
+
+    // Eigen::JacobiSVD<Eigen::MatrixXd> svd(j_sq, Eigen::ComputeThinU);
+    // std::cout << "ref eigen_values:\n" << svd.singularValues() << std::endl;
+    // std::cout << "ref eigen_vectors:\n " << svd.matrixU() << std::endl;
+
     Eigen::MatrixXd jac_pinv_;
     pseudoInverse(link_jac, jac_pinv_);
     // std::cout << "jac_pinv_:\n " << jac_pinv_ << std::endl;
     Eigen::Vector3d vec = link_to_obs_vec[i];
     // std::cout << "vec:\n " << vec << std::endl;
-    Eigen::VectorXd rob_vec =
-        toEigen(std::vector<double>{vec[0], vec[1], vec[2], 0.0, 0.0, 0.0});
-    Eigen::VectorXd d_q = jac_pinv_ * rob_vec;
-    // std::cout << "d_q:\n " << d_q << std::endl;
-    d_q_out[i] = d_q[i];
+    Eigen::Vector3d rob_vec =
+        toEigen(std::vector<double>{vec[0], vec[1], vec[2]});
+
+    Eigen::MatrixXd j_t = link_jac.transpose();
+    Eigen::MatrixXd j_sq = link_jac * j_t;
+    Eigen::EigenSolver<Eigen::MatrixXd> eigensolver(j_sq);
+
+    Manipulability manip;
+    manip.eigen_values = eigensolver.eigenvalues().real();
+    manip.eigen_vectors = eigensolver.eigenvectors().real();
+
+    double is_valid = false;
+    for (std::size_t i = 0; i < manip.eigen_values.size(); i++) {
+      double eig_val = manip.eigen_values(i);
+      // std::cout << "eig_val " << eig_val << std::endl;
+      Eigen::Vector3d eig_vec = manip.getVector(i);
+      // double ab = eig_vec.dot(rob_vec);
+      // double aa = eig_vec.dot(eig_vec);
+      // double bb = rob_vec.dot(rob_vec);
+
+      double sim1 = std::pow(eig_vec.dot(rob_vec), 2) /
+                    (eig_vec.dot(eig_vec) * rob_vec.dot(rob_vec));
+      double sim2 = std::pow(eig_vec.dot(-1 * rob_vec), 2) /
+                    (eig_vec.dot(eig_vec) * -1 * rob_vec.dot(-1 * rob_vec));
+      double sim = std::max(sim1, sim2);
+      // std::cout << "eig_vec " << eig_vec << std::endl;
+      // std::cout << "rob_vec " << rob_vec << std::endl;
+      // std::cout << "sim " << sim << std::endl;
+
+      const double VAL_THRESH = 0.3;
+      const double SIM_THRESH = 0.3;
+      if (eig_val > VAL_THRESH && sim > SIM_THRESH) {
+        // std::cout << "thresh passed" << std::endl;
+        is_valid = true;
+      }
+    }
+
+    manip.pass = is_valid;
+    manip_per_joint.emplace_back(manip);
+
+    double repulse_angle = 0.0;
+    if (is_valid) {
+      Eigen::VectorXd d_q = jac_pinv_ * rob_vec;
+      // std::cout << "d_q:\n " << d_q << std::endl;
+      repulse_angle = d_q[i];
+    }
+
+    // d_q_out[i] = repulse_angle;
   }
 
+  manipulability_.emplace_back(manip_per_joint);
   saveRepulseAngles(joint_angles, d_q_out);
+
   sample_state_count_++;
   d_q_out.normalize();
-  d_q_out = d_q_out * 0.3;
+  d_q_out = d_q_out * 0.5;
   return d_q_out;
 }
 
@@ -835,6 +960,8 @@ int main(int argc, char** argv) {
       "robot_state", 1, true);
   arrow_pub_ = node_handle.advertise<visualization_msgs::MarkerArray>(
       "vector_field", 1, true);
+  manipulability_pub_ = node_handle.advertise<visualization_msgs::MarkerArray>(
+      "manipulability", 1, true);
   trajectory_publisher_ = node_handle.advertise<moveit_msgs::DisplayTrajectory>(
       "planned_path", 1, true);
   rep_state_publisher_ = node_handle.advertise<moveit_msgs::DisplayTrajectory>(
