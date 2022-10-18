@@ -55,7 +55,7 @@ struct Manipulability {
 
 // ======================= SHARED VARIABLES
 // ==========================================
-const Eigen::Vector3d obstacle_pos_(0.5, 0.0, 0.6);
+const Eigen::Vector3d obstacle_pos_(0.4, 0.0, 0.6);
 const std::vector<double> joint_goal_pos_ = {-1.0, 0.7, 0.7, -1.0,
                                              -0.7, 2.0, 0.0};
 
@@ -79,6 +79,7 @@ std::size_t dof_ = 7;  // get this from robot model
 
 std::vector<std::vector<double>> sample_joint_angles_;
 std::vector<std::vector<double>> sample_desired_angles_;
+std::vector<std::vector<double>> sample_final_angles_;
 
 std::size_t viz_state_idx_ = 0;
 std::size_t sample_state_count_ = 0;
@@ -174,11 +175,12 @@ void visualizeManipVec(std::size_t state_num) {
                            repulsed_origin_at_link[link_num * 3 + 2]);
     Manipulability manip = manip_per_joint[link_num];
 
-    for (std::size_t vec_num = 0; vec_num < 3; vec_num++) {
-      Eigen::Vector3d dir = manip.getVector(vec_num);
+    for (std::size_t vec_num = 0; vec_num < manip.eigen_values.size();
+         vec_num++) {
+      Eigen::Vector3d dir =
+          manip.getVector(vec_num) * manip.eigen_values(vec_num) * 0.2;
+      dir = dir;
       Eigen::Vector3d vec = origin + dir;
-      vec.normalize();
-      vec = vec * 0.1;
 
       uint32_t shape = visualization_msgs::Marker::ARROW;
 
@@ -378,16 +380,16 @@ void visualizeRepulseOrigin(std::size_t state_num) {
 }
 
 void visualizeTrajectory(const planning_interface::MotionPlanResponse& res) {
-  visual_tools_->deleteAllMarkers();
+  // visual_tools_->deleteAllMarkers();
   moveit_msgs::DisplayTrajectory display_trajectory;
   moveit_msgs::MotionPlanResponse response;
   res.getMessage(response);
   display_trajectory.trajectory_start = response.trajectory_start;
   display_trajectory.trajectory.push_back(response.trajectory);
   trajectory_publisher_.publish(display_trajectory);
-  visual_tools_->publishTrajectoryLine(display_trajectory.trajectory.back(),
-                                       joint_model_group_);
-  visual_tools_->trigger();
+  // visual_tools_->publishTrajectoryLine(display_trajectory.trajectory.back(),
+  //                                      joint_model_group_);
+  // visual_tools_->trigger();
 }
 
 void visualizeRepulsedState() {
@@ -405,7 +407,7 @@ void visualizeRepulsedState() {
         joint_model_group_->getActiveJointModelNames();
 
     std::size_t num_joints = names.size();
-    std::vector<double> joint_angles = sample_joint_angles_[viz_state_idx_];
+    std::vector<double> joint_angles = sample_final_angles_[viz_state_idx_];
     joint_start_state.name = names;
     joint_start_state.position = joint_angles;
     joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
@@ -422,7 +424,7 @@ void visualizeRepulsedState() {
 
     trajectory_msgs::JointTrajectoryPoint point;
 
-    joint_angles = sample_joint_angles_[viz_state_idx_];
+    joint_angles = sample_final_angles_[viz_state_idx_];
     point.positions = joint_angles;
     point.velocities = std::vector<double>(num_joints, 0.0);
     point.accelerations = std::vector<double>(num_joints, 0.0);
@@ -631,9 +633,13 @@ std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
 }
 
 Eigen::Vector3d scaleToDist(Eigen::Vector3d vec) {
-  double y_max = 1.0;
-  double D = 20.0;
+  double y_max = 2.0;
+  double D = 50.0;
   Eigen::Vector3d vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
+  // std::cout << "vec.norm() " << vec.norm() << std::endl;
+  // std::cout << "vec.squaredNorm() " << vec.squaredNorm() << std::endl;
+  // std::cout << "before scale " << vec.transpose() << std::endl;
+  // std::cout << "after scale " << vec_out.transpose() << std::endl;
   return vec_out;
 }
 
@@ -736,14 +742,11 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
   std::vector<Manipulability> manip_per_joint;
 
   // std::cout << "jacobian:\n " << jacobian << std::endl;
-  Eigen::VectorXd d_q_out = toEigen(joint_angles);
+  // Eigen::VectorXd d_q_out = toEigen(joint_angles);
+  Eigen::VectorXd d_q_out = Eigen::VectorXd::Zero(dof_);
   for (std::size_t i = 0; i < dof_; i++) {
     Eigen::MatrixXd link_jac = jacobian.block(0, 0, 3, i + 1);
     // std::cout << "link_jac:\n " << link_jac << std::endl;
-
-    // Eigen::JacobiSVD<Eigen::MatrixXd> svd(j_sq, Eigen::ComputeThinU);
-    // std::cout << "ref eigen_values:\n" << svd.singularValues() << std::endl;
-    // std::cout << "ref eigen_vectors:\n " << svd.matrixU() << std::endl;
 
     Eigen::MatrixXd jac_pinv_;
     pseudoInverse(link_jac, jac_pinv_);
@@ -761,32 +764,33 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
     manip.eigen_values = eigensolver.eigenvalues().real();
     manip.eigen_vectors = eigensolver.eigenvectors().real();
 
-    double is_valid = false;
-    for (std::size_t i = 0; i < manip.eigen_values.size(); i++) {
-      double eig_val = manip.eigen_values(i);
-      // std::cout << "eig_val " << eig_val << std::endl;
-      Eigen::Vector3d eig_vec = manip.getVector(i);
-      // double ab = eig_vec.dot(rob_vec);
-      // double aa = eig_vec.dot(eig_vec);
-      // double bb = rob_vec.dot(rob_vec);
+    bool is_valid = false;
+    // for (std::size_t i = 0; i < manip.eigen_values.size(); i++) {
+    //   double eig_val = manip.eigen_values(i);
+    //   // std::cout << "eig_val " << eig_val << std::endl;
+    //   Eigen::Vector3d eig_vec = manip.getVector(i);
+    //   // double ab = eig_vec.dot(rob_vec);
+    //   // double aa = eig_vec.dot(eig_vec);
+    //   // double bb = rob_vec.dot(rob_vec);
 
-      double sim1 = std::pow(eig_vec.dot(rob_vec), 2) /
-                    (eig_vec.dot(eig_vec) * rob_vec.dot(rob_vec));
-      double sim2 = std::pow(eig_vec.dot(-1 * rob_vec), 2) /
-                    (eig_vec.dot(eig_vec) * -1 * rob_vec.dot(-1 * rob_vec));
-      double sim = std::max(sim1, sim2);
-      // std::cout << "eig_vec " << eig_vec << std::endl;
-      // std::cout << "rob_vec " << rob_vec << std::endl;
-      // std::cout << "sim " << sim << std::endl;
+    //   double sim1 = std::pow(eig_vec.dot(rob_vec), 2) /
+    //                 (eig_vec.dot(eig_vec) * rob_vec.dot(rob_vec));
+    //   double sim2 = std::pow(eig_vec.dot(-1 * rob_vec), 2) /
+    //                 (eig_vec.dot(eig_vec) * -1 * rob_vec.dot(-1 * rob_vec));
+    //   double sim = std::max(sim1, sim2);
+    //   std::cout << "eig_vec " << eig_vec.transpose() << std::endl;
+    //   std::cout << "rob_vec " << rob_vec.transpose() << std::endl;
+    //   std::cout << "sim " << sim << std::endl;
 
-      const double VAL_THRESH = 0.3;
-      const double SIM_THRESH = 0.3;
-      if (eig_val > VAL_THRESH && sim > SIM_THRESH) {
-        // std::cout << "thresh passed" << std::endl;
-        is_valid = true;
-      }
-    }
+    //   const double VAL_THRESH = 0.2;
+    //   const double SIM_THRESH = 0.2;
+    //   if (eig_val > VAL_THRESH && sim > SIM_THRESH) {
+    //     std::cout << "thresh passed" << std::endl;
+    //     is_valid = true;
+    //   }
+    // }
 
+    is_valid = true;
     manip.pass = is_valid;
     manip_per_joint.emplace_back(manip);
 
@@ -797,15 +801,16 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
       repulse_angle = d_q[i];
     }
 
-    // d_q_out[i] = repulse_angle;
+    d_q_out[i] = repulse_angle;
   }
 
   manipulability_.emplace_back(manip_per_joint);
   saveRepulseAngles(joint_angles, d_q_out);
 
   sample_state_count_++;
-  d_q_out.normalize();
-  d_q_out = d_q_out * 0.5;
+  // d_q_out.normalize();
+  // d_q_out = d_q_out * 0.5;
+  // d_q_out.normalize();
   return d_q_out;
 }
 
@@ -828,12 +833,14 @@ Eigen::VectorXd totalField(const ompl::base::State* state) {
   const ompl::base::RealVectorStateSpace::StateType& x =
       *state->as<ompl::base::RealVectorStateSpace::StateType>();
   Eigen::VectorXd goal_vec = goalField(state);
-  std::cout << "goal_vec\n" << goal_vec.transpose() << std::endl;
+  std::cout << "\ngoal_vec\n" << goal_vec.transpose() << std::endl;
   Eigen::VectorXd obstacle_vec = obstacleField(state);
   std::cout << "obstacle_vec\n" << obstacle_vec.transpose() << std::endl;
   Eigen::VectorXd total_vec = goal_vec + obstacle_vec;
   std::cout << "total_vec\n" << total_vec.transpose() << std::endl;
-  total_vec.normalize();
+  // total_vec.normalize();
+  sample_final_angles_.emplace_back(toStlVec(
+      toEigen(sample_joint_angles_[sample_state_count_ - 1]) + total_vec));
   return total_vec;
 }
 
@@ -995,7 +1002,7 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = group_name_;
-  req.allowed_planning_time = 1.0;
+  req.allowed_planning_time = 2.0;
   req.planner_id = "panda_arm[RRT]";
 
   // Before planning, we will need a Read Only lock on the planning scene so
@@ -1019,12 +1026,15 @@ int main(int argc, char** argv) {
               res.error_code_.val);
     // return 0;
   }
+
+  ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
   visualizeRepulsedState();
 
   // Visualize the result
   // ^^^^^^^^^^^^^^^^^^^^
   // ^^^^^^^^^^^^^^^^^^^^
 
+  ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
   visualizeTrajectory(res);
 
   // Execute Trajectory
