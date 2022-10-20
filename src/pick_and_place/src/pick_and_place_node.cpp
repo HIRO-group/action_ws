@@ -407,7 +407,7 @@ void visualizeRepulsedState() {
         joint_model_group_->getActiveJointModelNames();
 
     std::size_t num_joints = names.size();
-    std::vector<double> joint_angles = sample_final_angles_[viz_state_idx_];
+    std::vector<double> joint_angles = sample_joint_angles_[viz_state_idx_];
     joint_start_state.name = names;
     joint_start_state.position = joint_angles;
     joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
@@ -424,7 +424,7 @@ void visualizeRepulsedState() {
 
     trajectory_msgs::JointTrajectoryPoint point;
 
-    joint_angles = sample_final_angles_[viz_state_idx_];
+    joint_angles = sample_joint_angles_[viz_state_idx_];
     point.positions = joint_angles;
     point.velocities = std::vector<double>(num_joints, 0.0);
     point.accelerations = std::vector<double>(num_joints, 0.0);
@@ -633,8 +633,8 @@ std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
 }
 
 Eigen::Vector3d scaleToDist(Eigen::Vector3d vec) {
-  double y_max = 2.0;
-  double D = 50.0;
+  double y_max = 1.0;
+  double D = 20.0;
   Eigen::Vector3d vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
   // std::cout << "vec.norm() " << vec.norm() << std::endl;
   // std::cout << "vec.squaredNorm() " << vec.squaredNorm() << std::endl;
@@ -808,8 +808,7 @@ Eigen::VectorXd obstacleField(const ompl::base::State* base_state) {
   saveRepulseAngles(joint_angles, d_q_out);
 
   sample_state_count_++;
-  // d_q_out.normalize();
-  // d_q_out = d_q_out * 0.5;
+  d_q_out = d_q_out * 0.5;
   // d_q_out.normalize();
   return d_q_out;
 }
@@ -826,6 +825,22 @@ Eigen::VectorXd goalField(const ompl::base::State* state) {
   v[5] = joint_goal_pos_[5] - x[5];
   v[6] = joint_goal_pos_[6] - x[6];
   v.normalize();
+  return v;
+}
+
+Eigen::VectorXd negGoalField(const ompl::base::State* state) {
+  const ompl::base::RealVectorStateSpace::StateType& x =
+      *state->as<ompl::base::RealVectorStateSpace::StateType>();
+  Eigen::VectorXd v(7);
+  v[0] = x[0] - joint_goal_pos_[0];
+  v[1] = x[1] - joint_goal_pos_[1];
+  v[2] = x[2] - joint_goal_pos_[2];
+  v[3] = x[3] - joint_goal_pos_[3];
+  v[4] = x[4] - joint_goal_pos_[4];
+  v[5] = x[5] - joint_goal_pos_[5];
+  v[6] = x[6] - joint_goal_pos_[6];
+  v.normalize();
+  std::cout << "v: " << v.transpose() << std::endl;
   return v;
 }
 
@@ -846,11 +861,11 @@ Eigen::VectorXd totalField(const ompl::base::State* state) {
 
 ompl::base::PlannerPtr createPlanner(
     const ompl::base::SpaceInformationPtr& si) {
-  double exploration = 0.7;
-  double initial_lambda = 1.0;
-  unsigned int update_freq = 100;
+  double exploration = 0.9;
+  double initial_lambda = 5.0;
+  unsigned int update_freq = 30;
   ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::VFRRT>(
-      si, totalField, exploration, initial_lambda, update_freq);
+      si, negGoalField, exploration, initial_lambda, update_freq);
   return planner;
 }
 
@@ -1034,8 +1049,8 @@ int main(int argc, char** argv) {
   // ^^^^^^^^^^^^^^^^^^^^
   // ^^^^^^^^^^^^^^^^^^^^
 
-  ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
-  visualizeTrajectory(res);
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
+  // visualizeTrajectory(res);
 
   // Execute Trajectory
   // ^^^^^^^^^^^^^^^^^^^^
