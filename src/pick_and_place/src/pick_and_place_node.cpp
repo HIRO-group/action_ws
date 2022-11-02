@@ -840,7 +840,6 @@ Eigen::VectorXd negGoalField(const ompl::base::State* state) {
   v[5] = x[5] - joint_goal_pos_[5];
   v[6] = x[6] - joint_goal_pos_[6];
   v.normalize();
-  std::cout << "v: " << v.transpose() << std::endl;
   return v;
 }
 
@@ -861,8 +860,8 @@ Eigen::VectorXd totalField(const ompl::base::State* state) {
 
 ompl::base::PlannerPtr createPlanner(
     const ompl::base::SpaceInformationPtr& si) {
-  double exploration = 0.9;
-  double initial_lambda = 5.0;
+  double exploration = 0.5;
+  double initial_lambda = 0.01;
   unsigned int update_freq = 30;
   ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::VFRRT>(
       si, negGoalField, exploration, initial_lambda, update_freq);
