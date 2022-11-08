@@ -5,7 +5,7 @@ import numpy as np
 import math
 import random
 
-lamba_arr = [1.5, 1.0, 1.5]
+lamba_arr = [0.5, 1.0, 2.5]
 
 
 def get_phi(lambda_arg: float) -> float:
@@ -37,6 +37,14 @@ def get_z(sigma: float, lambda_arg: float) -> float:
     return -1.0*num/denom
 
 
+def get_z_arr(sigma_arr: list, lambda_arg: float) -> list:
+    z_arr = []
+    for sigma in sigma_arr:
+        dist = get_z(sigma, lambda_arg)
+        z_arr.append(dist)
+    return z_arr
+
+
 def get_omega(z: float) -> float:
     return math.sqrt(2.0*z)
 
@@ -54,6 +62,9 @@ def get_alpha_beta(omega: float, vrand: npt.ArrayLike, vfield: npt.ArrayLike):
     sign = -1.0 if beta < 0.0 else 1.0
     beta *= sign
     alpha = (sign*c*root+cc_1*(2.0-w2))/(2.0*cc_1)
+    # print("omega: ", omega)
+    # print("alpha: ", alpha)
+    # print("beta: ", beta)
     return [alpha, beta]
 
 
@@ -77,14 +88,16 @@ def get_vrand() -> npt.ArrayLike:
 def get_vnew(vrand: npt.ArrayLike, vfield: npt.ArrayLike):
     sigma = get_sigma(vrand, vfield)
     z = get_z(sigma, lamba_arr[0])
+    # print("z: ", z)
     omega = get_omega(z)
     [alpha, beta] = get_alpha_beta(omega, vrand, vfield)
     vnew = alpha*vfield + beta*vrand
+    vnew = vnew/np.linalg.norm(vnew)
     return vnew
 
 
 def plot_cumulative_dist_func():
-    z_arr = np.arange(0, 5, 0.1, dtype=float)
+    z_arr = np.arange(0, 10, 0.1, dtype=float)
     sigma_arr = get_sigma_arr(z_arr, lamba_arr[0])
     plt.plot(z_arr, sigma_arr, 'ro')
     sigma_arr = get_sigma_arr(z_arr, lamba_arr[1])
@@ -96,7 +109,22 @@ def plot_cumulative_dist_func():
     plt.show()
 
 
-# plot_cumulative_dist_func()
+def plot_z_func():
+    z_arr = np.arange(0, 1, 0.1, dtype=float)
+    sigma_arr = get_z_arr(z_arr, lamba_arr[0])
+    plt.plot(z_arr, sigma_arr, 'ro')
+    sigma_arr = get_z_arr(z_arr, lamba_arr[1])
+    plt.plot(z_arr, sigma_arr, 'bo')
+    sigma_arr = get_z_arr(z_arr, lamba_arr[2])
+    plt.plot(z_arr, sigma_arr, 'go')
+    plt.legend(["lambda "+str(lamba_arr[0]), "lambda " +
+                str(lamba_arr[1]), "lambda "+str(lamba_arr[2])])
+    plt.show()
+
+
+plot_cumulative_dist_func()
+
+plot_z_func()
 
 
 goal = np.array([5, 5])

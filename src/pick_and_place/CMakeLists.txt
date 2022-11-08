@@ -3,7 +3,7 @@ project(pick_and_place)
 
 
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_EXTENSIONS OFF)
+# set(CMAKE_CXX_EXTENSIONS OFF)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -125,7 +125,7 @@ find_package(ompl REQUIRED)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+ INCLUDE_DIRS include
 #  LIBRARIES pick_and_place
 #  CATKIN_DEPENDS interactive_markers moveit_core moveit_ros_planning
 #  DEPENDS system_lib
@@ -155,7 +155,6 @@ DEPENDS
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  # moveit_ompl_interface
 )
 
 include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS})
@@ -175,6 +174,7 @@ include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_node src/pick_and_place_node.cpp)
+add_executable(generate_contact_plan src/generate_contact_plan.cpp src/contact_planner.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -191,7 +191,12 @@ target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   ${OMPL_LIBRARIES}
-  # moveit_ompl_interface
+)
+
+target_link_libraries(generate_contact_plan
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES}
+  ${OMPL_LIBRARIES}
 )
 
 #############
@@ -211,6 +216,9 @@ target_link_libraries(${PROJECT_NAME}_node
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
 install(TARGETS ${PROJECT_NAME}_node
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+install(TARGETS generate_contact_plan
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
