@@ -37,8 +37,8 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
-  c_planner.visualizeRepulsedState();
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
+  // c_planner.visualizeRepulsedState();
 
   ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
   c_planner.visualizeTrajectory(res);

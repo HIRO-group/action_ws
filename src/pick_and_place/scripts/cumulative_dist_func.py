@@ -96,6 +96,31 @@ def get_vnew(vrand: npt.ArrayLike, vfield: npt.ArrayLike):
     return vnew
 
 
+def get_exponential_alpha(step: int) -> float:
+    # c = 100
+    # alpha = step/(step+c)
+
+    c = -0.005
+    alpha = 1.0-math.exp(c*step)
+
+    return alpha
+
+
+def get_exp_alpha_arr(step_arr: npt.ArrayLike) -> npt.ArrayLike:
+    alpha_arr = []
+    for step in step_arr:
+        alpha = get_exponential_alpha(step)
+        alpha_arr.append(alpha)
+    return alpha_arr
+
+
+def plot_exp_alpha():
+    step_arr = np.arange(1, 1000, 1, dtype=float)
+    sigma_arr = get_exp_alpha_arr(step_arr)
+    plt.plot(step_arr, sigma_arr, 'b-')
+    plt.show()
+
+
 def plot_cumulative_dist_func():
     z_arr = np.arange(0, 10, 0.1, dtype=float)
     sigma_arr = get_sigma_arr(z_arr, lamba_arr[0])
@@ -122,36 +147,38 @@ def plot_z_func():
     plt.show()
 
 
-plot_cumulative_dist_func()
+def plot_direction_vectors():
+    goal = np.array([5, 5])
+    num_samples = 60
 
-plot_z_func()
+    vrand_arr = np.zeros((num_samples, 2))
+    vfield_arr = np.zeros((num_samples, 2))
+    vnew_arr = np.zeros((num_samples, 2))
+    origin_arr = np.zeros((num_samples, 2))
+
+    for i in range(num_samples):
+        origin = get_sample_origin()
+        vrand = get_vrand()
+        vfield = get_vfield(goal, origin)
+        vnew = get_vnew(vrand, vfield)
+        vrand_arr[i] = vrand
+        vfield_arr[i] = vfield
+        vnew_arr[i] = vnew
+        origin_arr[i] = origin
+
+    plt.quiver(origin_arr[:, 0], origin_arr[:, 1],
+               vfield_arr[:, 0], vfield_arr[:, 1], color='b', width=0.005, headwidth=2)
+
+    plt.quiver(origin_arr[:, 0], origin_arr[:, 1],
+               vrand_arr[:, 0], vrand_arr[:, 1], color='k', width=0.005, headwidth=2)
+
+    plt.quiver(origin_arr[:, 0], origin_arr[:, 1],
+               vnew_arr[:, 0], vnew_arr[:, 1], color='r', width=0.005, headwidth=2)
+
+    plt.show()
 
 
-goal = np.array([5, 5])
-num_samples = 60
-
-vrand_arr = np.zeros((num_samples, 2))
-vfield_arr = np.zeros((num_samples, 2))
-vnew_arr = np.zeros((num_samples, 2))
-origin_arr = np.zeros((num_samples, 2))
-
-for i in range(num_samples):
-    origin = get_sample_origin()
-    vrand = get_vrand()
-    vfield = get_vfield(goal, origin)
-    vnew = get_vnew(vrand, vfield)
-    vrand_arr[i] = vrand
-    vfield_arr[i] = vfield
-    vnew_arr[i] = vnew
-    origin_arr[i] = origin
-
-plt.quiver(origin_arr[:, 0], origin_arr[:, 1],
-           vfield_arr[:, 0], vfield_arr[:, 1], color='b', width=0.005, headwidth=2)
-
-plt.quiver(origin_arr[:, 0], origin_arr[:, 1],
-           vrand_arr[:, 0], vrand_arr[:, 1], color='k', width=0.005, headwidth=2)
-
-plt.quiver(origin_arr[:, 0], origin_arr[:, 1],
-           vnew_arr[:, 0], vnew_arr[:, 1], color='r', width=0.005, headwidth=2)
-
-plt.show()
+# plot_cumulative_dist_func()
+# plot_z_func()
+# plot_direction_vectors()
+plot_exp_alpha()

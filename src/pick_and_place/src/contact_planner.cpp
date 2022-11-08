@@ -388,6 +388,8 @@ void ContactPlanner::setCurToStartState(
     planning_interface::MotionPlanRequest& req) {
   moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
       planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
+  robot_state->setToDefaultValues(joint_model_group_, "ready");
+  psm_->updateSceneWithCurrentState();
 
   req.start_state.joint_state.header.stamp = ros::Time::now();
   req.start_state.joint_state.name = joint_model_group_->getVariableNames();
@@ -794,11 +796,17 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
 
 ompl::base::PlannerPtr ContactPlanner::createPlanner(
     const ompl::base::SpaceInformationPtr& si) {
-  double exploration = 0.5;
-  double initial_lambda = 0.01;
+  // double exploration = 0.5;
+  // double initial_lambda = 0.01;
+  // unsigned int update_freq = 30;
+  // ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::VFRRT>(
+  //     si, goalField, exploration, initial_lambda, update_freq);
+
+  double lambda = -0.001;
   unsigned int update_freq = 30;
-  ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::VFRRT>(
-      si, negGoalField, exploration, initial_lambda, update_freq);
+  ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::CVFRRT>(
+      si, goalField, lambda, update_freq);
+
   return planner;
 }
 
