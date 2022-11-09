@@ -34,11 +34,11 @@ int main(int argc, char** argv) {
   if (res.error_code_.val != res.error_code_.SUCCESS) {
     ROS_ERROR("Could not compute plan successfully. Error code: %d",
               res.error_code_.val);
-    return 0;
+    // return 0;
   }
 
-  // ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
-  // c_planner.visualizeRepulsedState();
+  ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
+  c_planner.visualizeRepulsedState();
 
   ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
   c_planner.visualizeTrajectory(res);

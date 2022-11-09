@@ -142,8 +142,8 @@ class ContactPlanner {
       const ompl::base::SpaceInformationPtr& si);
 
   Eigen::VectorXd obstacleField(const ompl::base::State* base_state);
-  static Eigen::VectorXd goalField(const ompl::base::State* state);
-  static Eigen::VectorXd negGoalField(const ompl::base::State* state);
+  Eigen::VectorXd goalField(const ompl::base::State* state);
+  Eigen::VectorXd negGoalField(const ompl::base::State* state);
   Eigen::VectorXd totalField(const ompl::base::State* state);
 
   Eigen::VectorXd toEigen(std::vector<double> stl_vec);

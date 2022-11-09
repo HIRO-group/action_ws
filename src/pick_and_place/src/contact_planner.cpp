@@ -324,6 +324,7 @@ void ContactPlanner::visualizeRepulsedState() {
 
     std::size_t num_joints = names.size();
     std::vector<double> joint_angles = sample_joint_angles_[viz_state_idx_];
+    std::cout << toEigen(joint_angles).transpose() << std::endl;
     joint_start_state.name = names;
     joint_start_state.position = joint_angles;
     joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
@@ -349,6 +350,8 @@ void ContactPlanner::visualizeRepulsedState() {
     joint_trajectory.points.push_back(point);
 
     joint_angles = sample_desired_angles_[viz_state_idx_];
+    std::cout << toEigen(joint_angles).transpose() << std::endl;
+
     point.positions = joint_angles;
     point.velocities = std::vector<double>(num_joints, 0.0);
     point.accelerations = std::vector<double>(num_joints, 0.0);
@@ -365,9 +368,9 @@ void ContactPlanner::visualizeRepulsedState() {
     display_trajectory.trajectory.push_back(response.trajectory);
     rep_state_publisher_.publish(display_trajectory);
 
-    visualizeRepulseVec(viz_state_idx_);
-    visualizeRepulseOrigin(viz_state_idx_);
-    visualizeManipVec(viz_state_idx_);
+    // visualizeRepulseVec(viz_state_idx_);
+    // visualizeRepulseOrigin(viz_state_idx_);
+    // visualizeManipVec(viz_state_idx_);
 
     viz_state_idx_++;
 
@@ -744,14 +747,15 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   saveRepulseAngles(joint_angles, d_q_out);
 
   sample_state_count_++;
-  d_q_out = d_q_out * 0.5;
-  // d_q_out.normalize();
+  // d_q_out = d_q_out * 0.1;
+  d_q_out.normalize();
   return d_q_out;
 }
 
 Eigen::VectorXd ContactPlanner::goalField(const ompl::base::State* state) {
   const ompl::base::RealVectorStateSpace::StateType& x =
       *state->as<ompl::base::RealVectorStateSpace::StateType>();
+  std::vector<double> joint_angles = toStlVec(x, dof_);
   Eigen::VectorXd v(7);
   v[0] = joint_goal_pos_[0] - x[0];
   v[1] = joint_goal_pos_[1] - x[1];
@@ -761,6 +765,8 @@ Eigen::VectorXd ContactPlanner::goalField(const ompl::base::State* state) {
   v[5] = joint_goal_pos_[5] - x[5];
   v[6] = joint_goal_pos_[6] - x[6];
   v.normalize();
+  v = v * 0.1;
+  saveRepulseAngles(joint_angles, v);
   return v;
 }
 
@@ -788,7 +794,7 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
   std::cout << "obstacle_vec\n" << obstacle_vec.transpose() << std::endl;
   Eigen::VectorXd total_vec = goal_vec + obstacle_vec;
   std::cout << "total_vec\n" << total_vec.transpose() << std::endl;
-  // total_vec.normalize();
+  total_vec.normalize();
   sample_final_angles_.emplace_back(toStlVec(
       toEigen(sample_joint_angles_[sample_state_count_ - 1]) + total_vec));
   return total_vec;
@@ -796,16 +802,19 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
 
 ompl::base::PlannerPtr ContactPlanner::createPlanner(
     const ompl::base::SpaceInformationPtr& si) {
+  std::function<Eigen::VectorXd(const ompl::base::State*)> vFieldFunc =
+      std::bind(&ContactPlanner::goalField, this, std::placeholders::_1);
+
   // double exploration = 0.5;
   // double initial_lambda = 0.01;
   // unsigned int update_freq = 30;
   // ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::VFRRT>(
-  //     si, goalField, exploration, initial_lambda, update_freq);
+  //     si, vFieldFunc, exploration, initial_lambda, update_freq);
 
   double lambda = -0.001;
   unsigned int update_freq = 30;
   ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::CVFRRT>(
-      si, goalField, lambda, update_freq);
+      si, vFieldFunc, lambda, update_freq);
 
   return planner;
 }
