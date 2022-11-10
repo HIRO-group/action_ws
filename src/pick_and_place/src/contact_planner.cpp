@@ -81,6 +81,15 @@ void ContactPlanner::printJointTrajectory(
 
 void ContactPlanner::visualizeManipVec(std::size_t state_num) {
   visualization_msgs::MarkerArray marker_array;
+
+  if (repulsed_origin_at_link_.size() <= state_num ||
+      manipulability_.size() <= state_num) {
+    ROS_DEBUG_NAMED(
+        LOGNAME,
+        "Insufficient data stored to vizualize manipulability vectors.");
+    return;
+  }
+
   auto repulsed_origin_at_link = repulsed_origin_at_link_[state_num];
   std::vector<Manipulability> manip_per_joint = manipulability_[state_num];
 
@@ -147,6 +156,13 @@ void ContactPlanner::visualizeManipVec(std::size_t state_num) {
 
 void ContactPlanner::visualizeRepulseVec(std::size_t state_num) {
   visualization_msgs::MarkerArray marker_array;
+  if (repulsed_origin_at_link_.size() <= state_num ||
+      repulsed_vec_at_link_.size() <= state_num) {
+    ROS_DEBUG_NAMED(LOGNAME,
+                    "Insufficient data stored to vizualize repulsive vector.");
+    return;
+  }
+
   auto repulsed_origin_at_link = repulsed_origin_at_link_[state_num];
   auto repulsed_vec_at_link = repulsed_vec_at_link_[state_num];
 
@@ -237,6 +253,12 @@ visualization_msgs::Marker ContactPlanner::getObstacleMarker() {
 }
 
 void ContactPlanner::visualizeRepulseOrigin(std::size_t state_num) {
+  if (sample_joint_angles_.size() <= state_num) {
+    ROS_DEBUG_NAMED(LOGNAME,
+                    "Insufficient data stored to vizualize repulsion origin.");
+    return;
+  }
+
   std::vector<double> joint_angles = sample_joint_angles_[state_num];
   moveit::core::RobotStatePtr robot_state =
       std::make_shared<moveit::core::RobotState>(*robot_state_);
@@ -312,6 +334,13 @@ void ContactPlanner::visualizeRepulsedState() {
   std::string user_input = " ";
 
   while (user_input != "q") {
+    if (sample_joint_angles_.size() <= viz_state_idx_ ||
+        sample_desired_angles_.size() <= viz_state_idx_) {
+      ROS_DEBUG_NAMED(LOGNAME,
+                      "Insufficient data stored to vizualize repulsed states.");
+      return;
+    }
+
     std::cout << "Displaying repulsed state with idx: " << viz_state_idx_
               << std::endl;
 
@@ -368,9 +397,9 @@ void ContactPlanner::visualizeRepulsedState() {
     display_trajectory.trajectory.push_back(response.trajectory);
     rep_state_publisher_.publish(display_trajectory);
 
-    // visualizeRepulseVec(viz_state_idx_);
-    // visualizeRepulseOrigin(viz_state_idx_);
-    // visualizeManipVec(viz_state_idx_);
+    visualizeRepulseVec(viz_state_idx_);
+    visualizeRepulseOrigin(viz_state_idx_);
+    visualizeManipVec(viz_state_idx_);
 
     viz_state_idx_++;
 
@@ -570,11 +599,17 @@ std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
 Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   double y_max = 1.0;
   double D = 20.0;
-  Eigen::Vector3d vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
+  double dist_max = 0.2;
   // std::cout << "vec.norm() " << vec.norm() << std::endl;
+  Eigen::Vector3d vec_out = Eigen::VectorXd::Zero(3);
+  if (vec.norm() > dist_max) {
+    // no scaling
+  } else {
+    vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
+  }
   // std::cout << "vec.squaredNorm() " << vec.squaredNorm() << std::endl;
   // std::cout << "before scale " << vec.transpose() << std::endl;
-  // std::cout << "after scale " << vec_out.transpose() << std::endl;
+  // std::cout << "vec_out " << vec_out.transpose() << std::endl;
   return vec_out;
 }
 
@@ -743,19 +778,22 @@ Eigen::VectorXd ContactPlanner::obstacleField(
     d_q_out[i] = repulse_angle;
   }
 
+  // d_q_out = d_q_out * 0.5;
+  // d_q_out.normalize();
+  std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
+
   manipulability_.emplace_back(manip_per_joint);
   saveRepulseAngles(joint_angles, d_q_out);
 
   sample_state_count_++;
-  // d_q_out = d_q_out * 0.1;
-  d_q_out.normalize();
+
   return d_q_out;
 }
 
 Eigen::VectorXd ContactPlanner::goalField(const ompl::base::State* state) {
   const ompl::base::RealVectorStateSpace::StateType& x =
       *state->as<ompl::base::RealVectorStateSpace::StateType>();
-  std::vector<double> joint_angles = toStlVec(x, dof_);
+  // std::vector<double> joint_angles = toStlVec(x, dof_);
   Eigen::VectorXd v(7);
   v[0] = joint_goal_pos_[0] - x[0];
   v[1] = joint_goal_pos_[1] - x[1];
@@ -765,8 +803,8 @@ Eigen::VectorXd ContactPlanner::goalField(const ompl::base::State* state) {
   v[5] = joint_goal_pos_[5] - x[5];
   v[6] = joint_goal_pos_[6] - x[6];
   v.normalize();
-  v = v * 0.1;
-  saveRepulseAngles(joint_angles, v);
+  // v = v * 0.1;
+  // saveRepulseAngles(joint_angles, v);
   return v;
 }
 
@@ -803,18 +841,13 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
 ompl::base::PlannerPtr ContactPlanner::createPlanner(
     const ompl::base::SpaceInformationPtr& si) {
   std::function<Eigen::VectorXd(const ompl::base::State*)> vFieldFunc =
-      std::bind(&ContactPlanner::goalField, this, std::placeholders::_1);
+      std::bind(&ContactPlanner::obstacleField, this, std::placeholders::_1);
 
-  // double exploration = 0.5;
-  // double initial_lambda = 0.01;
-  // unsigned int update_freq = 30;
-  // ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::VFRRT>(
-  //     si, vFieldFunc, exploration, initial_lambda, update_freq);
-
-  double lambda = -0.001;
+  double exploration = 0.5;
+  double initial_lambda = 0.01;
   unsigned int update_freq = 30;
   ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::CVFRRT>(
-      si, vFieldFunc, lambda, update_freq);
+      si, vFieldFunc, exploration, initial_lambda, update_freq);
 
   return planner;
 }
