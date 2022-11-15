@@ -330,6 +330,94 @@ void ContactPlanner::visualizeTrajectory(
   // visual_tools_->trigger();
 }
 
+void ContactPlanner::visualizeTreeStates() {
+  const std::size_t num_display_states = sample_desired_angles_.size();
+  moveit_msgs::DisplayTrajectory display_trajectory;
+  moveit_msgs::MotionPlanResponse response;
+
+  sensor_msgs::JointState joint_start_state;
+  std::vector<std::string> names =
+      joint_model_group_->getActiveJointModelNames();
+
+  std::size_t num_joints = names.size();
+  std::vector<double> joint_angles = sample_desired_angles_[0];
+  std::cout << toEigen(joint_angles).transpose() << std::endl;
+  joint_start_state.name = names;
+  joint_start_state.position = joint_angles;
+  joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
+  joint_start_state.effort = std::vector<double>(num_joints, 0.0);
+
+  moveit_msgs::RobotState robot_start_state;
+  robot_start_state.joint_state = joint_start_state;
+
+  response.group_name = group_name_;
+  response.trajectory_start = robot_start_state;
+  display_trajectory.trajectory_start = response.trajectory_start;
+
+  trajectory_msgs::JointTrajectory joint_trajectory;
+  joint_trajectory.joint_names = names;
+
+  for (std::size_t i = 0; i < num_display_states; i++) {
+    trajectory_msgs::JointTrajectoryPoint point;
+    joint_angles = sample_desired_angles_[i];
+
+    point.positions = joint_angles;
+    point.velocities = std::vector<double>(num_joints, 0.0);
+    point.accelerations = std::vector<double>(num_joints, 0.0);
+    point.effort = std::vector<double>(num_joints, 0.0);
+    point.time_from_start = ros::Duration(1.5);
+    joint_trajectory.points.push_back(point);
+  }
+  moveit_msgs::RobotTrajectory robot_trajectory;
+  robot_trajectory.joint_trajectory = joint_trajectory;
+  response.trajectory = robot_trajectory;
+  display_trajectory.trajectory.push_back(response.trajectory);
+  tree_states_publisher_.publish(display_trajectory);
+}
+
+void ContactPlanner::visualizeGoalState() {
+  moveit_msgs::DisplayTrajectory display_trajectory;
+  moveit_msgs::MotionPlanResponse response;
+
+  sensor_msgs::JointState joint_start_state;
+  std::vector<std::string> names =
+      joint_model_group_->getActiveJointModelNames();
+
+  std::size_t num_joints = names.size();
+  std::vector<double> joint_angles = joint_goal_pos_;
+  std::cout << toEigen(joint_angles).transpose() << std::endl;
+  joint_start_state.name = names;
+  joint_start_state.position = joint_angles;
+  joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
+  joint_start_state.effort = std::vector<double>(num_joints, 0.0);
+
+  moveit_msgs::RobotState robot_start_state;
+  robot_start_state.joint_state = joint_start_state;
+
+  response.group_name = group_name_;
+  response.trajectory_start = robot_start_state;
+  display_trajectory.trajectory_start = response.trajectory_start;
+
+  trajectory_msgs::JointTrajectory joint_trajectory;
+  joint_trajectory.joint_names = names;
+
+  trajectory_msgs::JointTrajectoryPoint point;
+  joint_angles = joint_goal_pos_;
+
+  point.positions = joint_angles;
+  point.velocities = std::vector<double>(num_joints, 0.0);
+  point.accelerations = std::vector<double>(num_joints, 0.0);
+  point.effort = std::vector<double>(num_joints, 0.0);
+  point.time_from_start = ros::Duration(1.5);
+  joint_trajectory.points.push_back(point);
+
+  moveit_msgs::RobotTrajectory robot_trajectory;
+  robot_trajectory.joint_trajectory = joint_trajectory;
+  response.trajectory = robot_trajectory;
+  display_trajectory.trajectory.push_back(response.trajectory);
+  goal_state_publisher_.publish(display_trajectory);
+}
+
 void ContactPlanner::visualizeRepulsedState() {
   std::string user_input = " ";
 
@@ -455,7 +543,7 @@ void ContactPlanner::setPlanningContextParams(
   unsigned int max_planning_threads_ = 4;
   double max_solution_segment_length_ = 0.0;
   unsigned int minimum_waypoint_count_ = 2;
-  double goal_threshold_ = 0.005;
+  double goal_threshold_ = 0.05;
 
   context->setMaximumPlanningThreads(max_planning_threads_);
   context->setMaximumGoalSamples(max_goal_samples_);
@@ -599,14 +687,16 @@ std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
 Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   double y_max = 1.0;
   double D = 20.0;
-  double dist_max = 0.2;
+  double dist_max = 0.5;
   // std::cout << "vec.norm() " << vec.norm() << std::endl;
   Eigen::Vector3d vec_out = Eigen::VectorXd::Zero(3);
-  if (vec.norm() > dist_max) {
-    // no scaling
-  } else {
-    vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
+
+  if (vec.norm() > 0.3) {
+    return vec_out;
   }
+
+  vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
+
   // std::cout << "vec.squaredNorm() " << vec.squaredNorm() << std::endl;
   // std::cout << "before scale " << vec.transpose() << std::endl;
   // std::cout << "vec_out " << vec_out.transpose() << std::endl;
@@ -700,20 +790,37 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
   Eigen::MatrixXd link_positions = getLinkPositions(robot_state);
 
-  std::vector<Eigen::Vector3d> link_to_obs_vec(dof_);
+  std::vector<double> dist_to_obs(dof_);
   for (std::size_t i = 0; i < dof_; i++) {
     Eigen::Vector3d origin(link_positions(i, 0), link_positions(i, 1),
                            link_positions(i, 2));
     Eigen::Vector3d vec = origin - obstacle_pos_;
-    vec = scaleToDist(vec);
-    link_to_obs_vec[i] = vec;
+    double dist = vec.norm();
+    dist_to_obs[i] = dist;
+  }
 
+  auto min_itr =
+      std::min_element(std::begin(dist_to_obs), std::end(dist_to_obs));
+  std::size_t loc_min = std::distance(std::begin(dist_to_obs), min_itr);
+  // std::cout << "loc_min " << loc_min << std::endl;
+
+  std::vector<Eigen::Vector3d> link_to_obs_vec(dof_);
+  for (std::size_t i = 0; i < dof_; i++) {
+    Eigen::Vector3d origin(link_positions(i, 0), link_positions(i, 1),
+                           link_positions(i, 2));
+    Eigen::Vector3d vec = Eigen::Vector3d::Zero(3);
+    if (i == loc_min) {
+      vec = origin - obstacle_pos_;
+      vec = scaleToDist(vec);
+    }
+
+    link_to_obs_vec[i] = vec;
     saveOriginVec(origin, vec, i);
   }
 
   Eigen::MatrixXd jacobian = robot_state->getJacobian(joint_model_group_);
 
-  std::vector<Manipulability> manip_per_joint;
+  // std::vector<Manipulability> manip_per_joint;
 
   // std::cout << "jacobian:\n " << jacobian << std::endl;
   // Eigen::VectorXd d_q_out = toEigen(joint_angles);
@@ -732,13 +839,13 @@ Eigen::VectorXd ContactPlanner::obstacleField(
 
     Eigen::MatrixXd j_t = link_jac.transpose();
     Eigen::MatrixXd j_sq = link_jac * j_t;
-    Eigen::EigenSolver<Eigen::MatrixXd> eigensolver(j_sq);
 
-    Manipulability manip;
-    manip.eigen_values = eigensolver.eigenvalues().real();
-    manip.eigen_vectors = eigensolver.eigenvectors().real();
+    // Eigen::EigenSolver<Eigen::MatrixXd> eigensolver(j_sq);
+    // Manipulability manip;
+    // manip.eigen_values = eigensolver.eigenvalues().real();
+    // manip.eigen_vectors = eigensolver.eigenvectors().real();
 
-    bool is_valid = false;
+    // bool is_valid = false;
     // for (std::size_t i = 0; i < manip.eigen_values.size(); i++) {
     //   double eig_val = manip.eigen_values(i);
     //   // std::cout << "eig_val " << eig_val << std::endl;
@@ -764,27 +871,26 @@ Eigen::VectorXd ContactPlanner::obstacleField(
     //   }
     // }
 
-    is_valid = true;
-    manip.pass = is_valid;
-    manip_per_joint.emplace_back(manip);
+    // is_valid = true;
+    // manip.pass = is_valid;
+    // manip_per_joint.emplace_back(manip);
 
     double repulse_angle = 0.0;
-    if (is_valid) {
-      Eigen::VectorXd d_q = jac_pinv_ * rob_vec;
-      // std::cout << "d_q:\n " << d_q << std::endl;
-      repulse_angle = d_q[i];
-    }
+    // if (is_valid) {
+    Eigen::VectorXd d_q = jac_pinv_ * rob_vec;
+    // std::cout << "d_q:\n " << d_q << std::endl;
+    repulse_angle = d_q[i];
+    // }
 
     d_q_out[i] = repulse_angle;
   }
 
   // d_q_out = d_q_out * 0.5;
   // d_q_out.normalize();
-  std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
+  // std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
 
-  manipulability_.emplace_back(manip_per_joint);
+  // manipulability_.emplace_back(manip_per_joint);
   saveRepulseAngles(joint_angles, d_q_out);
-
   sample_state_count_++;
 
   return d_q_out;
@@ -939,6 +1045,10 @@ void ContactPlanner::init() {
       nh_.advertise<moveit_msgs::DisplayTrajectory>("planned_path", 1, true);
   rep_state_publisher_ =
       nh_.advertise<moveit_msgs::DisplayTrajectory>("repulsed_state", 1, true);
+  tree_states_publisher_ =
+      nh_.advertise<moveit_msgs::DisplayTrajectory>("tree_states", 1, true);
+  goal_state_publisher_ =
+      nh_.advertise<moveit_msgs::DisplayTrajectory>("goal_state", 1, true);
 
   // namespace rvt = rviz_visual_tools;
   visual_tools_ = std::make_shared<moveit_visual_tools::MoveItVisualTools>(

@@ -71,6 +71,8 @@ class ContactPlanner {
 
   void visualizeTrajectory(const planning_interface::MotionPlanResponse& res);
   void visualizeRepulsedState();
+  void visualizeTreeStates();
+  void visualizeGoalState();
 
   friend std::ostream& operator<<(std::ostream& os,
                                   const geometry_msgs::Pose& pose);
@@ -97,6 +99,8 @@ class ContactPlanner {
   ros::Publisher manipulability_pub_;
   ros::Publisher trajectory_publisher_;
   ros::Publisher rep_state_publisher_;
+  ros::Publisher tree_states_publisher_;
+  ros::Publisher goal_state_publisher_;
   std::size_t dof_ = 7;  // get this from robot model
 
   std::vector<std::vector<double>> sample_joint_angles_;

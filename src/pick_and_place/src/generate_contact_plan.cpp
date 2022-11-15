@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = c_planner.getGroupName();
-  req.allowed_planning_time = 2.0;
+  req.allowed_planning_time = 10.0;
   req.planner_id = "panda_arm[RRT]";
 
   ompl_interface::ModelBasedPlanningContextPtr context =
@@ -37,8 +37,14 @@ int main(int argc, char** argv) {
     // return 0;
   }
 
+  ROS_INFO_NAMED(LOGNAME, "Visualizing goal state.");
+  c_planner.visualizeGoalState();
+
   ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
   c_planner.visualizeRepulsedState();
+
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
+  // c_planner.visualizeTreeStates();
 
   ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
   c_planner.visualizeTrajectory(res);
