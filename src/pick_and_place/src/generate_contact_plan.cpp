@@ -43,8 +43,8 @@ int main(int argc, char** argv) {
   ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
   c_planner.visualizeRepulsedState();
 
-  // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
-  // c_planner.visualizeTreeStates();
+  ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
+  c_planner.visualizeTreeStates();
 
   ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
   c_planner.visualizeTrajectory(res);
