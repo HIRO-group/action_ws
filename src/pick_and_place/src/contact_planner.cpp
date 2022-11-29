@@ -155,7 +155,6 @@ void ContactPlanner::visualizeManipVec(std::size_t state_num) {
 }
 
 void ContactPlanner::visualizeRepulseVec(std::size_t state_num) {
-  visualization_msgs::MarkerArray marker_array;
   if (repulsed_origin_at_link_.size() <= state_num ||
       repulsed_vec_at_link_.size() <= state_num) {
     ROS_DEBUG_NAMED(LOGNAME,
@@ -163,17 +162,23 @@ void ContactPlanner::visualizeRepulseVec(std::size_t state_num) {
     return;
   }
 
+  visualization_msgs::MarkerArray marker_array;
   auto repulsed_origin_at_link = repulsed_origin_at_link_[state_num];
   auto repulsed_vec_at_link = repulsed_vec_at_link_[state_num];
 
-  for (std::size_t link_num = 0; link_num < dof_; link_num++) {
-    Eigen::Vector3d origin(repulsed_origin_at_link[link_num * 3],
-                           repulsed_origin_at_link[link_num * 3 + 1],
-                           repulsed_origin_at_link[link_num * 3 + 2]);
+  // std::cout << "repulsed_origin_at_link.size(): "
+  //           << repulsed_origin_at_link.size() << std::endl;
 
-    Eigen::Vector3d dir(repulsed_vec_at_link[link_num * 3],
-                        repulsed_vec_at_link[link_num * 3 + 1],
-                        repulsed_vec_at_link[link_num * 3 + 2]);
+  std::size_t max_num = (int)(repulsed_origin_at_link.size() / 3);
+  for (std::size_t i = 0; i < max_num; i++) {
+    // std::cout << "i: " << i << std::endl;
+    Eigen::Vector3d origin(repulsed_origin_at_link[i * 3],
+                           repulsed_origin_at_link[i * 3 + 1],
+                           repulsed_origin_at_link[i * 3 + 2]);
+
+    Eigen::Vector3d dir(repulsed_vec_at_link[i * 3],
+                        repulsed_vec_at_link[i * 3 + 1],
+                        repulsed_vec_at_link[i * 3 + 2]);
 
     Eigen::Vector3d vec = origin + dir;
 
@@ -183,7 +188,7 @@ void ContactPlanner::visualizeRepulseVec(std::size_t state_num) {
     marker.header.frame_id = "world";
     marker.header.stamp = ros::Time::now();
     // marker.ns = "basic_shapes";
-    marker.id = link_num;
+    marker.id = i;
     marker.type = shape;
 
     // Set the marker action.  Options are ADD, DELETE, and DELETEALL
@@ -259,23 +264,17 @@ void ContactPlanner::visualizeRepulseOrigin(std::size_t state_num) {
     return;
   }
 
-  std::vector<double> joint_angles = sample_joint_angles_[state_num];
-  moveit::core::RobotStatePtr robot_state =
-      std::make_shared<moveit::core::RobotState>(*robot_state_);
-  robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
-
-  std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
-  Eigen::Isometry3d joint_origin_tf = Eigen::Isometry3d::Identity();
   visualization_msgs::MarkerArray marker_array;
-  for (std::size_t i = 0; i < dof_; i++) {
-    const moveit::core::LinkModel* link_model =
-        robot_state->getLinkModel(link_names[i]);
-    Eigen::Isometry3d joint_origin_tf =
-        robot_state->getGlobalLinkTransform(link_model);
+  auto repulsed_origin_at_link = repulsed_origin_at_link_[state_num];
+  std::size_t max_num = (int)(repulsed_origin_at_link.size() / 3);
 
-    auto translation = joint_origin_tf.translation();
+  for (std::size_t i = 0; i < max_num; i++) {
     // std::cout << "translation for " << link_names[i] << "\n"
     //           << translation << std::endl;
+
+    Eigen::Vector3d origin(repulsed_origin_at_link[i * 3],
+                           repulsed_origin_at_link[i * 3 + 1],
+                           repulsed_origin_at_link[i * 3 + 2]);
 
     uint32_t shape = visualization_msgs::Marker::SPHERE;
 
@@ -289,9 +288,9 @@ void ContactPlanner::visualizeRepulseOrigin(std::size_t state_num) {
     // Set the marker action.  Options are ADD, DELETE, and DELETEALL
     marker.action = visualization_msgs::Marker::ADD;
 
-    marker.pose.position.x = (double)translation.x();
-    marker.pose.position.y = (double)translation.y();
-    marker.pose.position.z = (double)translation.z();
+    marker.pose.position.x = origin[0];
+    marker.pose.position.y = origin[1];
+    marker.pose.position.z = origin[2];
     marker.pose.orientation.x = 0.0;
     marker.pose.orientation.y = 0.0;
     marker.pose.orientation.z = 0.0;
@@ -310,28 +309,69 @@ void ContactPlanner::visualizeRepulseOrigin(std::size_t state_num) {
 
     marker_array.markers.push_back(marker);
   }
+  robot_marker_pub_.publish(marker_array);
+}
 
+void ContactPlanner::visualizeObstacleMarker() {
+  visualization_msgs::MarkerArray marker_array;
   visualization_msgs::Marker marker = getObstacleMarker();
   marker_array.markers.push_back(marker);
-  marker_pub_.publish(marker_array);
+  obstacle_marker_pub_.publish(marker_array);
 }
 
 void ContactPlanner::visualizeTrajectory(
-    const planning_interface::MotionPlanResponse& res) {
-  // visual_tools_->deleteAllMarkers();
-  moveit_msgs::DisplayTrajectory display_trajectory;
-  moveit_msgs::MotionPlanResponse response;
-  res.getMessage(response);
-  display_trajectory.trajectory_start = response.trajectory_start;
-  display_trajectory.trajectory.push_back(response.trajectory);
-  trajectory_publisher_.publish(display_trajectory);
-  // visual_tools_->publishTrajectoryLine(display_trajectory.trajectory.back(),
-  //                                      joint_model_group_);
-  // visual_tools_->trigger();
+    const planning_interface::MotionPlanResponse& res, std::string name) {
+  // first publish the final path
+  moveit_msgs::DisplayTrajectory display_final_traj;
+  moveit_msgs::MotionPlanResponse resp_final_traj;
+  ros::Publisher pub_final_traj;
+
+  pub_final_traj = nh_.advertise<moveit_msgs::DisplayTrajectory>(name, 1, true);
+  res.getMessage(resp_final_traj);
+  display_final_traj.trajectory_start = resp_final_traj.trajectory_start;
+  display_final_traj.trajectory.push_back(resp_final_traj.trajectory);
+  pub_final_traj.publish(display_final_traj);
+  trajectory_publishers_.push_back(pub_final_traj);
+
+  moveit_msgs::DisplayTrajectory display_raw_traj;
+  moveit_msgs::MotionPlanResponse resp_raw_traj;
+  ros::Publisher pub_raw_traj;
+
+  // next publish the raw path aka the path without smoothing
+  pub_raw_traj =
+      nh_.advertise<moveit_msgs::DisplayTrajectory>(name + "_raw", 1, true);
+  robot_trajectory::RobotTrajectory trajectory = context_->getRawTrajectory();
+  trajectory.getRobotTrajectoryMsg(resp_raw_traj.trajectory);
+
+  display_raw_traj.trajectory_start = resp_raw_traj.trajectory_start;
+  display_raw_traj.trajectory.push_back(resp_raw_traj.trajectory);
+  pub_raw_traj.publish(display_raw_traj);
+  trajectory_publishers_.push_back(pub_raw_traj);
 }
 
 void ContactPlanner::visualizeTreeStates() {
-  const std::size_t num_display_states = sample_final_angles_.size();
+  ompl::geometric::SimpleSetupPtr simple_setup = context_->getOMPLSimpleSetup();
+  ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
+  ompl::base::PlannerPtr planner = simple_setup->getPlanner();
+
+  ompl::base::PlannerData planner_data(si);
+  planner->getPlannerData(planner_data);
+
+  ompl::base::StateStoragePtr storage = planner_data.extractStateStorage();
+  std::size_t num_states = storage->size();
+  std::cout << "num_states: " << num_states << std::endl;
+  std::vector<const ompl::base::State*> states = storage->getStates();
+
+  std::vector<std::vector<double>> joint_states;
+  for (std::size_t i = 0; i < num_states; i++) {
+    const ompl::base::State* state = states[i];
+    const ompl::base::RealVectorStateSpace::StateType& vec_state =
+        *state->as<ompl::base::RealVectorStateSpace::StateType>();
+    std::vector<double> joint_angles = toStlVec(vec_state, dof_);
+    joint_states.emplace_back(joint_angles);
+  }
+
+  const std::size_t num_display_states = joint_states.size();
   moveit_msgs::DisplayTrajectory display_trajectory;
   moveit_msgs::MotionPlanResponse response;
 
@@ -340,7 +380,7 @@ void ContactPlanner::visualizeTreeStates() {
       joint_model_group_->getActiveJointModelNames();
 
   std::size_t num_joints = names.size();
-  std::vector<double> joint_angles = sample_final_angles_[0];
+  std::vector<double> joint_angles = joint_states[0];
   std::cout << toEigen(joint_angles).transpose() << std::endl;
   joint_start_state.name = names;
   joint_start_state.position = joint_angles;
@@ -359,7 +399,7 @@ void ContactPlanner::visualizeTreeStates() {
 
   for (std::size_t i = 0; i < num_display_states; i++) {
     trajectory_msgs::JointTrajectoryPoint point;
-    joint_angles = sample_final_angles_[i];
+    joint_angles = joint_states[i];
 
     point.positions = joint_angles;
     point.velocities = std::vector<double>(num_joints, 0.0);
@@ -466,7 +506,7 @@ void ContactPlanner::visualizeRepulsedState() {
     point.time_from_start = ros::Duration(0.1);
     joint_trajectory.points.push_back(point);
 
-    joint_angles = sample_final_angles_[viz_state_idx_];
+    joint_angles = sample_desired_angles_[viz_state_idx_];
     std::cout << toEigen(joint_angles).transpose() << std::endl;
 
     point.positions = joint_angles;
@@ -544,6 +584,9 @@ void ContactPlanner::setPlanningContextParams(
   double max_solution_segment_length_ = 0.0;
   unsigned int minimum_waypoint_count_ = 2;
   double goal_threshold_ = 0.1;
+  bool simplify_solution_ = true;
+  bool interpolate_ = true;
+  bool hybridize_ = false;
 
   context->setMaximumPlanningThreads(max_planning_threads_);
   context->setMaximumGoalSamples(max_goal_samples_);
@@ -552,6 +595,9 @@ void ContactPlanner::setPlanningContextParams(
   context->setMaximumSolutionSegmentLength(max_solution_segment_length_);
   context->setMinimumWaypointCount(minimum_waypoint_count_);
   context->setGoalThreshold(goal_threshold_);
+  context->simplifySolutions(simplify_solution_);
+  context->setInterpolation(interpolate_);
+  context->setHybridize(hybridize_);
 }
 
 planning_interface::PlannerConfigurationSettings
@@ -572,9 +618,8 @@ ContactPlanner::getPlannerConfigSettings(
   return pc->second;
 }
 
-ompl_interface::ModelBasedPlanningContextPtr
-ContactPlanner::createPlanningContext(const moveit_msgs::MotionPlanRequest& req,
-                                      const ros::NodeHandle& nh) {
+void ContactPlanner::createPlanningContext(
+    const moveit_msgs::MotionPlanRequest& req, const ros::NodeHandle& nh) {
   planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
 
   ompl_interface::ModelBasedStateSpaceSpecification space_spec(robot_model_,
@@ -607,48 +652,50 @@ ContactPlanner::createPlanningContext(const moveit_msgs::MotionPlanRequest& req,
       std::make_shared<ompl::geometric::SimpleSetup>(state_space);
   context_spec.ompl_simple_setup_ = ompl_simple_setup;
 
-  ompl_interface::ModelBasedPlanningContextPtr context =
-      std::make_shared<ompl_interface::ModelBasedPlanningContext>(group_name_,
-                                                                  context_spec);
+  context_ = std::make_shared<ompl_interface::ModelBasedPlanningContext>(
+      group_name_, context_spec);
 
-  setPlanningContextParams(context);
+  setPlanningContextParams(context_);
 
-  context->clear();
+  context_->clear();
 
   moveit::core::RobotStatePtr start_state =
       lscene->getCurrentStateUpdated(req.start_state);
 
-  context->setPlanningScene(lscene);
-  context->setMotionPlanRequest(req);
-  context->setCompleteInitialState(*start_state);
+  context_->setPlanningScene(lscene);
+  context_->setMotionPlanRequest(req);
+  context_->setCompleteInitialState(*start_state);
 
-  context->setPlanningVolume(req.workspace_parameters);
+  context_->setPlanningVolume(req.workspace_parameters);
   moveit_msgs::MoveItErrorCodes error_code;
-  if (!context->setPathConstraints(req.path_constraints, &error_code)) {
-    ROS_ERROR_NAMED(LOGNAME, "context->setPathConstraints() error: %d",
+  if (!context_->setPathConstraints(req.path_constraints, &error_code)) {
+    ROS_ERROR_NAMED(LOGNAME, "context_->setPathConstraints() error: %d",
                     error_code.val);
-    return ompl_interface::ModelBasedPlanningContextPtr();
+    context_ = ompl_interface::ModelBasedPlanningContextPtr();
   }
 
-  if (!context->setGoalConstraints(req.goal_constraints, req.path_constraints,
-                                   &error_code)) {
-    ROS_ERROR_NAMED(LOGNAME, "context->setGoalConstraints() error %d",
+  if (!context_->setGoalConstraints(req.goal_constraints, req.path_constraints,
+                                    &error_code)) {
+    ROS_ERROR_NAMED(LOGNAME, "context_->setGoalConstraints() error %d",
                     error_code.val);
-    return ompl_interface::ModelBasedPlanningContextPtr();
+    context_ = ompl_interface::ModelBasedPlanningContextPtr();
   }
 
   bool use_constraints_approximation = true;
   try {
-    context->configure(nh, use_constraints_approximation);
-    ROS_INFO_NAMED(LOGNAME, "%s: New planning context is set.",
-                   context->getName().c_str());
+    context_->configure(nh, use_constraints_approximation);
+    ROS_INFO_NAMED(LOGNAME, "%s: New planning context_ is set.",
+                   context_->getName().c_str());
     error_code.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
   } catch (ompl::Exception& ex) {
     ROS_ERROR_NAMED(LOGNAME, "OMPL encountered an error: %s", ex.what());
-    context.reset();
+    context_.reset();
   }
+}
 
-  return context;
+ompl_interface::ModelBasedPlanningContextPtr
+ContactPlanner::getPlanningContext() {
+  return context_;
 }
 
 moveit_msgs::Constraints ContactPlanner::createJointGoal() {
@@ -691,9 +738,9 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   // std::cout << "vec.norm() " << vec.norm() << std::endl;
   Eigen::Vector3d vec_out = Eigen::VectorXd::Zero(3);
 
-  if (vec.norm() > 0.3) {
-    return vec_out;
-  }
+  // if (vec.norm() > 0.4) {
+  //   return vec_out;
+  // }
 
   vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
 
@@ -736,8 +783,8 @@ Eigen::MatrixXd ContactPlanner::getLinkPositions(
     moveit::core::RobotStatePtr robot_state) {
   std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
   Eigen::Isometry3d tf = Eigen::Isometry3d::Identity();
-  Eigen::MatrixXd positions(dof_, 3);
-  for (std::size_t i = 0; i < dof_; i++) {
+  Eigen::MatrixXd positions(link_names.size(), 3);
+  for (std::size_t i = 0; i < link_names.size(); i++) {
     const moveit::core::LinkModel* link_model =
         robot_state->getLinkModel(link_names[i]);
     tf = robot_state->getGlobalLinkTransform(link_model);
@@ -751,21 +798,21 @@ Eigen::MatrixXd ContactPlanner::getLinkPositions(
 
 void ContactPlanner::saveOriginVec(const Eigen::Vector3d& origin,
                                    const Eigen::Vector3d& vec,
-                                   std::size_t link_num) {
+                                   std::size_t num_pts, std::size_t pt_num) {
   if (sample_state_count_ >= repulsed_vec_at_link_.size()) {
-    repulsed_vec_at_link_.emplace_back(Eigen::VectorXd::Zero(dof_ * 3));
-    repulsed_origin_at_link_.emplace_back(Eigen::VectorXd::Zero(dof_ * 3));
+    repulsed_vec_at_link_.emplace_back(Eigen::VectorXd::Zero(num_pts * 3));
+    repulsed_origin_at_link_.emplace_back(Eigen::VectorXd::Zero(num_pts * 3));
   }
 
   Eigen::VectorXd& cur_repulsed = repulsed_vec_at_link_[sample_state_count_];
-  cur_repulsed[link_num * 3] = vec[0];
-  cur_repulsed[link_num * 3 + 1] = vec[1];
-  cur_repulsed[link_num * 3 + 2] = vec[2];
+  cur_repulsed[pt_num * 3] = vec[0];
+  cur_repulsed[pt_num * 3 + 1] = vec[1];
+  cur_repulsed[pt_num * 3 + 2] = vec[2];
 
   Eigen::VectorXd& cur_origin = repulsed_origin_at_link_[sample_state_count_];
-  cur_origin[link_num * 3] = origin[0];
-  cur_origin[link_num * 3 + 1] = origin[1];
-  cur_origin[link_num * 3 + 2] = origin[2];
+  cur_origin[pt_num * 3] = origin[0];
+  cur_origin[pt_num * 3 + 1] = origin[1];
+  cur_origin[pt_num * 3 + 2] = origin[2];
 }
 
 void ContactPlanner::saveJointAngles(const std::vector<double>& joint_angles) {
@@ -779,27 +826,65 @@ void ContactPlanner::saveRepulseAngles(const std::vector<double>& joint_angles,
       toStlVec(toEigen(joint_angles) + d_q_out));
 }
 
+double ContactPlanner::getDistance(Eigen::Vector3d p1, Eigen::Vector3d p2) {
+  return sqrt(pow(p2[0] - p1[0], 2) + pow(p2[1] - p1[1], 2) +
+              pow(p2[2] - p1[2], 2));
+}
+
+void ContactPlanner::interpolateLinkPositions(Eigen::MatrixXd& mat) {
+  std::size_t i = 1;
+  while (i < mat.rows() - 1) {
+    // std::cout << "i: " << i << std::endl;
+    // std::cout << "mat.rows(): " << mat.rows() << std::endl;
+    // std::cout << "mat.cols(): " << mat.cols() << std::endl;
+    // std::cout << "mat\n: " << mat << std::endl;
+
+    Eigen::Vector3d p1(mat(i - 1, 0), mat(i - 1, 1), mat(i - 1, 2));
+    Eigen::Vector3d p2(mat(i, 0), mat(i, 1), mat(i, 2));
+    double dist = getDistance(p1, p2);
+    // std::cout << "p1: " << p1.transpose() << std::endl;
+    // std::cout << "p2: " << p2.transpose() << std::endl;
+    // std::cout << "dist: " << dist << std::endl;
+
+    if (dist > 0.05) {
+      Eigen::MatrixXd imat = Eigen::MatrixXd::Zero(mat.rows() + 1, 3);
+      imat.topRows(i) = mat.topRows(i);
+      imat.bottomRows(mat.rows() - i) = mat.bottomRows(mat.rows() - i);
+      Eigen::Vector3d ivec((p2[0] + p1[0]) / 2.0, (p2[1] + p1[1]) / 2.0,
+                           (p2[2] + p1[2]) / 2.0);
+      // std::cout << "ivec: " << ivec.transpose() << std::endl;
+
+      imat(i, 0) = ivec[0];
+      imat(i, 1) = ivec[1];
+      imat(i, 2) = ivec[2];
+      // std::cout << "mat\n: " << mat << std::endl;
+      // std::cout << "imat\n: " << imat << std::endl;
+      mat = imat;
+    } else {
+      i++;
+    }
+  }
+}
+
 Eigen::VectorXd ContactPlanner::obstacleField(
-    const ompl::base::State* base_state, const ompl::base::State* prev_state) {
+    const ompl::base::State* base_state) {
   const ompl::base::RealVectorStateSpace::StateType& vec_state =
       *base_state->as<ompl::base::RealVectorStateSpace::StateType>();
   std::vector<double> joint_angles = toStlVec(vec_state, dof_);
 
-  if (sample_state_count_ > 0) {
-    const ompl::base::RealVectorStateSpace::StateType& vec_state2 =
-        *prev_state->as<ompl::base::RealVectorStateSpace::StateType>();
-    sample_final_angles_.emplace_back(toStlVec(vec_state2, dof_));
-  }
-
   moveit::core::RobotStatePtr robot_state =
       std::make_shared<moveit::core::RobotState>(*robot_state_);
   robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
-  Eigen::MatrixXd link_positions = getLinkPositions(robot_state);
+  Eigen::MatrixXd rob_pts = getLinkPositions(robot_state);
 
-  std::vector<double> dist_to_obs(dof_);
-  for (std::size_t i = 0; i < dof_; i++) {
-    Eigen::Vector3d origin(link_positions(i, 0), link_positions(i, 1),
-                           link_positions(i, 2));
+  interpolateLinkPositions(rob_pts);
+  // std::cout << "rob_pts\n: " << rob_pts << std::endl;
+  std::size_t num_rob_pts = rob_pts.rows();
+  // std::cout << "num_rob_pts: " << num_rob_pts << std::endl;
+
+  std::vector<double> dist_to_obs(num_rob_pts);
+  for (std::size_t i = 0; i < num_rob_pts; i++) {
+    Eigen::Vector3d origin(rob_pts(i, 0), rob_pts(i, 1), rob_pts(i, 2));
     Eigen::Vector3d vec = origin - obstacle_pos_;
     double dist = vec.norm();
     dist_to_obs[i] = dist;
@@ -810,19 +895,18 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   std::size_t loc_min = std::distance(std::begin(dist_to_obs), min_itr);
   // std::cout << "loc_min " << loc_min << std::endl;
 
-  std::vector<Eigen::Vector3d> link_to_obs_vec(dof_);
-  for (std::size_t i = 0; i < dof_; i++) {
-    Eigen::Vector3d origin(link_positions(i, 0), link_positions(i, 1),
-                           link_positions(i, 2));
+  std::vector<Eigen::Vector3d> link_to_obs_vec(num_rob_pts,
+                                               Eigen::Vector3d::Zero(3));
+  for (std::size_t i = 0; i < num_rob_pts; i++) {
+    Eigen::Vector3d origin(rob_pts(i, 0), rob_pts(i, 1), rob_pts(i, 2));
     Eigen::Vector3d vec = Eigen::Vector3d::Zero(3);
-    if (i == loc_min) {
-      vec = origin - obstacle_pos_;
-      vec = scaleToDist(vec);
-    }
-
+    vec = origin - obstacle_pos_;
+    vec = scaleToDist(vec);
     link_to_obs_vec[i] = vec;
-    saveOriginVec(origin, vec, i);
+    saveOriginVec(origin, vec, num_rob_pts, i);
   }
+  // std::cout << "link_to_obs_vec.size() " << link_to_obs_vec.size() <<
+  // std::endl;
 
   Eigen::MatrixXd jacobian = robot_state->getJacobian(joint_model_group_);
 
@@ -937,7 +1021,7 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
       *state->as<ompl::base::RealVectorStateSpace::StateType>();
   Eigen::VectorXd goal_vec = goalField(state);
   std::cout << "\ngoal_vec\n" << goal_vec.transpose() << std::endl;
-  Eigen::VectorXd obstacle_vec = obstacleField(state, state);
+  Eigen::VectorXd obstacle_vec = obstacleField(state);
   std::cout << "obstacle_vec\n" << obstacle_vec.transpose() << std::endl;
   Eigen::VectorXd total_vec = goal_vec + obstacle_vec;
   std::cout << "total_vec\n" << total_vec.transpose() << std::endl;
@@ -945,35 +1029,39 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
   return total_vec;
 }
 
-ompl::base::PlannerPtr ContactPlanner::createPlanner(
-    const ompl::base::SpaceInformationPtr& si) {
-  std::function<Eigen::VectorXd(const ompl::base::State*,
-                                const ompl::base::State*)>
-      vFieldFunc = std::bind(&ContactPlanner::obstacleField, this,
-                             std::placeholders::_1, std::placeholders::_2);
-
-  double exploration = 0.5;
-  double initial_lambda = 0.01;
-  unsigned int update_freq = 30;
-  ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::CVFRRT>(
-      si, vFieldFunc, exploration, initial_lambda, update_freq);
-
-  return planner;
-}
-
-void ContactPlanner::changePlanner(
-    ompl_interface::ModelBasedPlanningContextPtr& context) {
-  ompl::geometric::SimpleSetupPtr simple_setup = context->getOMPLSimpleSetup();
+void ContactPlanner::changePlanner() {
+  ompl::geometric::SimpleSetupPtr& simple_setup =
+      context_->getOMPLSimpleSetup();
   ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
-  ompl::base::PlannerPtr planner = createPlanner(si);
+
+  ompl::geometric::PathSimplifierPtr& simplifier =
+      simple_setup->getPathSimplifier();
+
+  simplifier->setSimplificationType(
+      ompl::geometric::SimplificationType::SMOOTH_COST);
+
+  std::function<Eigen::VectorXd(const ompl::base::State*)> vFieldFunc =
+      std::bind(&ContactPlanner::obstacleField, this, std::placeholders::_1);
+
+  // double exploration = 0.5;
+  // double initial_lambda = 0.01;
+  // unsigned int update_freq = 30;
+  // ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::CVFRRT>(
+  //     si, vFieldFunc, exploration, initial_lambda, update_freq);
+
+  simple_setup->setOptimizationObjective(
+      std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
+          si, vFieldFunc));
+
+  ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::TRRT>(
+      simple_setup->getSpaceInformation());
+
   simple_setup->setPlanner(planner);
 }
 
-bool ContactPlanner::generatePlan(
-    const ompl_interface::ModelBasedPlanningContextPtr& context,
-    planning_interface::MotionPlanResponse& res) {
+bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
   res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
-  bool is_solved = context->solve(res);
+  bool is_solved = context_->solve(res);
   if (is_solved) {
     std::size_t state_count = res.trajectory_->getWayPointCount();
     ROS_DEBUG_STREAM("Motion planner reported a solution path with "
@@ -1038,14 +1126,14 @@ void ContactPlanner::init() {
   robot_state->printStatePositions();
   robot_state_ = std::make_shared<moveit::core::RobotState>(*robot_state);
 
-  marker_pub_ =
-      nh_.advertise<visualization_msgs::MarkerArray>("robot_state", 1, true);
+  robot_marker_pub_ =
+      nh_.advertise<visualization_msgs::MarkerArray>("repulse_origin", 1, true);
+  obstacle_marker_pub_ =
+      nh_.advertise<visualization_msgs::MarkerArray>("obstacle", 1, true);
   arrow_pub_ =
       nh_.advertise<visualization_msgs::MarkerArray>("vector_field", 1, true);
   manipulability_pub_ =
       nh_.advertise<visualization_msgs::MarkerArray>("manipulability", 1, true);
-  trajectory_publisher_ =
-      nh_.advertise<moveit_msgs::DisplayTrajectory>("planned_path", 1, true);
   rep_state_publisher_ =
       nh_.advertise<moveit_msgs::DisplayTrajectory>("repulsed_state", 1, true);
   tree_states_publisher_ =
@@ -1056,6 +1144,9 @@ void ContactPlanner::init() {
   // namespace rvt = rviz_visual_tools;
   visual_tools_ = std::make_shared<moveit_visual_tools::MoveItVisualTools>(
       "panda_link0", rviz_visual_tools::RVIZ_MARKER_TOPIC, robot_model_);
+
+  visualizeObstacleMarker();
+  visualizeGoalState();
 }
 
 std::string ContactPlanner::getGroupName() { return group_name_; }

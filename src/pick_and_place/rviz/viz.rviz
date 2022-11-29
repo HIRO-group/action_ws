@@ -67,15 +67,6 @@ Visualization Manager:
       Update Interval: 0
       Value: false
       Visual Enabled: true
-    - Class: rviz/InteractiveMarkers
-      Enable Transparency: true
-      Enabled: true
-      Name: InteractiveMarkers
-      Show Axes: false
-      Show Descriptions: true
-      Show Visual Aids: false
-      Update Topic: /equilibrium_pose_marker/update
-      Value: true
     - Class: moveit_rviz_plugin/Trajectory
       Color Enabled: true
       Enabled: true
@@ -190,7 +181,7 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
       Loop Animation: false
-      Name: Trajectory
+      Name: GoalState
       Robot Alpha: 0.5
       Robot Color: 138; 226; 52
       Robot Description: robot_description
@@ -204,7 +195,7 @@ Visualization Manager:
       Value: true
     - Class: moveit_rviz_plugin/Trajectory
       Color Enabled: true
-      Enabled: true
+      Enabled: false
       Interrupt Display: false
       Links:
         All Links Enabled: true
@@ -212,111 +203,8 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        panda_hand:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_hand_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_hand_tcp:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_leftfinger:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link0:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link0_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link1:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link1_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link2:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link2_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link3:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link3_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link4:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link4_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link5:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link5_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link6:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link6_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link7:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link7_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link8:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_rightfinger:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        world:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
       Loop Animation: true
-      Name: Trajectory
+      Name: RepulsedState
       Robot Alpha: 0.5
       Robot Color: 150; 50; 150
       Robot Description: robot_description
@@ -327,7 +215,7 @@ Visualization Manager:
       Trail Step Size: 1
       Trajectory Topic: /repulsed_state
       Use Sim Time: false
-      Value: true
+      Value: false
     - Class: moveit_rviz_plugin/Trajectory
       Color Enabled: true
       Enabled: false
@@ -338,111 +226,8 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        panda_hand:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_hand_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_hand_tcp:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_leftfinger:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link0:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link0_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link1:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link1_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link2:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link2_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link3:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link3_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link4:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link4_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link5:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link5_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link6:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link6_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link7:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        panda_link7_sc:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_link8:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        panda_rightfinger:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        world:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
       Loop Animation: true
-      Name: Trajectory
+      Name: PlannedPath
       Robot Alpha: 0.5
       Robot Color: 114; 159; 207
       Robot Description: robot_description
@@ -454,18 +239,72 @@ Visualization Manager:
       Trajectory Topic: /planned_path
       Use Sim Time: false
       Value: false
+    - Class: moveit_rviz_plugin/Trajectory
+      Color Enabled: true
+      Enabled: false
+      Interrupt Display: false
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+      Loop Animation: true
+      Name: RawPath
+      Robot Alpha: 0.5
+      Robot Color: 252; 175; 62
+      Robot Description: robot_description
+      Show Robot Collision: false
+      Show Robot Visual: true
+      Show Trail: false
+      State Display Time: 0.1s
+      Trail Step Size: 1
+      Trajectory Topic: /planned_path_raw
+      Use Sim Time: false
+      Value: false
+    - Class: moveit_rviz_plugin/Trajectory
+      Color Enabled: true
+      Enabled: false
+      Interrupt Display: false
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+      Loop Animation: true
+      Name: TreeStates
+      Robot Alpha: 0.5
+      Robot Color: 173; 127; 168
+      Robot Description: robot_description
+      Show Robot Collision: false
+      Show Robot Visual: true
+      Show Trail: false
+      State Display Time: 0.1s
+      Trail Step Size: 1
+      Trajectory Topic: /tree_states
+      Use Sim Time: false
+      Value: false
     - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /robot_state
-      Name: MarkerArray
+      Enabled: false
+      Marker Topic: /repulse_origin
+      Name: RepulseOrigin
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
+    - Class: rviz/MarkerArray
+      Enabled: false
+      Marker Topic: /vector_field
+      Name: RepulseVec
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: false
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /vector_field
-      Name: MarkerArray
+      Marker Topic: /obstacle
+      Name: Obstacle
       Namespaces:
         "": true
       Queue Size: 100
@@ -498,7 +337,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 4.966378211975098
+      Distance: 4.926183223724365
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -506,32 +345,40 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.18438054621219635
-        Y: -0.10571267455816269
-        Z: 0.6699559688568115
+        X: 0.21794092655181885
+        Y: 0.04938935860991478
+        Z: 0.20748832821846008
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4697973132133484
+      Pitch: 0.7047973275184631
       Target Frame: <Fixed Frame>
-      Yaw: 6.146779537200928
+      Yaw: 0.9786093235015869
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
+  GoalState - Trajectory Slider:
+    collapsed: false
   Height: 1883
   Hide Left Dock: false
   Hide Right Dock: true
-  QMainWindow State: 000000ff00000000fd00000004000000000000016a000006b9fc020000000bfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001e900000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000006b9000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000001600000016000000010000010f000006b9fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003d000006b9000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004b000000042fc0100000002fb0000000800540069006d00650100000000000004b0000003bc00fffffffb0000000800540069006d0065010000000000000450000000000000000000000340000006b900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  PlannedPath - Trajectory Slider:
+    collapsed: false
+  QMainWindow State: 000000ff00000000fd00000004000000000000016a000006b9fc0200000017fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001e900000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000006b9000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003e0050006c0061006e006e0065006400500061007400680020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000004100fffffffb0000003600520061007700500061007400680020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000004100fffffffb0000003c00540072006500650053007400610074006500730020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000004100fffffffb000000420052006500700075006c007300650064005300740061007400650020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000004100fffffffb0000003a0047006f0061006c005300740061007400650020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000004100ffffff000000010000010f000006b9fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003d000006b9000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004b000000042fc0100000002fb0000000800540069006d00650100000000000004b0000003bc00fffffffb0000000800540069006d0065010000000000000450000000000000000000000340000006b900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  RawPath - Trajectory Slider:
+    collapsed: false
+  RepulsedState - Trajectory Slider:
+    collapsed: false
   Selection:
     collapsed: false
   Time:
     collapsed: false
   Tool Properties:
     collapsed: false
-  Trajectory - Slider:
+  TreeStates - Trajectory Slider:
     collapsed: false
   Views:
     collapsed: true
