@@ -31,9 +31,8 @@
 #include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/rrt/CVFRRT.h>
+#include <ompl/geometric/planners/rrt/ClassicTRRT.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
-#include <ompl/geometric/planners/rrt/TRRT.h>
-#include <ompl/geometric/planners/rrt/VFRRT.h>
 
 #include "ompl/geometric/PathSimplifier.h"
 #include "ompl/geometric/planners/est/EST.h"

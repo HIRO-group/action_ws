@@ -8,14 +8,16 @@ fetch_and_merge(){
 
   if git ls-remote --exit-code upstream; then
     git fetch upstream
-    git merge upstream/$(BRANCH)
-  else
-    git remote add upstream git@github.com:ompl/omplapp.git
+    git merge upstream/${BRANCH}
   fi
 }
 
 pull_origin(){
   git submodule foreach -q --recursive 'git pull'
+  cd src/pick_and_place/
+  git pull
+  cd ../../
 }
 
 pull_origin
+ 
