@@ -1,4 +1,5 @@
 #include "contact_planner.h"
+#include "impedance_controller.h"
 
 constexpr char LOGNAME[] = "generate_plan";
 
@@ -46,6 +47,9 @@ int main(int argc, char** argv) {
   ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
   c_planner.visualizeTrajectory(res, "planned_path");
   c_planner.promptAnyInput();
+
+  ImpedanceController controller;
+  controller.init();
 
   std::cout << "Finished!" << std::endl;
 

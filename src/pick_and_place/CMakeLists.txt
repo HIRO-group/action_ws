@@ -35,6 +35,8 @@ find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED system filesystem date_time thread)
 find_package(ompl REQUIRED)
 
+find_library(FRANKA_LIB franka REQURIED)
+
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -174,7 +176,7 @@ include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_node src/pick_and_place_node.cpp)
-add_executable(generate_contact_plan src/generate_contact_plan.cpp src/contact_planner.cpp)
+add_executable(generate_contact_plan src/generate_contact_plan.cpp src/contact_planner.cpp src/impedance_controller.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -191,12 +193,14 @@ target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   ${OMPL_LIBRARIES}
+  ${FRANKA_LIB}
 )
 
 target_link_libraries(generate_contact_plan
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   ${OMPL_LIBRARIES}
+  ${FRANKA_LIB}
 )
 
 #############
