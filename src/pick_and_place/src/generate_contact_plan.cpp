@@ -40,9 +40,9 @@ int main(int argc, char** argv) {
   ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
   c_planner.visualizeRepulsedState();
 
-  ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
-  c_planner.visualizeTreeStates();
-  c_planner.promptAnyInput();
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
+  // c_planner.visualizeTreeStates();
+  // c_planner.promptAnyInput();
 
   ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
   c_planner.visualizeTrajectory(res, "planned_path");
@@ -50,6 +50,7 @@ int main(int argc, char** argv) {
 
   ImpedanceController controller;
   controller.init();
+  controller.executeTrajectory(res.trajectory_);
 
   std::cout << "Finished!" << std::endl;
 

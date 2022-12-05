@@ -35,7 +35,7 @@ find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED system filesystem date_time thread)
 find_package(ompl REQUIRED)
 
-find_library(FRANKA_LIB franka REQURIED)
+find_package(Franka REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -144,6 +144,7 @@ CATKIN_DEPENDS
 DEPENDS
   EIGEN3
   OMPL
+  Franka
 )
 
 ###########
@@ -159,7 +160,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS})
+include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS} ${Franka_INCLUDE_DIRS})
 
 
 ## Declare a C++ library
@@ -193,14 +194,14 @@ target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   ${OMPL_LIBRARIES}
-  ${FRANKA_LIB}
+  ${Franka_LIBRARIES}
 )
 
 target_link_libraries(generate_contact_plan
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   ${OMPL_LIBRARIES}
-  ${FRANKA_LIB}
+  ${Franka_LIBRARIES}
 )
 
 #############

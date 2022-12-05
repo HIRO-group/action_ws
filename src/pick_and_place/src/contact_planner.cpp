@@ -1030,11 +1030,10 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
 }
 
 void ContactPlanner::changePlanner() {
-  ompl::geometric::SimpleSetupPtr& simple_setup =
-      context_->getOMPLSimpleSetup();
+  ompl::geometric::SimpleSetupPtr simple_setup = context_->getOMPLSimpleSetup();
   ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
 
-  ompl::geometric::PathSimplifierPtr& simplifier =
+  ompl::geometric::PathSimplifierPtr simplifier =
       simple_setup->getPathSimplifier();
 
   simplifier->setSimplificationType(
@@ -1053,8 +1052,9 @@ void ContactPlanner::changePlanner() {
       std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
           si, vFieldFunc));
 
-  ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::TRRT>(
-      simple_setup->getSpaceInformation());
+  ompl::base::PlannerPtr planner =
+      std::make_shared<ompl::geometric::ClassicTRRT>(
+          simple_setup->getSpaceInformation());
 
   simple_setup->setPlanner(planner);
 }
