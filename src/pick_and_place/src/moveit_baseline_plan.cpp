@@ -12,7 +12,7 @@
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
 
-constexpr char LOGNAME[] = "pick_and_place_node";
+constexpr char LOGNAME[] = "moveit_baseline_plan";
 
 const std::vector<double> joint_goal_pos_ = {-1.0, 0.7, 0.7, -1.0,
                                              -0.7, 2.0, 0.0};
@@ -80,7 +80,7 @@ moveit_msgs::Constraints createJointGoal(
 }
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "pick_and_place_node");
+  ros::init(argc, argv, "moveit_baseline_plan");
   ros::AsyncSpinner spinner(1);
   spinner.start();
   ros::NodeHandle node_handle("~");

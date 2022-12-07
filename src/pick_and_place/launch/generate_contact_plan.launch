@@ -10,7 +10,9 @@
   <arg if="$(arg info)" name="command_args" value="--debug" />
 
   <arg name="arm_id" default="panda" />
+
   <env name="ROSCONSOLE_CONFIG_FILE" value="$(find pick_and_place)/config/rosconsole.conf"/>
+  
   <include file="$(find panda_moveit_config)/launch/planning_context.launch">
     <arg name="load_robot_description" value="true"/>
   </include>
@@ -19,10 +21,10 @@
   <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="virtual_joint_broadcaster_0" args="0 0 0 0 0 0 world panda_link0" /> -->
 
   <arg name="planning_plugin" value="ompl_interface/OMPLPlanner" />
-  <arg name="planning_adapters" default=""/>
+  <arg name="planning_adapters" default="default_planner_request_adapters/AddTimeParameterization"/>
+
 
   <!-- added complexity, comment out for now
-    default_planner_request_adapters/AddTimeParameterization
     default_planner_request_adapters/ResolveConstraintFrames
     default_planner_request_adapters/FixWorkspaceBounds
     default_planner_request_adapters/FixStartStateBounds
@@ -39,7 +41,6 @@
     <param name="jiggle_fraction" value="$(arg jiggle_fraction)" />
     <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
     <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
-
   </node>
 
 </launch>

@@ -1,10 +1,12 @@
+#include "contact_controller.h"
 #include "contact_planner.h"
-#include "impedance_controller.h"
 
 constexpr char LOGNAME[] = "generate_plan";
 
+using namespace pick_and_place;
+
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "pick_and_place_node");
+  ros::init(argc, argv, "generate_contact_plan");
   ros::AsyncSpinner spinner(1);
   spinner.start();
   ros::NodeHandle node_handle("~");
@@ -48,9 +50,7 @@ int main(int argc, char** argv) {
   c_planner.visualizeTrajectory(res, "planned_path");
   c_planner.promptAnyInput();
 
-  ImpedanceController controller;
-  controller.init();
-  controller.executeTrajectory(res.trajectory_);
+  ContactController controller;
 
   std::cout << "Finished!" << std::endl;
 

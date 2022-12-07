@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.4)
 project(pick_and_place)
 
 
@@ -34,7 +34,6 @@ find_package(catkin REQUIRED
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED system filesystem date_time thread)
 find_package(ompl REQUIRED)
-
 find_package(Franka REQUIRED)
 
 ## System dependencies are found with CMake's conventions
@@ -127,20 +126,13 @@ find_package(Franka REQUIRED)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
- INCLUDE_DIRS include
-#  LIBRARIES pick_and_place
-#  CATKIN_DEPENDS interactive_markers moveit_core moveit_ros_planning
-#  DEPENDS system_lib
-LIBRARIES
-  # moveit_ompl_interface
-INCLUDE_DIRS
-    # moveit/moveit_planners/ompl/ompl_interface/include
+INCLUDE_DIRS include
+LIBRARIES contact_control contact_plan
 CATKIN_DEPENDS
   moveit_core
   moveit_visual_tools
   moveit_ros_planning_interface
   interactive_markers
-  # tf2_geometry_msgs
 DEPENDS
   EIGEN3
   OMPL
@@ -153,55 +145,58 @@ DEPENDS
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-# include_directories(moveit/moveit_planners/ompl/ompl_interface/include)
-
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
 )
 
-include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS} ${Franka_INCLUDE_DIRS})
-
+include_directories(SYSTEM 
+  ${catkin_INCLUDE_DIRS} 
+  ${Boost_INCLUDE_DIR} 
+  ${EIGEN3_INCLUDE_DIRS} 
+  ${OMPL_INCLUDE_DIRS} 
+  # ${Franka_INCLUDE_DIRS}
+)
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/pick_and_place.cpp
-# )
+add_library(contact_control src/contact_controller.cpp)
+add_library(contact_planning src/contact_planner.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(contact_control ${catkin_EXPORTED_TARGETS})
+add_dependencies(contact_planning ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node src/pick_and_place_node.cpp)
-add_executable(generate_contact_plan src/generate_contact_plan.cpp src/contact_planner.cpp src/impedance_controller.cpp)
+add_executable(moveit_baseline_plan src/moveit_baseline_plan.cpp)
+add_executable(generate_contact_plan src/generate_contact_plan.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
-# set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
+# set_target_properties(moveit_baseline_plan PROPERTIES OUTPUT_NAME node PREFIX "")
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(moveit_baseline_plan ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_node
+target_link_libraries(contact_control ${catkin_LIBRARIES})
+
+target_link_libraries(contact_planning ${catkin_LIBRARIES})
+
+target_link_libraries(moveit_baseline_plan
   ${catkin_LIBRARIES}
-  ${Boost_LIBRARIES}
-  ${OMPL_LIBRARIES}
-  ${Franka_LIBRARIES}
 )
 
 target_link_libraries(generate_contact_plan
+  contact_control
+  contact_planning
   ${catkin_LIBRARIES}
-  ${Boost_LIBRARIES}
-  ${OMPL_LIBRARIES}
-  ${Franka_LIBRARIES}
 )
 
 #############
@@ -220,7 +215,23 @@ target_link_libraries(generate_contact_plan
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-install(TARGETS ${PROJECT_NAME}_node
+install(DIRECTORY include
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)
+
+install(TARGETS contact_control
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(TARGETS contact_planning
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(TARGETS moveit_baseline_plan
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 install(TARGETS generate_contact_plan
@@ -229,6 +240,13 @@ install(TARGETS generate_contact_plan
 
 install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
+install(DIRECTORY config
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+install(FILES contact_control.xml
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
@@ -264,3 +282,6 @@ install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+
+#rospack plugins --attrib=plugin controller_interface

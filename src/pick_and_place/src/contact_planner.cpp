@@ -2,6 +2,8 @@
 
 constexpr char LOGNAME[] = "contact_planner";
 
+namespace pick_and_place {
+
 const std::vector<double> ContactPlanner::joint_goal_pos_{-1.0, 0.7, 0.7, -1.0,
                                                           -0.7, 2.0, 0.0};
 
@@ -1150,3 +1152,5 @@ void ContactPlanner::init() {
 }
 
 std::string ContactPlanner::getGroupName() { return group_name_; }
+
+}  // namespace pick_and_place

@@ -44,6 +44,8 @@
 #include <Eigen/LU>
 #include <Eigen/SVD>
 
+namespace pick_and_place {
+
 struct Manipulability {
   Eigen::MatrixXd eigen_values;
   Eigen::MatrixXd eigen_vectors;
@@ -165,5 +167,5 @@ class ContactPlanner {
   void interpolateLinkPositions(Eigen::MatrixXd& mat);
   double getDistance(Eigen::Vector3d p1, Eigen::Vector3d p2);
 };
-
+}  // namespace pick_and_place
 #endif
