@@ -50,8 +50,6 @@ int main(int argc, char** argv) {
   c_planner.visualizeTrajectory(res, "planned_path");
   c_planner.promptAnyInput();
 
-  ContactController controller;
-
   std::cout << "Finished!" << std::endl;
 
   return 0;

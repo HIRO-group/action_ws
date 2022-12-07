@@ -21,8 +21,21 @@ find_package(catkin REQUIRED
     rviz_visual_tools
     moveit_visual_tools
     pluginlib
+    controller_interface
     geometric_shapes
     moveit_planners_ompl
+    message_generation
+    realtime_tools
+    roscpp
+    rospy
+    franka_hw
+    hardware_interface
+    eigen_conversions
+    joint_limits_interface
+    geometry_msgs
+    tf
+    tf_conversions
+    visualization_msgs
     # pcl_ros
     # pcl_conversions
     # rosbag
@@ -34,7 +47,7 @@ find_package(catkin REQUIRED
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED system filesystem date_time thread)
 find_package(ompl REQUIRED)
-find_package(Franka REQUIRED)
+# find_package(Franka REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -70,11 +83,10 @@ find_package(Franka REQUIRED)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  JointTorqueComparison.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -91,10 +103,10 @@ find_package(Franka REQUIRED)
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -136,7 +148,7 @@ CATKIN_DEPENDS
 DEPENDS
   EIGEN3
   OMPL
-  Franka
+  # Franka
 )
 
 ###########
@@ -145,28 +157,27 @@ DEPENDS
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(
+include_directories(PUBLIC
   include
-  ${catkin_INCLUDE_DIRS}
 )
 
-include_directories(SYSTEM 
-  ${catkin_INCLUDE_DIRS} 
-  ${Boost_INCLUDE_DIR} 
-  ${EIGEN3_INCLUDE_DIRS} 
-  ${OMPL_INCLUDE_DIRS} 
+include_directories(SYSTEM PUBLIC
+  ${catkin_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIR}
+  ${EIGEN3_INCLUDE_DIRS}
+  ${OMPL_INCLUDE_DIRS}
   # ${Franka_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
-add_library(contact_control src/contact_controller.cpp)
-add_library(contact_planning src/contact_planner.cpp)
+add_library(contact_control SHARED src/contact_controller.cpp)
+add_library(contact_planning SHARED src/contact_planner.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-add_dependencies(contact_control ${catkin_EXPORTED_TARGETS})
-add_dependencies(contact_planning ${catkin_EXPORTED_TARGETS})
+# add_dependencies(contact_control ${catkin_EXPORTED_TARGETS})
+# add_dependencies(contact_planning ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
@@ -185,18 +196,18 @@ add_executable(generate_contact_plan src/generate_contact_plan.cpp)
 # add_dependencies(moveit_baseline_plan ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(contact_control ${catkin_LIBRARIES})
+target_link_libraries(contact_control PUBLIC ${catkin_LIBRARIES})
 
-target_link_libraries(contact_planning ${catkin_LIBRARIES})
+target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES})
 
 target_link_libraries(moveit_baseline_plan
   ${catkin_LIBRARIES}
 )
 
 target_link_libraries(generate_contact_plan
+  ${catkin_LIBRARIES}
   contact_control
   contact_planning
-  ${catkin_LIBRARIES}
 )
 
 #############
@@ -215,9 +226,6 @@ target_link_libraries(generate_contact_plan
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-install(DIRECTORY include
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-)
 
 install(TARGETS contact_control
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -236,6 +244,10 @@ install(TARGETS moveit_baseline_plan
 )
 install(TARGETS generate_contact_plan
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY include
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )
 
 install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
@@ -285,3 +297,4 @@ install(FILES contact_control.xml
 
 
 #rospack plugins --attrib=plugin controller_interface
+#rosservice call controller_manager/list_controller_types

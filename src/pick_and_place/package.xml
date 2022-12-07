@@ -51,51 +51,40 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>pluginlib</build_depend>
-  <build_depend>eigen</build_depend>
-  <build_depend>moveit_core</build_depend>
-  <build_depend>moveit_ros_planning</build_depend>
-  <build_depend>moveit_ros_planning_interface</build_depend>
-  <build_depend>moveit_ros_perception</build_depend>
-  <build_depend>interactive_markers</build_depend>
-  <build_depend>geometric_shapes</build_depend>
-  <build_depend>moveit_visual_tools</build_depend>
-  <build_depend>rviz_visual_tools</build_depend>
-  <!-- <build_depend>pcl_ros</build_depend>
-  <build_depend>pcl_conversions</build_depend>
-  <build_depend>rosbag</build_depend>
-  <build_depend>tf2_ros</build_depend>
-  <build_depend>tf2_eigen</build_depend>
-  <build_depend>tf2_geometry_msgs</build_depend> -->
+  <depend>interactive_markers</depend>
+  <depend>moveit_core</depend>
+  <depend>moveit_ros_planning</depend>
+  <depend>moveit_ros_planning_interface</depend>
+  <depend>moveit_ros_perception</depend>
+  <depend>rviz_visual_tools</depend>
+  <depend>moveit_visual_tools</depend>
+  <depend>pluginlib</depend>
+  <depend>controller_interface</depend>
+  <depend>geometric_shapes</depend>
+  <depend>moveit_planners_ompl</depend>
+  <depend>message_generation</depend>
+  <depend>realtime_tools</depend>
+  <depend>roscpp</depend>
+  <depend>rospy</depend>
+  <depend>franka_hw</depend>
+  <depend>hardware_interface</depend>
+  <depend>eigen_conversions</depend>
+  <depend>joint_limits_interface</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tf</depend>
+  <depend>tf_conversions</depend>
+  <depend>visualization_msgs</depend>
 
-  <exec_depend>panda_moveit_config</exec_depend>
+  <exec_depend>franka_control</exec_depend>
   <exec_depend>franka_description</exec_depend>
-  <exec_depend>pluginlib</exec_depend>
-  <exec_depend>moveit_core</exec_depend>
-  <exec_depend>moveit_commander</exec_depend>
-  <exec_depend>moveit_fake_controller_manager</exec_depend>
-  <exec_depend>moveit_ros_planning_interface</exec_depend>
-  <exec_depend>moveit_ros_perception</exec_depend>
-  <exec_depend>interactive_markers</exec_depend>
-  <exec_depend>moveit_visual_tools</exec_depend>
-  <exec_depend>rviz_visual_tools</exec_depend>
-  <!-- <exec_depend>joint_state_publisher</exec_depend>
-  <exec_depend>robot_state_publisher</exec_depend>
-  <exec_depend>joy</exec_depend>
-  <exec_depend>pcl_ros</exec_depend>
-  <exec_depend>pcl_conversions</exec_depend>
-  <exec_depend>rosbag</exec_depend>
-  <exec_depend>rviz</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
-  <exec_depend>tf2_eigen</exec_depend>
-  <exec_depend>tf2_geometry_msgs</exec_depend>
-  <exec_depend>xacro</exec_depend>
-  <exec_depend>nodelet</exec_depend>
-  <exec_depend>gazebo_ros</exec_depend> -->
+
+  <build_export_depend>message_runtime</build_export_depend>
+
+  <build_depend>eigen</build_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <!-- Other tools can request additional information be placed here -->
     <controller_interface plugin="${prefix}/contact_control.xml"/>
   </export>
+
 </package>
