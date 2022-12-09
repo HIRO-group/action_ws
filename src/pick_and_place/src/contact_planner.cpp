@@ -1110,6 +1110,8 @@ void ContactPlanner::init() {
 
   psm_->startStateMonitor();
 
+  psm_->startWorldGeometryMonitor();
+
   kinematics_metrics_ = std::make_shared<kinematics_metrics::KinematicsMetrics>(
       planning_scene_monitor::LockedPlanningSceneRO(psm_)->getRobotModel());
 

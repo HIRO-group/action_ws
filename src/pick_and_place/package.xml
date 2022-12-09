@@ -60,7 +60,7 @@
   <depend>moveit_visual_tools</depend>
   <depend>pluginlib</depend>
   <depend>controller_interface</depend>
-  <depend>geometric_shapes</depend>
+  <!-- <depend>geometric_shapes</depend> -->
   <depend>moveit_planners_ompl</depend>
   <depend>message_generation</depend>
   <depend>realtime_tools</depend>
@@ -68,12 +68,12 @@
   <depend>rospy</depend>
   <depend>franka_hw</depend>
   <depend>hardware_interface</depend>
-  <depend>eigen_conversions</depend>
+  <!-- <depend>eigen_conversions</depend> -->
   <depend>joint_limits_interface</depend>
   <depend>geometry_msgs</depend>
-  <depend>tf</depend>
+  <!-- <depend>tf</depend>
   <depend>tf_conversions</depend>
-  <depend>visualization_msgs</depend>
+  <depend>visualization_msgs</depend> -->
 
   <exec_depend>franka_control</exec_depend>
   <exec_depend>franka_description</exec_depend>

@@ -1,4 +1,5 @@
 #include "contact_controller.h"
+#include "contact_perception.h"
 #include "contact_planner.h"
 
 constexpr char LOGNAME[] = "generate_plan";
@@ -31,23 +32,27 @@ int main(int argc, char** argv) {
 
   c_planner.changePlanner();
 
-  c_planner.generatePlan(res);
+  // c_planner.generatePlan(res);
 
-  if (res.error_code_.val != res.error_code_.SUCCESS) {
-    ROS_ERROR("Could not compute plan successfully. Error code: %d",
-              res.error_code_.val);
-    // return 0;
-  }
+  // if (res.error_code_.val != res.error_code_.SUCCESS) {
+  //   ROS_ERROR("Could not compute plan successfully. Error code: %d",
+  //             res.error_code_.val);
+  //   // return 0;
+  // }
 
-  ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
-  c_planner.visualizeRepulsedState();
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
+  // c_planner.visualizeRepulsedState();
 
   // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
   // c_planner.visualizeTreeStates();
   // c_planner.promptAnyInput();
 
-  ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
-  c_planner.visualizeTrajectory(res, "planned_path");
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
+  // c_planner.visualizeTrajectory(res, "planned_path");
+  // c_planner.promptAnyInput();
+
+  ContactPerception c_perception;
+  c_perception.init();
   c_planner.promptAnyInput();
 
   std::cout << "Finished!" << std::endl;

@@ -35,8 +35,6 @@
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 
 #include "ompl/geometric/PathSimplifier.h"
-#include "ompl/geometric/planners/est/EST.h"
-
 // Eigen
 #include <Eigen/Core>
 #include <Eigen/Dense>

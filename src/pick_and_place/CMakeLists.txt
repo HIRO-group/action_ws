@@ -22,7 +22,7 @@ find_package(catkin REQUIRED
     moveit_visual_tools
     pluginlib
     controller_interface
-    geometric_shapes
+    # geometric_shapes
     moveit_planners_ompl
     message_generation
     realtime_tools
@@ -30,12 +30,12 @@ find_package(catkin REQUIRED
     rospy
     franka_hw
     hardware_interface
-    eigen_conversions
+    # eigen_conversions
     joint_limits_interface
     geometry_msgs
-    tf
-    tf_conversions
-    visualization_msgs
+    # tf
+    # tf_conversions
+    # visualization_msgs
     # pcl_ros
     # pcl_conversions
     # rosbag
@@ -172,6 +172,7 @@ include_directories(SYSTEM PUBLIC
 ## Declare a C++ library
 add_library(contact_control SHARED src/contact_controller.cpp)
 add_library(contact_planning SHARED src/contact_planner.cpp)
+add_library(contact_perception SHARED src/contact_perception.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -197,8 +198,8 @@ add_executable(generate_contact_plan src/generate_contact_plan.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(contact_control PUBLIC ${catkin_LIBRARIES})
-
 target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES})
+target_link_libraries(contact_perception PUBLIC ${catkin_LIBRARIES})
 
 target_link_libraries(moveit_baseline_plan
   ${catkin_LIBRARIES}
@@ -208,6 +209,7 @@ target_link_libraries(generate_contact_plan
   ${catkin_LIBRARIES}
   contact_control
   contact_planning
+  contact_perception
 )
 
 #############
@@ -234,6 +236,12 @@ install(TARGETS contact_control
 )
 
 install(TARGETS contact_planning
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(TARGETS contact_perception
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
