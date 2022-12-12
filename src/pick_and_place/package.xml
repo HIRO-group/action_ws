@@ -74,6 +74,8 @@
   <!-- <depend>tf</depend>
   <depend>tf_conversions</depend>
   <depend>visualization_msgs</depend> -->
+  <depend>rosbag</depend>
+  <depend>sensor_msgs</depend>
 
   <exec_depend>franka_control</exec_depend>
   <exec_depend>franka_description</exec_depend>
@@ -84,7 +86,7 @@
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <controller_interface plugin="${prefix}/contact_control.xml"/>
+    <controller_interface plugin="${prefix}/plugins/contact_control.xml"/>
   </export>
 
 </package>

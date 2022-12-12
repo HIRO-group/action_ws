@@ -1104,13 +1104,30 @@ void ContactPlanner::init() {
   psm_ = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
       robot_model_loader_);
 
+  psm_->publishDebugInformation(true);
+
+  ROS_INFO_NAMED(LOGNAME, "startSceneMonitor");
   psm_->startSceneMonitor();
 
+  ROS_INFO_NAMED(LOGNAME, "startWorldGeometryMonitor");
   psm_->startWorldGeometryMonitor();
 
+  ROS_INFO_NAMED(LOGNAME, "startStateMonitor");
   psm_->startStateMonitor();
 
-  psm_->startWorldGeometryMonitor();
+  ROS_INFO_NAMED(LOGNAME, "startWorldGeometryMonitor");
+  psm_->startWorldGeometryMonitor(planning_scene_monitor::PlanningSceneMonitor::
+                                      DEFAULT_COLLISION_OBJECT_TOPIC,
+                                  planning_scene_monitor::PlanningSceneMonitor::
+                                      DEFAULT_PLANNING_SCENE_WORLD_TOPIC,
+                                  false /* skip octomap monitor */);
+
+  ROS_INFO_NAMED(LOGNAME, "startPublishingPlanningScene");
+  psm_->startPublishingPlanningScene(
+      planning_scene_monitor::PlanningSceneMonitor::UPDATE_SCENE);
+
+  ROS_INFO_NAMED(LOGNAME, "providePlanningSceneService");
+  psm_->providePlanningSceneService();
 
   kinematics_metrics_ = std::make_shared<kinematics_metrics::KinematicsMetrics>(
       planning_scene_monitor::LockedPlanningSceneRO(psm_)->getRobotModel());

@@ -38,7 +38,8 @@ find_package(catkin REQUIRED
     # visualization_msgs
     # pcl_ros
     # pcl_conversions
-    # rosbag
+    rosbag
+    sensor_msgs
     # tf2_ros
     # tf2_eigen
     # tf2_geometry_msgs
@@ -185,6 +186,7 @@ add_library(contact_perception SHARED src/contact_perception.cpp)
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(moveit_baseline_plan src/moveit_baseline_plan.cpp)
 add_executable(generate_contact_plan src/generate_contact_plan.cpp)
+add_executable(publish_pc_bag src/publish_pc_bag.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -201,9 +203,8 @@ target_link_libraries(contact_control PUBLIC ${catkin_LIBRARIES})
 target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES})
 target_link_libraries(contact_perception PUBLIC ${catkin_LIBRARIES})
 
-target_link_libraries(moveit_baseline_plan
-  ${catkin_LIBRARIES}
-)
+target_link_libraries(moveit_baseline_plan ${catkin_LIBRARIES})
+target_link_libraries(publish_pc_bag ${catkin_LIBRARIES})
 
 target_link_libraries(generate_contact_plan
   ${catkin_LIBRARIES}
@@ -229,28 +230,13 @@ target_link_libraries(generate_contact_plan
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
 
-install(TARGETS contact_control
+install(TARGETS contact_control contact_planning contact_perception
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(TARGETS contact_planning
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-install(TARGETS contact_perception
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-install(TARGETS moveit_baseline_plan
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-install(TARGETS generate_contact_plan
+install(TARGETS moveit_baseline_plan generate_contact_plan publish_pc_bag
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
@@ -264,7 +250,7 @@ install(DIRECTORY config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
-install(FILES contact_control.xml
+install(FILES plugins/contact_control.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
