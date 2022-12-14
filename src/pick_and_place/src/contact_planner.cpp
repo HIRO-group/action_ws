@@ -7,6 +7,17 @@ namespace pick_and_place {
 const std::vector<double> ContactPlanner::joint_goal_pos_{-1.0, 0.7, 0.7, -1.0,
                                                           -0.7, 2.0, 0.0};
 
+ContactPlanner::ContactPlanner() {
+  // fill obstacle positions
+  Eigen::Vector3d obs1(0.4, 0.0, 0.6);
+  // Eigen::Vector3d obs2(0.5, 0.0, 0.7);
+  // Eigen::Vector3d obs3(0.6, 0.0, 0.8);
+
+  obstacle_pos_.emplace_back(obs1);
+  // obstacle_pos_.emplace_back(obs2);
+  // obstacle_pos_.emplace_back(obs3);
+}
+
 void ContactPlanner::pseudoInverse(const Eigen::MatrixXd& M_,
                                    Eigen::MatrixXd& M_pinv_, bool damped) {
   double lambda_ = damped ? 0.2 : 0.0;
@@ -224,41 +235,6 @@ void ContactPlanner::visualizeRepulseVec(std::size_t state_num) {
   arrow_pub_.publish(marker_array);
 }
 
-visualization_msgs::Marker ContactPlanner::getObstacleMarker() {
-  uint32_t shape = visualization_msgs::Marker::SPHERE;
-
-  visualization_msgs::Marker marker;
-  marker.header.frame_id = "world";
-  marker.header.stamp = ros::Time::now();
-  // marker.ns = "basic_shapes";
-  marker.id = 10;
-  marker.type = shape;
-
-  // Set the marker action.  Options are ADD, DELETE, and DELETEALL
-  marker.action = visualization_msgs::Marker::ADD;
-
-  marker.pose.position.x = obstacle_pos_[0];
-  marker.pose.position.y = obstacle_pos_[1];
-  marker.pose.position.z = obstacle_pos_[2];
-  marker.pose.orientation.x = 0.0;
-  marker.pose.orientation.y = 0.0;
-  marker.pose.orientation.z = 0.0;
-  marker.pose.orientation.w = 1.0;
-
-  marker.scale.x = 0.05;
-  marker.scale.y = 0.05;
-  marker.scale.z = 0.05;
-
-  marker.color.r = 1.0f;
-  marker.color.g = 0.0f;
-  marker.color.b = 0.0f;
-  marker.color.a = 1.0;
-
-  marker.lifetime = ros::Duration();
-
-  return marker;
-}
-
 void ContactPlanner::visualizeRepulseOrigin(std::size_t state_num) {
   if (sample_joint_angles_.size() <= state_num) {
     ROS_DEBUG_NAMED(LOGNAME,
@@ -314,10 +290,46 @@ void ContactPlanner::visualizeRepulseOrigin(std::size_t state_num) {
   robot_marker_pub_.publish(marker_array);
 }
 
-void ContactPlanner::visualizeObstacleMarker() {
+void ContactPlanner::visualizeObstacleMarker(
+    const std::vector<Eigen::Vector3d>& obstacle_pos) {
   visualization_msgs::MarkerArray marker_array;
-  visualization_msgs::Marker marker = getObstacleMarker();
-  marker_array.markers.push_back(marker);
+
+  for (std::size_t i = 0; i < obstacle_pos.size(); i++) {
+    uint32_t shape = visualization_msgs::Marker::SPHERE;
+
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "world";
+    marker.header.stamp = ros::Time::now();
+    // marker.ns = "basic_shapes";
+    marker.id = i;
+    marker.type = shape;
+
+    // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+    marker.action = visualization_msgs::Marker::ADD;
+
+    Eigen::Vector3d pos = obstacle_pos[i];
+
+    marker.pose.position.x = pos[0];
+    marker.pose.position.y = pos[1];
+    marker.pose.position.z = pos[2];
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    marker.scale.x = 0.05;
+    marker.scale.y = 0.05;
+    marker.scale.z = 0.05;
+
+    marker.color.r = 1.0f;
+    marker.color.g = 0.0f;
+    marker.color.b = 0.0f;
+    marker.color.a = 1.0;
+
+    marker.lifetime = ros::Duration();
+
+    marker_array.markers.push_back(marker);
+  }
   obstacle_marker_pub_.publish(marker_array);
 }
 
@@ -530,6 +542,7 @@ void ContactPlanner::visualizeRepulsedState() {
     visualizeRepulseVec(viz_state_idx_);
     visualizeRepulseOrigin(viz_state_idx_);
     visualizeManipVec(viz_state_idx_);
+    visualizeObstacleMarker(sample_obstacle_pos_[viz_state_idx_]);
 
     viz_state_idx_++;
 
@@ -586,7 +599,7 @@ void ContactPlanner::setPlanningContextParams(
   double max_solution_segment_length_ = 0.0;
   unsigned int minimum_waypoint_count_ = 2;
   double goal_threshold_ = 0.1;
-  bool simplify_solution_ = true;
+  bool simplify_solution_ = false;
   bool interpolate_ = true;
   bool hybridize_ = false;
 
@@ -828,6 +841,20 @@ void ContactPlanner::saveRepulseAngles(const std::vector<double>& joint_angles,
       toStlVec(toEigen(joint_angles) + d_q_out));
 }
 
+void ContactPlanner::saveObstaclePos(
+    const std::vector<Eigen::Vector3d>& obstacle_pos) {
+  std::size_t num_saved = sample_obstacle_pos_.size();
+
+  if (num_saved == sample_state_count_) {
+    sample_obstacle_pos_.emplace_back(obstacle_pos);
+  } else {
+    std::vector<Eigen::Vector3d>& cur_obs_vec =
+        sample_obstacle_pos_[sample_state_count_];
+    cur_obs_vec.insert(std::end(cur_obs_vec), std::begin(obstacle_pos),
+                       std::end(obstacle_pos));
+  }
+}
+
 double ContactPlanner::getDistance(Eigen::Vector3d p1, Eigen::Vector3d p2) {
   return sqrt(pow(p2[0] - p1[0], 2) + pow(p2[1] - p1[1], 2) +
               pow(p2[2] - p1[2], 2));
@@ -866,6 +893,111 @@ void ContactPlanner::interpolateLinkPositions(Eigen::MatrixXd& mat) {
       i++;
     }
   }
+  std::cout << "imat\n: " << mat << std::endl;
+}
+
+std::vector<std::size_t> ContactPlanner::findLinkIdx(
+    const Eigen::MatrixXd& link_positions, const Eigen::MatrixXd& imat) {
+  std::size_t link_idx = 0;
+  std::vector<std::size_t> idx_out(link_positions.rows(), 0);
+
+  for (std::size_t i = 0; i < imat.rows(); i++) {
+    Eigen::Vector3d pos(link_positions(link_idx, 0),
+                        link_positions(link_idx, 1),
+                        link_positions(link_idx, 2));
+    Eigen::Vector3d vec(imat(i, 0), imat(i, 1), imat(i, 2));
+    double dist = getDistance(pos, vec);
+    if (dist < 0.0001) {
+      idx_out[link_idx] = i;
+      // std::cout << "findLinkIdx i: " << i << std::endl;
+      link_idx++;
+    }
+  }
+  // std::cout << "link_positions.rows(): " << link_positions.rows() <<
+  // std::endl; std::cout << "idx_out.size(): " << idx_out.size() << std::endl;
+
+  return idx_out;
+}
+
+std::vector<Eigen::Vector3d> ContactPlanner::getObstacles(
+    const Eigen::Vector3d& pt_on_rob) {
+  std::vector<Eigen::Vector3d> obstacles;
+  if (use_sim_obstacles_) {
+    return obstacle_pos_;
+  }
+
+  bool status = contact_perception_.extractNearPts(pt_on_rob, obstacles);
+  if (status) {
+    return obstacles;
+  }
+
+  // this yields a zero vector
+  obstacles.emplace_back(pt_on_rob);
+  return obstacles;
+}
+
+std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
+    const Eigen::MatrixXd& rob_pts,
+    const std::vector<std::size_t>& link_idx_arr) {
+  std::size_t num_links = link_idx_arr.size();
+  std::size_t num_rob_pts = rob_pts.rows();
+
+  // std::cout << "num_links: " << num_links << std::endl;
+  // std::cout << "num_rob_pts: " << num_rob_pts << std::endl;
+
+  std::vector<Eigen::Vector3d> link_to_obs_vec(num_links,
+                                               Eigen::Vector3d::Zero(3));
+
+  for (std::size_t i = 1; i < num_links; i++) {
+    std::size_t link1_idx = link_idx_arr[i - 1];
+    std::size_t link2_idx = link_idx_arr[i];
+    // std::cout << "i: " << i << std::endl;
+    // std::cout << "link1_idx: " << link1_idx << std::endl;
+    // std::cout << "link2_idx: " << link2_idx << std::endl;
+
+    Eigen::MatrixXd pts_link_vec =
+        Eigen::MatrixXd::Zero(link2_idx - link1_idx, 3);
+
+    for (std::size_t j = link1_idx; j < link2_idx; j++) {
+      Eigen::Vector3d pt_on_rob(rob_pts(j, 0), rob_pts(j, 1), rob_pts(j, 2));
+      // std::cout << "j: " << j << std::endl;
+
+      std::vector<Eigen::Vector3d> obstacle_pos = getObstacles(pt_on_rob);
+      std::size_t num_obstacles = obstacle_pos.size();
+      saveObstaclePos(obstacle_pos);
+
+      Eigen::MatrixXd pt_to_obs = Eigen::MatrixXd::Zero(num_obstacles, 3);
+      for (std::size_t k = 0; k < num_obstacles; k++) {
+        Eigen::Vector3d vec = pt_on_rob - obstacle_pos[k];
+        vec = scaleToDist(vec);
+
+        pt_to_obs(k, 0) = vec[0];
+        pt_to_obs(k, 1) = vec[1];
+        pt_to_obs(k, 2) = vec[2];
+      }
+
+      double av_x = pt_to_obs.col(0).mean();
+      double av_y = pt_to_obs.col(1).mean();
+      double av_z = pt_to_obs.col(2).mean();
+      Eigen::Vector3d pt_to_obs_av(av_x, av_y, av_z);
+
+      pts_link_vec(link2_idx - j - 1, 0) = pt_to_obs_av[0];
+      pts_link_vec(link2_idx - j - 1, 1) = pt_to_obs_av[1];
+      pts_link_vec(link2_idx - j - 1, 2) = pt_to_obs_av[2];
+
+      // std::cout << "pt_to_obs_av: " << pt_to_obs_av.transpose() << std::endl;
+      saveOriginVec(pt_on_rob, pt_to_obs_av, num_rob_pts, j);
+    }
+    // std::cout << "pts_link_vec.rows(): " << pts_link_vec.rows() << std::endl;
+    double av_x = pts_link_vec.col(0).mean();
+    double av_y = pts_link_vec.col(1).mean();
+    double av_z = pts_link_vec.col(2).mean();
+    Eigen::Vector3d to_obs_avg(av_x, av_y, av_z);
+    // std::cout << "to_obs_avg: " << to_obs_avg.transpose() << std::endl;
+
+    link_to_obs_vec[i - 1] = to_obs_avg;
+  }
+  return link_to_obs_vec;
 }
 
 Eigen::VectorXd ContactPlanner::obstacleField(
@@ -881,34 +1013,13 @@ Eigen::VectorXd ContactPlanner::obstacleField(
 
   interpolateLinkPositions(rob_pts);
   // std::cout << "rob_pts\n: " << rob_pts << std::endl;
-  std::size_t num_rob_pts = rob_pts.rows();
   // std::cout << "num_rob_pts: " << num_rob_pts << std::endl;
 
-  std::vector<double> dist_to_obs(num_rob_pts);
-  for (std::size_t i = 0; i < num_rob_pts; i++) {
-    Eigen::Vector3d origin(rob_pts(i, 0), rob_pts(i, 1), rob_pts(i, 2));
-    Eigen::Vector3d vec = origin - obstacle_pos_;
-    double dist = vec.norm();
-    dist_to_obs[i] = dist;
-  }
+  std::vector<std::size_t> link_idx_arr =
+      findLinkIdx(getLinkPositions(robot_state), rob_pts);
 
-  auto min_itr =
-      std::min_element(std::begin(dist_to_obs), std::end(dist_to_obs));
-  std::size_t loc_min = std::distance(std::begin(dist_to_obs), min_itr);
-  // std::cout << "loc_min " << loc_min << std::endl;
-
-  std::vector<Eigen::Vector3d> link_to_obs_vec(num_rob_pts,
-                                               Eigen::Vector3d::Zero(3));
-  for (std::size_t i = 0; i < num_rob_pts; i++) {
-    Eigen::Vector3d origin(rob_pts(i, 0), rob_pts(i, 1), rob_pts(i, 2));
-    Eigen::Vector3d vec = Eigen::Vector3d::Zero(3);
-    vec = origin - obstacle_pos_;
-    vec = scaleToDist(vec);
-    link_to_obs_vec[i] = vec;
-    saveOriginVec(origin, vec, num_rob_pts, i);
-  }
-  // std::cout << "link_to_obs_vec.size() " << link_to_obs_vec.size() <<
-  // std::endl;
+  std::vector<Eigen::Vector3d> link_to_obs_vec =
+      getLinkToObsVec(rob_pts, link_idx_arr);
 
   Eigen::MatrixXd jacobian = robot_state->getJacobian(joint_model_group_);
 
@@ -967,14 +1078,14 @@ Eigen::VectorXd ContactPlanner::obstacleField(
     // manip.pass = is_valid;
     // manip_per_joint.emplace_back(manip);
 
-    double repulse_angle = 0.0;
+    // double repulse_angle = 0.0;
     // if (is_valid) {
     Eigen::VectorXd d_q = jac_pinv_ * rob_vec;
     // std::cout << "d_q:\n " << d_q << std::endl;
-    repulse_angle = d_q[i];
+    // repulse_angle = d_q[i];
     // }
 
-    d_q_out[i] = repulse_angle;
+    d_q_out[i] = d_q[i];
   }
 
   // d_q_out = d_q_out * 0.5;
@@ -984,7 +1095,6 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   // manipulability_.emplace_back(manip_per_joint);
   saveRepulseAngles(joint_angles, d_q_out);
   sample_state_count_++;
-
   return d_q_out;
 }
 
@@ -1166,8 +1276,10 @@ void ContactPlanner::init() {
   visual_tools_ = std::make_shared<moveit_visual_tools::MoveItVisualTools>(
       "panda_link0", rviz_visual_tools::RVIZ_MARKER_TOPIC, robot_model_);
 
-  visualizeObstacleMarker();
+  visualizeObstacleMarker(obstacle_pos_);
   visualizeGoalState();
+
+  contact_perception_.init();
 }
 
 std::string ContactPlanner::getGroupName() { return group_name_; }

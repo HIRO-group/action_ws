@@ -35,12 +35,16 @@
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 
 #include "ompl/geometric/PathSimplifier.h"
+
 // Eigen
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <Eigen/LU>
 #include <Eigen/SVD>
+
+// Local contact library
+#include "contact_perception.h"
 
 namespace pick_and_place {
 
@@ -58,6 +62,8 @@ struct Manipulability {
 
 class ContactPlanner {
  public:
+  ContactPlanner();
+
   void init();
   void setCurToStartState(planning_interface::MotionPlanRequest& req);
   void createPlanningContext(const moveit_msgs::MotionPlanRequest& req,
@@ -85,7 +91,10 @@ class ContactPlanner {
   ros::NodeHandle nh_;
   const std::string group_name_ = "panda_arm";
 
-  const Eigen::Vector3d obstacle_pos_{0.4, 0.0, 0.6};
+  ContactPerception contact_perception_;
+
+  bool use_sim_obstacles_ = false;
+  std::vector<Eigen::Vector3d> obstacle_pos_;
   static const std::vector<double> joint_goal_pos_;
 
   const moveit::core::JointModelGroup* joint_model_group_;
@@ -112,6 +121,7 @@ class ContactPlanner {
   std::vector<std::vector<double>> sample_joint_angles_;
   std::vector<std::vector<double>> sample_desired_angles_;
   std::vector<std::vector<double>> sample_final_angles_;
+  std::vector<std::vector<Eigen::Vector3d>> sample_obstacle_pos_;
 
   std::size_t viz_state_idx_ = 0;
   std::size_t sample_state_count_ = 0;
@@ -131,15 +141,15 @@ class ContactPlanner {
 
   void visualizeManipVec(std::size_t state_num);
   void visualizeRepulseVec(std::size_t state_num);
-  visualization_msgs::Marker getObstacleMarker();
   void visualizeRepulseOrigin(std::size_t state_num);
   void saveOriginVec(const Eigen::Vector3d& origin, const Eigen::Vector3d& vec,
                      std::size_t num_pts, std::size_t pt_num);
+  void visualizeObstacleMarker(
+      const std::vector<Eigen::Vector3d>& obstacle_pos);
   void saveJointAngles(const std::vector<double>& joint_angles);
   void saveRepulseAngles(const std::vector<double>& joint_angles,
                          const Eigen::VectorXd& d_q_out);
-
-  void visualizeObstacleMarker();
+  void saveObstaclePos(const std::vector<Eigen::Vector3d>& obstacle_pos);
 
   std::unique_ptr<ompl_interface::OMPLInterface> getOMPLInterface(
       const moveit::core::RobotModelConstPtr& model, const ros::NodeHandle& nh);
@@ -148,8 +158,6 @@ class ContactPlanner {
   planning_interface::PlannerConfigurationSettings getPlannerConfigSettings(
       const planning_interface::PlannerConfigurationMap& pconfig_map,
       const std::string& planner_id);
-  Eigen::Vector3d scaleToDist(Eigen::Vector3d vec);
-  Eigen::MatrixXd getLinkPositions(moveit::core::RobotStatePtr robot_state);
 
   Eigen::VectorXd obstacleField(const ompl::base::State* base_state);
   Eigen::VectorXd goalField(const ompl::base::State* state);
@@ -164,6 +172,14 @@ class ContactPlanner {
 
   void interpolateLinkPositions(Eigen::MatrixXd& mat);
   double getDistance(Eigen::Vector3d p1, Eigen::Vector3d p2);
+  Eigen::Vector3d scaleToDist(Eigen::Vector3d vec);
+  Eigen::MatrixXd getLinkPositions(moveit::core::RobotStatePtr robot_state);
+  std::vector<std::size_t> findLinkIdx(const Eigen::MatrixXd& link_positions,
+                                       const Eigen::MatrixXd& imat);
+  std::vector<Eigen::Vector3d> getLinkToObsVec(
+      const Eigen::MatrixXd& rob_pts,
+      const std::vector<std::size_t>& link_idx_arr);
+  std::vector<Eigen::Vector3d> getObstacles(const Eigen::Vector3d& pt_on_rob);
 };
 }  // namespace pick_and_place
 #endif
