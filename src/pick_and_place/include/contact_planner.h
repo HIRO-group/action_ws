@@ -6,7 +6,6 @@
 
 // C++
 #include <algorithm>
-#include <valarray>
 #include <vector>
 
 // MoveIt
@@ -15,20 +14,14 @@
 #include <moveit/ompl_interface/detail/constrained_goal_sampler.h>
 #include <moveit/ompl_interface/detail/state_validity_checker.h>
 #include <moveit/ompl_interface/model_based_planning_context.h>
-#include <moveit/ompl_interface/ompl_interface.h>
 #include <moveit/ompl_interface/parameterization/joint_space/joint_model_state_space.h>
 #include <moveit/planning_interface/planning_interface.h>
-#include <moveit/planning_pipeline/planning_pipeline.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/planning_scene_monitor/current_state_monitor.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
-#include <moveit_msgs/DisplayTrajectory.h>
-#include <moveit_msgs/PlanningScene.h>
-#include <moveit_visual_tools/moveit_visual_tools.h>
 
 // OMPL
 #include <ompl/base/objectives/VFUpstreamCriterionOptimizationObjective.h>
-#include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/rrt/CVFRRT.h>
 #include <ompl/geometric/planners/rrt/ClassicTRRT.h>
@@ -43,22 +36,14 @@
 #include <Eigen/LU>
 #include <Eigen/SVD>
 
-// Local contact library
+// Local libraries, helper functions, and utilities
 #include "contact_perception.h"
+#include "manipulability_measures.h"
+#include "utilities.h"
+#include "visualizer.h"
+#include "visualizer_data.h"
 
 namespace pick_and_place {
-
-struct Manipulability {
-  Eigen::MatrixXd eigen_values;
-  Eigen::MatrixXd eigen_vectors;
-
-  Eigen::Vector3d getVector(std::size_t i) {
-    Eigen::Vector3d eig_vec(eigen_vectors(0, i), eigen_vectors(1, i),
-                            eigen_vectors(2, i));
-    return eig_vec;
-  }
-  bool pass = false;
-};
 
 class ContactPlanner {
  public:
@@ -76,26 +61,22 @@ class ContactPlanner {
   moveit_msgs::Constraints createJointGoal();
 
   std::string getGroupName();
-
-  void visualizeRepulsedState();
-  void visualizeTreeStates();
-  void visualizeGoalState();
-  void visualizeTrajectory(const planning_interface::MotionPlanResponse& res,
-                           std::string name);
-
-  friend std::ostream& operator<<(std::ostream& os,
-                                  const geometry_msgs::Pose& pose);
-  void promptAnyInput();
+  std::vector<Eigen::Vector3d> getSimObstaclePos();
 
  private:
   ros::NodeHandle nh_;
   const std::string group_name_ = "panda_arm";
 
-  ContactPerception contact_perception_;
+  std::shared_ptr<ContactPerception> contact_perception_;
+  VisualizerData vis_data_;
+  friend class Visualizer;
+  std::size_t dof_ = 7;  // get this from robot model
 
-  bool use_sim_obstacles_ = false;
-  std::vector<Eigen::Vector3d> obstacle_pos_;
-  static const std::vector<double> joint_goal_pos_;
+  std::size_t sample_state_count_ = 0;
+
+  bool use_sim_obstacles_ = true;
+  std::vector<Eigen::Vector3d> sim_obstacle_pos_;
+  std::vector<double> joint_goal_pos_;
 
   const moveit::core::JointModelGroup* joint_model_group_;
   robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
@@ -104,52 +85,6 @@ class ContactPlanner {
   kinematics_metrics::KinematicsMetricsPtr kinematics_metrics_;
   moveit::core::RobotStatePtr robot_state_;
   ompl_interface::ModelBasedPlanningContextPtr context_;
-
-  std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
-
-  ros::Publisher robot_marker_pub_;
-  ros::Publisher obstacle_marker_pub_;
-  ros::Publisher arrow_pub_;
-  ros::Publisher manipulability_pub_;
-  ros::Publisher rep_state_publisher_;
-  ros::Publisher tree_states_publisher_;
-  ros::Publisher goal_state_publisher_;
-  std::vector<ros::Publisher> trajectory_publishers_;
-
-  std::size_t dof_ = 7;  // get this from robot model
-
-  std::vector<std::vector<double>> sample_joint_angles_;
-  std::vector<std::vector<double>> sample_desired_angles_;
-  std::vector<std::vector<double>> sample_final_angles_;
-  std::vector<std::vector<Eigen::Vector3d>> sample_obstacle_pos_;
-
-  std::size_t viz_state_idx_ = 0;
-  std::size_t sample_state_count_ = 0;
-  std::vector<Eigen::VectorXd> repulsed_vec_at_link_;
-  std::vector<Eigen::VectorXd> repulsed_origin_at_link_;
-  std::vector<std::vector<Manipulability>> manipulability_;
-
-  void pseudoInverse(const Eigen::MatrixXd& M_, Eigen::MatrixXd& M_pinv_,
-                     bool damped = true);
-
-  void printPlannerConfigMap(
-      const planning_interface::PlannerConfigurationMap& planner_config_map);
-  void printJointTrajectory(
-      const trajectory_msgs::JointTrajectory& joint_trajectory);
-  void printStateSpace(
-      const ompl_interface::ModelBasedStateSpacePtr& state_space);
-
-  void visualizeManipVec(std::size_t state_num);
-  void visualizeRepulseVec(std::size_t state_num);
-  void visualizeRepulseOrigin(std::size_t state_num);
-  void saveOriginVec(const Eigen::Vector3d& origin, const Eigen::Vector3d& vec,
-                     std::size_t num_pts, std::size_t pt_num);
-  void visualizeObstacleMarker(
-      const std::vector<Eigen::Vector3d>& obstacle_pos);
-  void saveJointAngles(const std::vector<double>& joint_angles);
-  void saveRepulseAngles(const std::vector<double>& joint_angles,
-                         const Eigen::VectorXd& d_q_out);
-  void saveObstaclePos(const std::vector<Eigen::Vector3d>& obstacle_pos);
 
   std::unique_ptr<ompl_interface::OMPLInterface> getOMPLInterface(
       const moveit::core::RobotModelConstPtr& model, const ros::NodeHandle& nh);
@@ -164,14 +99,7 @@ class ContactPlanner {
   Eigen::VectorXd negGoalField(const ompl::base::State* state);
   Eigen::VectorXd totalField(const ompl::base::State* state);
 
-  Eigen::VectorXd toEigen(std::vector<double> stl_vec);
-  std::vector<double> toStlVec(Eigen::VectorXd eig_vec);
-  std::vector<double> toStlVec(
-      const ompl::base::RealVectorStateSpace::StateType& vec_state,
-      std::size_t size);
-
   void interpolateLinkPositions(Eigen::MatrixXd& mat);
-  double getDistance(Eigen::Vector3d p1, Eigen::Vector3d p2);
   Eigen::Vector3d scaleToDist(Eigen::Vector3d vec);
   Eigen::MatrixXd getLinkPositions(moveit::core::RobotStatePtr robot_state);
   std::vector<std::size_t> findLinkIdx(const Eigen::MatrixXd& link_positions,

@@ -1,6 +1,22 @@
 #include "contact_perception.h"
 
+#include <moveit_msgs/PlanningScene.h>
+#include <pcl/common/transforms.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl_ros/point_cloud.h>
+#include <pcl_ros/transforms.h>
+
+constexpr char LOGNAME[] = "contact_perception";
+
 namespace pick_and_place {
+
+ContactPerception::ContactPerception()
+    : point_cloud_(new pcl::PointCloud<pcl::PointXYZ>) {}
 
 void ContactPerception::init() {
   planning_scene_diff_publisher_ =
@@ -11,6 +27,9 @@ void ContactPerception::init() {
                     &ContactPerception::pointCloudCallback, this);
 
   addSafetyPerimeter();
+
+  // this keeps callback through the duration of the class not just once, not
+  // sure why
   ros::spinOnce();
 }
 
@@ -66,7 +85,7 @@ void ContactPerception::addSafetyPerimeter() {
   moveit_msgs::ObjectColor obj_color;
   // obj_color.id = safety_perimeter.id;
   std_msgs::ColorRGBA color;
-  color.a = 0.5;
+  color.a = 0.2;
   color.r = 1.0;
   color.g = 0.0;
   color.b = 0.0;
@@ -107,8 +126,6 @@ void ContactPerception::extractNormals(
   extract_normals.filter(*cloud_normals);
 }
 
-/** \brief Given a pointcloud extract the ROI defined by the user.
-    @param cloud - Pointcloud whose ROI needs to be extracted. */
 void ContactPerception::passThroughFilter(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud) {
   pcl::PassThrough<pcl::PointXYZ> pass;
@@ -134,21 +151,8 @@ void ContactPerception::computeNormals(
 
 bool ContactPerception::extractNearPts(const Eigen::Vector3d& search_origin,
                                        std::vector<Eigen::Vector3d>& pts_out) {
-  // First, we convert from sensor_msgs to pcl::PointXYZ which is needed for
-  // most of the processing.
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*point_cloud_, *cloud);
-  // std::cout << "raw cloud.size(): " << cloud->size() << std::endl;
-
-  // add outlier removal, filtering techniques
-
-  // Use a passthrough filter to get the region of interest.
-  // The filter removes points outside the specified range.
-  // passThroughFilter(cloud);
-  // std::cout << "filtered cloud.size(): " << cloud->size() << std::endl;
-
   pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-  kdtree.setInputCloud(cloud);
+  kdtree.setInputCloud(point_cloud_);
   pcl::PointXYZ search_point;
   search_point.x = search_origin[0];
   search_point.y = search_origin[1];
@@ -157,12 +161,6 @@ bool ContactPerception::extractNearPts(const Eigen::Vector3d& search_origin,
   // Neighbors within radius search
   std::vector<int> pt_idx_search_rad;
   std::vector<float> pt_rad_sq_dist;
-
-  // std::cout << "Neighbors within radius search at (" << search_point.x << ",
-  // "
-  //           << search_point.y << ", " << search_point.z
-  //           << ") with radius= " << PROXIMITY_RADIUS << std::endl;
-
   pts_out.clear();
 
   if (kdtree.radiusSearch(search_point, PROXIMITY_RADIUS, pt_idx_search_rad,
@@ -173,12 +171,12 @@ bool ContactPerception::extractNearPts(const Eigen::Vector3d& search_origin,
 
   std::size_t num_pts = pt_idx_search_rad.size();
   // std::cout << "Num pts found: " << num_pts << std::endl;
-  // should resize the points vector here
+  // should resize the pts_out here
 
   for (std::size_t i = 0; i < num_pts; ++i) {
-    double x = (*cloud)[pt_idx_search_rad[i]].x;
-    double y = (*cloud)[pt_idx_search_rad[i]].y;
-    double z = (*cloud)[pt_idx_search_rad[i]].z;
+    double x = (*point_cloud_)[pt_idx_search_rad[i]].x;
+    double y = (*point_cloud_)[pt_idx_search_rad[i]].y;
+    double z = (*point_cloud_)[pt_idx_search_rad[i]].z;
     // std::cout << "pt: " << x << ", " << y << ", " << z
     //           << " (squared distance: " << pt_rad_sq_dist[i] << ")"
     //           << std::endl;
@@ -191,8 +189,33 @@ bool ContactPerception::extractNearPts(const Eigen::Vector3d& search_origin,
 
 void ContactPerception::pointCloudCallback(
     const sensor_msgs::PointCloud2ConstPtr& input) {
-  std::cout << "received a single plc message" << std::endl;
-  point_cloud_ = input;
+  // First, we convert from sensor_msgs to pcl::PointXYZ which is needed for
+  // most of the processing.
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::fromROSMsg(*input, *cloud);
+  std::cout << "raw cloud.size(): " << cloud->size() << std::endl;
+
+  tf::StampedTransform transform;
+  try {
+    tf_listener_.lookupTransform("world", "camera_rgb_optical_frame",
+                                 ros::Time(0), transform);
+  } catch (tf::TransformException ex) {
+    ROS_ERROR("%s", ex.what());
+  }
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_transformed(
+      new pcl::PointCloud<pcl::PointXYZ>);
+  pcl_ros::transformPointCloud(*cloud, *cloud_transformed, transform);
+
+  // Create the filtering object
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(
+      new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::VoxelGrid<pcl::PointXYZ> sor;
+  sor.setInputCloud(cloud_transformed);
+  sor.setLeafSize(0.05f, 0.05f, 0.05f);
+  sor.filter(*cloud_filtered);
+  std::cout << "filtered cloud.size(): " << cloud_filtered->size() << std::endl;
+  point_cloud_ = std::move(cloud_filtered);
 }
 
 }  // namespace pick_and_place

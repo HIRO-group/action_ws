@@ -17,12 +17,11 @@
     <arg name="load_robot_description" value="true"/>
   </include>
 
-  <!-- If needed, broadcast static tf for robot root -->
-  <node pkg="tf2_ros" type="static_transform_publisher" name="tf_world_panda" args="0 0 0 0 0 0  world panda_link0" />
-  <node pkg="tf2_ros" type="static_transform_publisher" name="tf_world_camera" args="-0.3 -.20 0.60 -1.5 0.07 -1.91 world camera_rgb_optical_frame" />
+  <!-- Broadcast static tf for world cand camera frame-->
+  <node pkg="pick_and_place" type="broadcast_tf" name="broadcast_tf" output="screen"/>
 
   <!-- Play the rosbag that contains the pointcloud data -->
-  <node pkg="pick_and_place" type="publish_pc_bag" name="publish_pc_bag" />
+  <node pkg="pick_and_place" type="publish_pc_bag" name="publish_pc_bag" output="screen"/>
 
   <!-- Params for 3D sensors config -->
   <!-- <rosparam command="load" file="$(find pick_and_place)/config/sensors_3d.yaml" /> -->
@@ -43,16 +42,14 @@
     default_planner_request_adapters/FixStartStateCollision
     default_planner_request_adapters/FixStartStatePathConstraints -->
 
-  <arg name="start_state_max_bounds_error" default="0.1" />
-  <arg name="jiggle_fraction" default="0.05" />
+  <param name="planning_plugin" value="$(arg planning_plugin)" />
+  <param name="request_adapters" value="$(arg planning_adapters)" />
+  <param name="start_state_max_bounds_error" value="0.1" />
+  <param name="jiggle_fraction" value="0.05" />
+  <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
+  <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
 
   <node name="generate_contact_plan" pkg="pick_and_place" type="generate_contact_plan" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
-    <param name="planning_plugin" value="$(arg planning_plugin)" />
-    <param name="request_adapters" value="$(arg planning_adapters)" />
-    <param name="start_state_max_bounds_error" value="$(arg start_state_max_bounds_error)" />
-    <param name="jiggle_fraction" value="$(arg jiggle_fraction)" />
-    <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
-    <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
   </node>
 
 </launch>

@@ -36,11 +36,12 @@ find_package(catkin REQUIRED
     # tf
     # tf_conversions
     # visualization_msgs
-    # pcl_ros
     # pcl_conversions
     rosbag
     sensor_msgs
-    # tf2_ros
+    tf2
+    tf2_ros
+    pcl_ros
     # tf2_eigen
     # tf2_geometry_msgs
 )
@@ -142,8 +143,9 @@ generate_messages(
 catkin_package(
 INCLUDE_DIRS include
 LIBRARIES
-  contact_control
-  contact_plan
+  # contact_control
+  # contact_planning
+  # visualizer
 CATKIN_DEPENDS
   moveit_core
   moveit_visual_tools
@@ -175,9 +177,10 @@ include_directories(SYSTEM PUBLIC
 )
 
 ## Declare a C++ library
-add_library(contact_control SHARED src/contact_controller.cpp)
-add_library(contact_planning SHARED src/contact_planner.cpp)
-add_library(contact_perception SHARED src/contact_perception.cpp)
+add_library(contact_control SHARED src/contact_controller.cpp src/utilities.cpp)
+add_library(contact_planning SHARED src/contact_planner.cpp src/utilities.cpp src/visualizer_data.cpp)
+add_library(contact_perception SHARED src/contact_perception.cpp src/utilities.cpp)
+add_library(visualizer SHARED src/visualizer.cpp src/utilities.cpp src/visualizer_data.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -189,8 +192,9 @@ add_library(contact_perception SHARED src/contact_perception.cpp)
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(moveit_baseline_plan src/moveit_baseline_plan.cpp)
-add_executable(generate_contact_plan src/generate_contact_plan.cpp)
+add_executable(generate_contact_plan src/generate_contact_plan.cpp src/utilities.cpp)
 add_executable(publish_pc_bag src/publish_pc_bag.cpp)
+add_executable(broadcast_tf src/broadcast_tf.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -205,21 +209,25 @@ add_executable(publish_pc_bag src/publish_pc_bag.cpp)
 add_definitions(${PCL_DEFINITIONS})
 
 ## Specify libraries to link a library or executable target against
+target_link_libraries(visualizer PUBLIC ${catkin_LIBRARIES})
 target_link_libraries(contact_control PUBLIC ${catkin_LIBRARIES})
-target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES})
 target_link_libraries(contact_perception PUBLIC
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 )
+target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES} contact_perception visualizer)
+
 
 target_link_libraries(moveit_baseline_plan ${catkin_LIBRARIES})
 target_link_libraries(publish_pc_bag ${catkin_LIBRARIES})
+target_link_libraries(broadcast_tf ${catkin_LIBRARIES})
 
 target_link_libraries(generate_contact_plan
   ${catkin_LIBRARIES}
   contact_control
   contact_planning
   contact_perception
+  visualizer
 )
 
 #############
@@ -239,14 +247,25 @@ target_link_libraries(generate_contact_plan
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
 
-install(TARGETS contact_control contact_planning contact_perception
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+install(
+TARGETS
+  contact_control
+  contact_planning
+  contact_perception
+  visualizer
+ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(TARGETS moveit_baseline_plan generate_contact_plan publish_pc_bag
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+install(
+TARGETS
+  moveit_baseline_plan
+  generate_contact_plan
+  publish_pc_bag
+  broadcast_tf
+RUNTIME DESTINATION
+  ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 install(DIRECTORY include
@@ -259,7 +278,7 @@ install(DIRECTORY config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
-install(FILES plugins/contact_control.xml
+install(FILES contact_control.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
