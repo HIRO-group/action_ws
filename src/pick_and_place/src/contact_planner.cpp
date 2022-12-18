@@ -11,9 +11,9 @@ ContactPlanner::ContactPlanner() {
   // fill obstacle positions
   contact_perception_ = std::make_shared<ContactPerception>();
   sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.4, 0.0, 0.6});
-  sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.1, 0.2});
-  sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.0, 0.5});
-  sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.6, 0.2, 0.6});
+  // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.1, 0.2});
+  // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.0, 0.5});
+  // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.6, 0.2, 0.6});
 }
 
 void ContactPlanner::setCurToStartState(
@@ -201,80 +201,94 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   return vec_out;
 }
 
-Eigen::MatrixXd ContactPlanner::getLinkPositions(
-    moveit::core::RobotStatePtr robot_state) {
-  std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
-  Eigen::Isometry3d tf = Eigen::Isometry3d::Identity();
-  Eigen::MatrixXd positions(link_names.size(), 3);
-  for (std::size_t i = 0; i < link_names.size(); i++) {
+void ContactPlanner::extractPtsFromModel(
+    const moveit::core::RobotStatePtr& robot_state,
+    const moveit::core::LinkModel* link_model,
+    std::vector<std::vector<Eigen::Vector3d>>& rob_pts, std::size_t& num_pts) {
+  std::vector<shapes::ShapeConstPtr> shapes = link_model->getShapes();
+  std::size_t num_shapes = shapes.size();
+  for (std::size_t j = 0; j < num_shapes; ++j) {
+    Eigen::Isometry3d transform =
+        robot_state->getCollisionBodyTransform(link_model, j);
+
+    if (shapes[j]->type != shapes::MESH) {
+      // should somehow extract points from this as well
+      // ROS_ERROR_NAMED(LOGNAME, "Not a mesh shape");
+    } else {
+      shapes::Mesh* mesh = static_cast<shapes::Mesh*>(shapes[j]->clone());
+      mesh->mergeVertices(0.05);
+      // std::vector<Eigen::Vector3d> points(mesh->vertex_count);
+
+      std::vector<Eigen::Vector3d> points(mesh->vertex_count);
+
+      for (unsigned int k = 0; k < mesh->vertex_count; ++k) {
+        Eigen::Vector3d mesh_pt(mesh->vertices[3 * k],
+                                mesh->vertices[3 * k + 1],
+                                mesh->vertices[3 * k + 2]);
+        points[k] = transform * mesh_pt;
+        // points.emplace_back(transform * mesh_pt);
+        num_pts++;
+      }
+
+      // for (std::size_t p = 0; p < mesh->triangle_count; ++p) {
+      //   std::size_t i3 = p * 3;
+      //   Eigen::Vector3d s1(mesh->vertices[mesh->triangles[i3] * 3],
+      //                      mesh->vertices[mesh->triangles[i3] * 3 + 1],
+      //                      mesh->vertices[mesh->triangles[i3] * 3 + 2]);
+
+      //   Eigen::Vector3d s2(mesh->vertices[mesh->triangles[i3 + 1] * 3],
+      //                      mesh->vertices[mesh->triangles[i3 + 1] * 3 + 1],
+      //                      mesh->vertices[mesh->triangles[i3 + 1] * 3 + 2]);
+
+      //   Eigen::Vector3d s3(mesh->vertices[mesh->triangles[i3 + 2] * 3],
+      //                      mesh->vertices[mesh->triangles[i3 + 2] * 3 + 1],
+      //                      mesh->vertices[mesh->triangles[i3 + 2] * 3 + 2]);
+      //   points.emplace_back(transform * ((s1 + s2) / 2));
+      //   points.emplace_back(transform * ((s2 + s3) / 2));
+      //   points.emplace_back(transform * ((s3 + s1) / 2));
+      //   num_pts = num_pts + 3;
+      // }
+      rob_pts.emplace_back(points);
+    }
+  }
+}
+
+std::size_t ContactPlanner::getPtsOnRobotSurface(
+    const moveit::core::RobotStatePtr& robot_state,
+    std::vector<std::vector<Eigen::Vector3d>>& rob_pts) {
+  const std::vector<std::string> link_names =
+      joint_model_group_->getLinkModelNames();
+
+  rob_pts.clear();
+  std::size_t num_links = link_names.size();
+  std::size_t num_pts = 0;
+
+  for (std::size_t i = 0; i < num_links; i++) {
+    // std::cout << "i: " << i << ", " << link_names[i] << std::endl;
+
     const moveit::core::LinkModel* link_model =
         robot_state->getLinkModel(link_names[i]);
-    tf = robot_state->getGlobalLinkTransform(link_model);
-    auto translation = tf.translation();
-    positions(i, 0) = (double)translation.x();
-    positions(i, 1) = (double)translation.y();
-    positions(i, 2) = (double)translation.z();
-  }
-  return positions;
-}
 
-void ContactPlanner::interpolateLinkPositions(Eigen::MatrixXd& mat) {
-  std::size_t i = 1;
-  while (i < mat.rows() - 1) {
-    // std::cout << "i: " << i << std::endl;
-    // std::cout << "mat.rows(): " << mat.rows() << std::endl;
-    // std::cout << "mat.cols(): " << mat.cols() << std::endl;
-    // std::cout << "mat\n: " << mat << std::endl;
+    const moveit::core::LinkTransformMap fixed_links =
+        link_model->getAssociatedFixedTransforms();
 
-    Eigen::Vector3d p1(mat(i - 1, 0), mat(i - 1, 1), mat(i - 1, 2));
-    Eigen::Vector3d p2(mat(i, 0), mat(i, 1), mat(i, 2));
-    double dist = utilities::getDistance(p1, p2);
-    // std::cout << "p1: " << p1.transpose() << std::endl;
-    // std::cout << "p2: " << p2.transpose() << std::endl;
-    // std::cout << "dist: " << dist << std::endl;
+    // std::cout << "link_tf_map.size(): " << link_tf_map.size() << std::endl;
 
-    if (dist > 0.05) {
-      Eigen::MatrixXd imat = Eigen::MatrixXd::Zero(mat.rows() + 1, 3);
-      imat.topRows(i) = mat.topRows(i);
-      imat.bottomRows(mat.rows() - i) = mat.bottomRows(mat.rows() - i);
-      Eigen::Vector3d ivec((p2[0] + p1[0]) / 2.0, (p2[1] + p1[1]) / 2.0,
-                           (p2[2] + p1[2]) / 2.0);
-      // std::cout << "ivec: " << ivec.transpose() << std::endl;
+    std::vector<shapes::ShapeConstPtr> shapes = link_model->getShapes();
+    std::size_t num_shapes = shapes.size();
 
-      imat(i, 0) = ivec[0];
-      imat(i, 1) = ivec[1];
-      imat(i, 2) = ivec[2];
-      // std::cout << "mat\n: " << mat << std::endl;
-      // std::cout << "imat\n: " << imat << std::endl;
-      mat = imat;
-    } else {
-      i++;
+    // the last link does not have a mesh for some reason
+    if (num_shapes == 0 && fixed_links.size() > 0) {
+      for (const std::pair<const moveit::core::LinkModel* const,
+                           Eigen::Isometry3d>& fixed_link : fixed_links) {
+        extractPtsFromModel(robot_state, fixed_link.first, rob_pts, num_pts);
+      }
+      continue;
     }
+
+    extractPtsFromModel(robot_state, link_model, rob_pts, num_pts);
   }
-  // std::cout << "imat\n: " << mat << std::endl;
-}
-
-std::vector<std::size_t> ContactPlanner::findLinkIdx(
-    const Eigen::MatrixXd& link_positions, const Eigen::MatrixXd& imat) {
-  std::size_t link_idx = 0;
-  std::vector<std::size_t> idx_out(link_positions.rows(), 0);
-
-  for (std::size_t i = 0; i < imat.rows(); i++) {
-    Eigen::Vector3d pos(link_positions(link_idx, 0),
-                        link_positions(link_idx, 1),
-                        link_positions(link_idx, 2));
-    Eigen::Vector3d vec(imat(i, 0), imat(i, 1), imat(i, 2));
-    double dist = utilities::getDistance(pos, vec);
-    if (dist < 0.0001) {
-      idx_out[link_idx] = i;
-      // std::cout << "findLinkIdx i: " << i << std::endl;
-      link_idx++;
-    }
-  }
-  // std::cout << "link_positions.rows(): " << link_positions.rows() <<
-  // std::endl; std::cout << "idx_out.size(): " << idx_out.size() << std::endl;
-
-  return idx_out;
+  return num_pts;
 }
 
 std::vector<Eigen::Vector3d> ContactPlanner::getObstacles(
@@ -304,40 +318,34 @@ std::vector<Eigen::Vector3d> ContactPlanner::getObstacles(
 }
 
 std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
-    const Eigen::MatrixXd& rob_pts,
-    const std::vector<std::size_t>& link_idx_arr) {
-  std::size_t num_links = link_idx_arr.size();
-  std::size_t num_rob_pts = rob_pts.rows();
-
+    const std::vector<std::vector<Eigen::Vector3d>>& rob_pts) {
+  std::size_t num_links = rob_pts.size();
   // std::cout << "num_links: " << num_links << std::endl;
-  // std::cout << "num_rob_pts: " << num_rob_pts << std::endl;
 
   std::vector<Eigen::Vector3d> link_to_obs_vec(num_links,
                                                Eigen::Vector3d::Zero(3));
 
-  for (std::size_t i = 1; i < num_links; i++) {
-    std::size_t link1_idx = link_idx_arr[i - 1];
-    std::size_t link2_idx = link_idx_arr[i];
-    // std::cout << "i: " << i << std::endl;
-    // std::cout << "link1_idx: " << link1_idx << std::endl;
-    // std::cout << "link2_idx: " << link2_idx << std::endl;
+  std::size_t pt_num = 0;
 
-    Eigen::MatrixXd pts_link_vec =
-        Eigen::MatrixXd::Zero(link2_idx - link1_idx, 3);
+  for (std::size_t i = 0; i < num_links; i++) {
+    std::vector<Eigen::Vector3d> pts_on_link = rob_pts[i];
+    std::size_t num_pts_on_link = pts_on_link.size();
+    // std::cout << "num_pts_on_link: " << num_pts_on_link << std::endl;
 
-    for (std::size_t j = link1_idx; j < link2_idx; j++) {
-      Eigen::Vector3d pt_on_rob(rob_pts(j, 0), rob_pts(j, 1), rob_pts(j, 2));
-      // std::cout << "j: " << j << std::endl;
+    Eigen::MatrixXd pts_link_vec = Eigen::MatrixXd::Zero(num_pts_on_link, 3);
+    for (std::size_t j = 0; j < num_pts_on_link; j++) {
+      // std::cout << "pt j: " << j << std::endl;
+
+      Eigen::Vector3d pt_on_rob = pts_on_link[j];
+      // std::cout << "pt_on_rob: " << pt_on_rob.transpose() << std::endl;
 
       std::vector<Eigen::Vector3d> obstacle_pos = getObstacles(pt_on_rob);
 
       std::size_t num_obstacles = obstacle_pos.size();
-
       Eigen::MatrixXd pt_to_obs = Eigen::MatrixXd::Zero(num_obstacles, 3);
       for (std::size_t k = 0; k < num_obstacles; k++) {
         Eigen::Vector3d vec = pt_on_rob - obstacle_pos[k];
         vec = scaleToDist(vec);
-
         pt_to_obs(k, 0) = vec[0];
         pt_to_obs(k, 1) = vec[1];
         pt_to_obs(k, 2) = vec[2];
@@ -346,15 +354,21 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
       double av_x = pt_to_obs.col(0).mean();
       double av_y = pt_to_obs.col(1).mean();
       double av_z = pt_to_obs.col(2).mean();
+
       Eigen::Vector3d pt_to_obs_av(av_x, av_y, av_z);
+      // std::cout << "pt_to_obs_av: " << std::endl;
 
-      pts_link_vec(link2_idx - j - 1, 0) = pt_to_obs_av[0];
-      pts_link_vec(link2_idx - j - 1, 1) = pt_to_obs_av[1];
-      pts_link_vec(link2_idx - j - 1, 2) = pt_to_obs_av[2];
+      pts_link_vec(j, 0) = pt_to_obs_av[0];
+      pts_link_vec(j, 1) = pt_to_obs_av[1];
+      pts_link_vec(j, 2) = pt_to_obs_av[2];
 
-      // std::cout << "pt_to_obs_av: " << pt_to_obs_av.transpose() << std::endl;
-      vis_data_.saveOriginVec(pt_on_rob, pt_to_obs_av, num_rob_pts, j,
+      // std::cout << "link1_idx: " << link1_idx << std::endl;
+      // std::cout << "stop_crit: " << stop_crit << std::endl;
+      // std::cout << "pt_on_rob: " << pt_on_rob.transpose() << std::endl;
+
+      vis_data_.saveOriginVec(pt_on_rob, pt_to_obs_av, pt_num,
                               sample_state_count_);
+      pt_num++;
     }
     // std::cout << "pts_link_vec.rows(): " << pts_link_vec.rows() << std::endl;
     double av_x = pts_link_vec.col(0).mean();
@@ -363,7 +377,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
     Eigen::Vector3d to_obs_avg(av_x, av_y, av_z);
     // std::cout << "to_obs_avg: " << to_obs_avg.transpose() << std::endl;
 
-    link_to_obs_vec[i - 1] = to_obs_avg;
+    link_to_obs_vec[i] = to_obs_avg;
   }
   return link_to_obs_vec;
 }
@@ -377,17 +391,14 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   moveit::core::RobotStatePtr robot_state =
       std::make_shared<moveit::core::RobotState>(*robot_state_);
   robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
-  Eigen::MatrixXd rob_pts = getLinkPositions(robot_state);
 
-  interpolateLinkPositions(rob_pts);
-  // std::cout << "rob_pts\n: " << rob_pts << std::endl;
-  // std::cout << "num_rob_pts: " << num_rob_pts << std::endl;
+  std::vector<std::vector<Eigen::Vector3d>> rob_pts;
 
-  std::vector<std::size_t> link_idx_arr =
-      findLinkIdx(getLinkPositions(robot_state), rob_pts);
+  // make getter in vis data
+  std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
+  vis_data_.setTotalNumRepulsePts(num_pts);
 
-  std::vector<Eigen::Vector3d> link_to_obs_vec =
-      getLinkToObsVec(rob_pts, link_idx_arr);
+  std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(rob_pts);
 
   Eigen::MatrixXd jacobian = robot_state->getJacobian(joint_model_group_);
 
@@ -463,6 +474,7 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   // manipulability_.emplace_back(manip_per_joint);
   vis_data_.saveRepulseAngles(joint_angles, d_q_out);
   sample_state_count_++;
+
   return d_q_out;
 }
 
@@ -625,7 +637,11 @@ void ContactPlanner::init() {
   // robot_state->printStatePositions();
   robot_state_ = std::make_shared<moveit::core::RobotState>(*robot_state);
 
-  contact_perception_->init();
+  if (!use_sim_obstacles_) {
+    ROS_INFO_NAMED(
+        LOGNAME, "Using simulated obstacles. Point cloud will not be loaded.");
+    contact_perception_->init();
+  }
 }
 
 std::string ContactPlanner::getGroupName() { return group_name_; }

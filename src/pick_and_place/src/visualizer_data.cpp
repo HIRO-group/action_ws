@@ -1,13 +1,19 @@
 #include "visualizer_data.h"
 
 namespace pick_and_place {
+void VisualizerData::setTotalNumRepulsePts(std::size_t num_pts) {
+  cur_total_num_repulse_pts_ = num_pts;
+}
+
 void VisualizerData::saveOriginVec(const Eigen::Vector3d& origin,
                                    const Eigen::Vector3d& vec,
-                                   std::size_t num_pts, std::size_t pt_num,
+                                   std::size_t pt_num,
                                    std::size_t sample_state_count) {
-  if (sample_state_count >= repulsed_vec_at_link_.size()) {
-    repulsed_vec_at_link_.emplace_back(Eigen::VectorXd::Zero(num_pts * 3));
-    repulsed_origin_at_link_.emplace_back(Eigen::VectorXd::Zero(num_pts * 3));
+  if (sample_state_count == repulsed_vec_at_link_.size()) {
+    repulsed_vec_at_link_.emplace_back(
+        Eigen::VectorXd::Zero(cur_total_num_repulse_pts_ * 3));
+    repulsed_origin_at_link_.emplace_back(
+        Eigen::VectorXd::Zero(cur_total_num_repulse_pts_ * 3));
   }
 
   Eigen::VectorXd& cur_repulsed = repulsed_vec_at_link_[sample_state_count];

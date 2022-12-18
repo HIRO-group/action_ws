@@ -36,7 +36,7 @@ void Visualizer::visualizeManipVec(std::size_t state_num) {
   if (contact_planner_->vis_data_.repulsed_origin_at_link_.size() <=
           state_num ||
       contact_planner_->vis_data_.manipulability_.size() <= state_num) {
-    ROS_DEBUG_NAMED(
+    ROS_INFO_NAMED(
         LOGNAME,
         "Insufficient data stored to vizualize manipulability vectors.");
     return;
@@ -46,8 +46,9 @@ void Visualizer::visualizeManipVec(std::size_t state_num) {
       contact_planner_->vis_data_.repulsed_origin_at_link_[state_num];
   std::vector<ManipulabilityMeasures> manip_per_joint =
       contact_planner_->vis_data_.manipulability_[state_num];
+  std::size_t max_num = (int)(repulsed_origin_at_link.size() / 3);
 
-  for (std::size_t link_num = 0; link_num < dof_; link_num++) {
+  for (std::size_t link_num = 0; link_num < max_num; link_num++) {
     Eigen::Vector3d origin(repulsed_origin_at_link[link_num * 3],
                            repulsed_origin_at_link[link_num * 3 + 1],
                            repulsed_origin_at_link[link_num * 3 + 2]);
@@ -112,8 +113,8 @@ void Visualizer::visualizeRepulseVec(std::size_t state_num) {
   if (contact_planner_->vis_data_.repulsed_origin_at_link_.size() <=
           state_num ||
       contact_planner_->vis_data_.repulsed_vec_at_link_.size() <= state_num) {
-    ROS_DEBUG_NAMED(LOGNAME,
-                    "Insufficient data stored to vizualize repulsive vector.");
+    ROS_INFO_NAMED(LOGNAME,
+                   "Insufficient data stored to vizualize repulsive vector.");
     return;
   }
 
@@ -136,6 +137,10 @@ void Visualizer::visualizeRepulseVec(std::size_t state_num) {
     Eigen::Vector3d dir(repulsed_vec_at_link[i * 3],
                         repulsed_vec_at_link[i * 3 + 1],
                         repulsed_vec_at_link[i * 3 + 2]);
+
+    // std::cout << "i: " << i << std::endl;
+    // std::cout << "origin: " << origin.transpose() << std::endl;
+    // std::cout << "dir: " << dir.transpose() << std::endl;
 
     Eigen::Vector3d vec = origin + dir;
 
@@ -181,8 +186,8 @@ void Visualizer::visualizeRepulseVec(std::size_t state_num) {
 
 void Visualizer::visualizeRepulseOrigin(std::size_t state_num) {
   if (contact_planner_->vis_data_.sample_joint_angles_.size() <= state_num) {
-    ROS_DEBUG_NAMED(LOGNAME,
-                    "Insufficient data stored to vizualize repulsion origin.");
+    ROS_INFO_NAMED(LOGNAME,
+                   "Insufficient data stored to vizualize repulsion origin.");
     return;
   }
 
@@ -219,9 +224,9 @@ void Visualizer::visualizeRepulseOrigin(std::size_t state_num) {
     marker.pose.orientation.z = 0.0;
     marker.pose.orientation.w = 1.0;
 
-    marker.scale.x = 0.05;
-    marker.scale.y = 0.05;
-    marker.scale.z = 0.05;
+    marker.scale.x = 0.01;
+    marker.scale.y = 0.01;
+    marker.scale.z = 0.01;
 
     marker.color.r = 0.0f;
     marker.color.g = 1.0f;
@@ -427,8 +432,8 @@ void Visualizer::visualizeRepulsedState() {
             viz_state_idx_ ||
         contact_planner_->vis_data_.sample_desired_angles_.size() <=
             viz_state_idx_) {
-      ROS_DEBUG_NAMED(LOGNAME,
-                      "Insufficient data stored to vizualize repulsed states.");
+      ROS_INFO_NAMED(LOGNAME,
+                     "Insufficient data stored to vizualize repulsed states.");
       return;
     }
 

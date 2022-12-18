@@ -23,7 +23,8 @@ int main(int argc, char** argv) {
   visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
   visualizer->setContactPlanner(contact_planner);
   visualizer->visualizeGoalState();
-  utilities::promptAnyInput();
+
+  // utilities::promptAnyInput();
 
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;

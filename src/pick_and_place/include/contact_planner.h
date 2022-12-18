@@ -74,7 +74,7 @@ class ContactPlanner {
 
   std::size_t sample_state_count_ = 0;
 
-  bool use_sim_obstacles_ = true;
+  const bool use_sim_obstacles_ = true;
   std::vector<Eigen::Vector3d> sim_obstacle_pos_;
   std::vector<double> joint_goal_pos_;
 
@@ -99,14 +99,16 @@ class ContactPlanner {
   Eigen::VectorXd negGoalField(const ompl::base::State* state);
   Eigen::VectorXd totalField(const ompl::base::State* state);
 
-  void interpolateLinkPositions(Eigen::MatrixXd& mat);
   Eigen::Vector3d scaleToDist(Eigen::Vector3d vec);
-  Eigen::MatrixXd getLinkPositions(moveit::core::RobotStatePtr robot_state);
-  std::vector<std::size_t> findLinkIdx(const Eigen::MatrixXd& link_positions,
-                                       const Eigen::MatrixXd& imat);
+  void extractPtsFromModel(const moveit::core::RobotStatePtr& robot_state,
+                           const moveit::core::LinkModel* link_model,
+                           std::vector<std::vector<Eigen::Vector3d>>& rob_pts,
+                           std::size_t& num_pts);
+  std::size_t getPtsOnRobotSurface(
+      const moveit::core::RobotStatePtr& robot_state,
+      std::vector<std::vector<Eigen::Vector3d>>& rob_pts);
   std::vector<Eigen::Vector3d> getLinkToObsVec(
-      const Eigen::MatrixXd& rob_pts,
-      const std::vector<std::size_t>& link_idx_arr);
+      const std::vector<std::vector<Eigen::Vector3d>>& rob_pts);
   std::vector<Eigen::Vector3d> getObstacles(const Eigen::Vector3d& pt_on_rob);
 };
 }  // namespace pick_and_place

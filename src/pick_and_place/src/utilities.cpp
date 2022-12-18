@@ -131,6 +131,67 @@ void printJointTrajectory(
   }
 }
 
+void interpolate(Eigen::MatrixXd& mat) {
+  std::cout << "mat\n: " << mat << std::endl;
+  const double max_dist = 0.05;
+
+  std::size_t i = 1;
+  while (i < mat.rows() - 1) {
+    // std::cout << "i: " << i << std::endl;
+    // std::cout << "mat.rows(): " << mat.rows() << std::endl;
+    // std::cout << "mat.cols(): " << mat.cols() << std::endl;
+    // std::cout << "mat\n: " << mat << std::endl;
+
+    Eigen::Vector3d p1(mat(i - 1, 0), mat(i - 1, 1), mat(i - 1, 2));
+    Eigen::Vector3d p2(mat(i, 0), mat(i, 1), mat(i, 2));
+    double dist = utilities::getDistance(p1, p2);
+    // std::cout << "p1: " << p1.transpose() << std::endl;
+    // std::cout << "p2: " << p2.transpose() << std::endl;
+    // std::cout << "dist: " << dist << std::endl;
+
+    if (dist > max_dist) {
+      Eigen::MatrixXd imat = Eigen::MatrixXd::Zero(mat.rows() + 1, 3);
+      imat.topRows(i) = mat.topRows(i);
+      imat.bottomRows(mat.rows() - i) = mat.bottomRows(mat.rows() - i);
+      Eigen::Vector3d ivec((p2[0] + p1[0]) / 2.0, (p2[1] + p1[1]) / 2.0,
+                           (p2[2] + p1[2]) / 2.0);
+      // std::cout << "ivec: " << ivec.transpose() << std::endl;
+
+      imat(i, 0) = ivec[0];
+      imat(i, 1) = ivec[1];
+      imat(i, 2) = ivec[2];
+      // std::cout << "mat\n: " << mat << std::endl;
+      // std::cout << "imat\n: " << imat << std::endl;
+      mat = imat;
+    } else {
+      i++;
+    }
+  }
+  std::cout << "imat\n: " << mat << std::endl;
+}
+
+std::vector<std::size_t> find(const Eigen::MatrixXd& needle,
+                              const Eigen::MatrixXd& haystack) {
+  std::size_t link_idx = 0;
+  std::vector<std::size_t> idx_out(needle.rows(), 0);
+
+  for (std::size_t i = 0; i < haystack.rows(); i++) {
+    Eigen::Vector3d pos(needle(link_idx, 0), needle(link_idx, 1),
+                        needle(link_idx, 2));
+    Eigen::Vector3d vec(haystack(i, 0), haystack(i, 1), haystack(i, 2));
+    double dist = utilities::getDistance(pos, vec);
+    if (dist < 0.0001) {
+      idx_out[link_idx] = i;
+      // std::cout << "findLinkIdx i: " << i << std::endl;
+      link_idx++;
+    }
+  }
+  // std::cout << "needle.rows(): " << needle.rows() <<
+  // std::endl; std::cout << "idx_out.size(): " << idx_out.size() << std::endl;
+
+  return idx_out;
+}
+
 std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
   os << "position (x,y,z): " << pose.position.x << ", " << pose.position.y
      << ", " << pose.position.z << "\n";

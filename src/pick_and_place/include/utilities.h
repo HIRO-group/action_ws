@@ -29,6 +29,9 @@ void printJointTrajectory(
 void printStateSpace(
     const ompl_interface::ModelBasedStateSpacePtr& state_space);
 
+void interpolate(Eigen::MatrixXd& mat);
+std::vector<std::size_t> find(const Eigen::MatrixXd& needle,
+                              const Eigen::MatrixXd& haystack);
 std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose);
 
 }  // namespace utilities
