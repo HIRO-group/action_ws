@@ -33,6 +33,9 @@ class Visualizer {
   void visualizeGoalState();
   void visualizeTrajectory(const planning_interface::MotionPlanResponse& res,
                            std::string name);
+  void visualizeTwoStates(std::vector<double> joint_angles1,
+                          std::vector<double> joint_angles2);
+  void visualizeVertices();
 
  private:
   ros::NodeHandle nh_;

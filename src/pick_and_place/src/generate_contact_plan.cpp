@@ -24,7 +24,8 @@ int main(int argc, char** argv) {
   visualizer->setContactPlanner(contact_planner);
   visualizer->visualizeGoalState();
 
-  // utilities::promptAnyInput();
+  // make sure the planning scene, goal state and point cloud work for you
+  utilities::promptAnyInput();
 
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
@@ -34,11 +35,13 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 2.0;
-  req.planner_id = "panda_arm[RRT]";
+  req.allowed_planning_time = 10.0;
+  req.planner_id = contact_planner->getDefaultPlannerId();
 
-  contact_planner->createPlanningContext(req, node_handle);
+  contact_planner->createPlanningContext(req);
+
   contact_planner->changePlanner();
+
   contact_planner->generatePlan(res);
 
   if (res.error_code_.val != res.error_code_.SUCCESS) {

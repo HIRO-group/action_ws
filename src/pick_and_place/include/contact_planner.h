@@ -27,6 +27,7 @@
 #include <ompl/geometric/planners/rrt/ClassicTRRT.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 
+#include "ompl/base/OptimizationObjective.h"
 #include "ompl/geometric/PathSimplifier.h"
 
 // Eigen
@@ -51,9 +52,7 @@ class ContactPlanner {
 
   void init();
   void setCurToStartState(planning_interface::MotionPlanRequest& req);
-  void createPlanningContext(const moveit_msgs::MotionPlanRequest& req,
-                             const ros::NodeHandle& nh);
-  ompl_interface::ModelBasedPlanningContextPtr getPlanningContext();
+  void createPlanningContext(const moveit_msgs::MotionPlanRequest& req);
   void changePlanner();
   bool generatePlan(planning_interface::MotionPlanResponse& res);
 
@@ -62,10 +61,13 @@ class ContactPlanner {
 
   std::string getGroupName();
   std::vector<Eigen::Vector3d> getSimObstaclePos();
+  std::string getDefaultPlannerId();
+  ompl_interface::ModelBasedPlanningContextPtr getPlanningContext();
 
  private:
   ros::NodeHandle nh_;
   const std::string group_name_ = "panda_arm";
+  const std::string default_planner_id_ = "panda_arm[RRT]";
 
   std::shared_ptr<ContactPerception> contact_perception_;
   VisualizerData vis_data_;
@@ -74,7 +76,7 @@ class ContactPlanner {
 
   std::size_t sample_state_count_ = 0;
 
-  const bool use_sim_obstacles_ = true;
+  const bool use_sim_obstacles_ = false;
   std::vector<Eigen::Vector3d> sim_obstacle_pos_;
   std::vector<double> joint_goal_pos_;
 
@@ -85,6 +87,7 @@ class ContactPlanner {
   kinematics_metrics::KinematicsMetricsPtr kinematics_metrics_;
   moveit::core::RobotStatePtr robot_state_;
   ompl_interface::ModelBasedPlanningContextPtr context_;
+  ompl::base::OptimizationObjectivePtr optimization_objective_;
 
   std::unique_ptr<ompl_interface::OMPLInterface> getOMPLInterface(
       const moveit::core::RobotModelConstPtr& model, const ros::NodeHandle& nh);
@@ -102,7 +105,7 @@ class ContactPlanner {
   Eigen::Vector3d scaleToDist(Eigen::Vector3d vec);
   void extractPtsFromModel(const moveit::core::RobotStatePtr& robot_state,
                            const moveit::core::LinkModel* link_model,
-                           std::vector<std::vector<Eigen::Vector3d>>& rob_pts,
+                           std::vector<Eigen::Vector3d>& link_pts,
                            std::size_t& num_pts);
   std::size_t getPtsOnRobotSurface(
       const moveit::core::RobotStatePtr& robot_state,

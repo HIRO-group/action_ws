@@ -11,8 +11,9 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
 
+#include <chrono>
+using namespace std::chrono;
 constexpr char LOGNAME[] = "contact_perception";
-
 namespace pick_and_place {
 
 ContactPerception::ContactPerception()
@@ -27,6 +28,10 @@ void ContactPerception::init() {
                     &ContactPerception::pointCloudCallback, this);
 
   addSafetyPerimeter();
+
+  // addCylinder();
+
+  // addFrontWall();
 
   // this keeps callback through the duration of the class not just once, not
   // sure why
@@ -75,6 +80,112 @@ void ContactPerception::addSafetyPerimeter() {
   pose.position.x = 0.0;
   pose.position.y = 0.0;
   pose.position.z = 0.0;
+
+  safety_perimeter.primitives.push_back(primitive);
+  safety_perimeter.primitive_poses.push_back(pose);
+
+  std::vector<moveit_msgs::CollisionObject> collision_objects;
+  collision_objects.emplace_back(safety_perimeter);
+
+  moveit_msgs::ObjectColor obj_color;
+  // obj_color.id = safety_perimeter.id;
+  std_msgs::ColorRGBA color;
+  color.a = 0.2;
+  color.r = 1.0;
+  color.g = 0.0;
+  color.b = 0.0;
+  obj_color.color = color;
+
+  std::vector<moveit_msgs::ObjectColor> object_colors;
+  object_colors.emplace_back(obj_color);
+
+  addCollisionObjects(collision_objects, object_colors);
+}
+
+void ContactPerception::addCylinder() {
+  moveit_msgs::CollisionObject safety_perimeter;
+  safety_perimeter.header.frame_id = "panda_link0";
+  safety_perimeter.id = "cylinder";
+  safety_perimeter.operation = safety_perimeter.ADD;
+
+  shape_msgs::SolidPrimitive primitive;
+  primitive.type = primitive.CYLINDER;
+  primitive.dimensions.resize(3);
+  primitive.dimensions[primitive.CYLINDER_HEIGHT] = 0.15;
+  primitive.dimensions[primitive.CYLINDER_RADIUS] = 0.045;
+
+  geometry_msgs::Pose pose;
+  pose.orientation.w = 1.0;
+  pose.orientation.x = 0.0;
+  pose.orientation.y = 0.0;
+  pose.orientation.z = 0.0;
+
+  pose.position.x = 0.545;
+  pose.position.y = -0.045;
+  pose.position.z = 0.15;
+
+  safety_perimeter.primitives.push_back(primitive);
+  safety_perimeter.primitive_poses.push_back(pose);
+
+  std::vector<moveit_msgs::CollisionObject> collision_objects;
+  collision_objects.emplace_back(safety_perimeter);
+
+  moveit_msgs::ObjectColor obj_color;
+  // obj_color.id = safety_perimeter.id;
+  std_msgs::ColorRGBA color;
+  color.a = 1.0;
+  color.r = 1.0;
+  color.g = 0.0;
+  color.b = 0.0;
+  obj_color.color = color;
+
+  std::vector<moveit_msgs::ObjectColor> object_colors;
+  object_colors.emplace_back(obj_color);
+
+  addCollisionObjects(collision_objects, object_colors);
+}
+
+void ContactPerception::addFrontWall() {
+  moveit_msgs::CollisionObject safety_perimeter;
+  safety_perimeter.header.frame_id = "panda_link0";
+  safety_perimeter.id = "plc_wall";
+  safety_perimeter.operation = safety_perimeter.ADD;
+
+  // back wall
+  shape_msgs::SolidPrimitive primitive;
+  primitive.type = primitive.BOX;
+  primitive.dimensions.resize(3);
+  primitive.dimensions[primitive.BOX_X] = 0.01;
+  primitive.dimensions[primitive.BOX_Y] = 1.5;
+  primitive.dimensions[primitive.BOX_Z] = 0.5;
+  geometry_msgs::Pose pose;
+  pose.orientation.w = 1.0;
+  pose.orientation.x = 0.0;
+  pose.orientation.y = 0.0;
+  pose.orientation.z = 0.0;
+
+  pose.position.x = 1.2;
+  pose.position.y = 0.0;
+  pose.position.z = 0.25;
+
+  safety_perimeter.primitives.push_back(primitive);
+  safety_perimeter.primitive_poses.push_back(pose);
+
+  // bottom table
+  primitive.type = primitive.BOX;
+  primitive.dimensions.resize(3);
+  primitive.dimensions[primitive.BOX_X] = 1.5;
+  primitive.dimensions[primitive.BOX_Y] = 1.5;
+  primitive.dimensions[primitive.BOX_Z] = 0.01;
+
+  // pose.orientation.w = 1.0;
+  // pose.orientation.x = 0.0;
+  // pose.orientation.y = 0.0;
+  // pose.orientation.z = 0.0;
+
+  pose.position.x = 1.0;
+  pose.position.y = 0.0;
+  pose.position.z = 0.1;
 
   safety_perimeter.primitives.push_back(primitive);
   safety_perimeter.primitive_poses.push_back(pose);
@@ -151,6 +262,8 @@ void ContactPerception::computeNormals(
 
 bool ContactPerception::extractNearPts(const Eigen::Vector3d& search_origin,
                                        std::vector<Eigen::Vector3d>& pts_out) {
+  auto start = high_resolution_clock::now();
+
   pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
   kdtree.setInputCloud(point_cloud_);
   pcl::PointXYZ search_point;
@@ -184,6 +297,9 @@ bool ContactPerception::extractNearPts(const Eigen::Vector3d& search_origin,
     pts_out.emplace_back(vec);
   }
 
+  auto stop = high_resolution_clock::now();
+  auto duration = duration_cast<microseconds>(stop - start);
+  // std::cout << "extractNearPts us: " << duration.count() << std::endl;
   return true;
 }
 

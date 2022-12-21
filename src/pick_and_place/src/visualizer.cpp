@@ -314,6 +314,76 @@ void Visualizer::visualizeTrajectory(
   trajectory_publishers_.push_back(pub_raw_traj);
 }
 
+void Visualizer::visualizeVertices() {
+  ompl::geometric::SimpleSetupPtr simple_setup =
+      contact_planner_->context_->getOMPLSimpleSetup();
+  ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
+  ompl::base::PlannerPtr planner = simple_setup->getPlanner();
+
+  ompl::base::PlannerData planner_data(si);
+  planner->getPlannerData(planner_data);
+
+  ompl::base::StateStoragePtr storage = planner_data.extractStateStorage();
+  std::size_t num_states = storage->size();
+  std::cout << "num_states: " << num_states << std::endl;
+  std::vector<const ompl::base::State*> states = storage->getStates();
+
+  // try something here
+  std::size_t num_edges = planner_data.numEdges();
+  std::size_t num_vertices = planner_data.numVertices();
+  ROS_INFO_NAMED(LOGNAME, "num_edges %ld", num_edges);
+  ROS_INFO_NAMED(LOGNAME, "num_vertices %ld", num_vertices);
+  ROS_INFO_NAMED(LOGNAME, "Computing edge weights.");
+  planner_data.computeEdgeWeights(*contact_planner_->optimization_objective_);
+  std::string user_input = " ";
+
+  for (std::size_t i = 0; i < num_vertices; i++) {
+    if (user_input == "q") {
+      break;
+    }
+
+    std::cout << "vertex: " << i << std::endl;
+
+    std::map<unsigned int, const ompl::base::PlannerDataEdge*> edgeMap;
+    int num_outgoing = planner_data.getEdges(i, edgeMap);
+    if (num_outgoing == 0) {
+      continue;
+    }
+
+    for (auto edgeElem : edgeMap) {
+      if (user_input == "q") {
+        break;
+      }
+      ompl::base::Cost* cost;
+      planner_data.getEdgeWeight(i, edgeElem.first, cost);
+      std::cout << "Cost: " << cost->value() << std::endl;
+
+      ompl::base::PlannerDataVertex ver1 = planner_data.getVertex(i);
+      ompl::base::PlannerDataVertex ver2 =
+          planner_data.getVertex(edgeElem.first);
+
+      const ompl::base::State* state1 = ver1.getState();
+      const ompl::base::State* state2 = ver2.getState();
+
+      const ompl::base::RealVectorStateSpace::StateType& vec_state1 =
+          *state1->as<ompl::base::RealVectorStateSpace::StateType>();
+      std::vector<double> joint_angles1 = utilities::toStlVec(vec_state1, dof_);
+
+      const ompl::base::State* state = states[i];
+      const ompl::base::RealVectorStateSpace::StateType& vec_state2 =
+          *state2->as<ompl::base::RealVectorStateSpace::StateType>();
+      std::vector<double> joint_angles2 = utilities::toStlVec(vec_state2, dof_);
+
+      visualizeTwoStates(joint_angles1, joint_angles2);
+
+      std::cout << "Press 'q' to exit this visualization or 'c' to go to the "
+                   "next state "
+                << std::endl;
+      std::cin >> user_input;
+    }
+  }
+}
+
 void Visualizer::visualizeTreeStates() {
   ompl::geometric::SimpleSetupPtr simple_setup =
       contact_planner_->context_->getOMPLSimpleSetup();
@@ -424,14 +494,72 @@ void Visualizer::visualizeGoalState() {
   goal_state_publisher_.publish(display_trajectory);
 }
 
+void Visualizer::visualizeTwoStates(std::vector<double> joint_angles1,
+                                    std::vector<double> joint_angles2) {
+  moveit_msgs::DisplayTrajectory display_trajectory;
+  moveit_msgs::MotionPlanResponse response;
+
+  sensor_msgs::JointState joint_start_state;
+  std::vector<std::string> names =
+      contact_planner_->joint_model_group_->getActiveJointModelNames();
+
+  std::cout << "joint_angles1: "
+            << utilities::toEigen(joint_angles1).transpose() << std::endl;
+  std::size_t num_joints = names.size();
+  joint_start_state.name = names;
+  joint_start_state.position = joint_angles1;
+  joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
+  joint_start_state.effort = std::vector<double>(num_joints, 0.0);
+
+  moveit_msgs::RobotState robot_start_state;
+  robot_start_state.joint_state = joint_start_state;
+
+  response.group_name = group_name_;
+  response.trajectory_start = robot_start_state;
+
+  trajectory_msgs::JointTrajectory joint_trajectory;
+  joint_trajectory.joint_names = names;
+
+  trajectory_msgs::JointTrajectoryPoint point;
+  point.positions = joint_angles1;
+  point.velocities = std::vector<double>(num_joints, 0.0);
+  point.accelerations = std::vector<double>(num_joints, 0.0);
+  point.effort = std::vector<double>(num_joints, 0.0);
+  point.time_from_start = ros::Duration(0.1);
+  joint_trajectory.points.push_back(point);
+
+  std::cout << "joint_angles2: "
+            << utilities::toEigen(joint_angles2).transpose() << std::endl;
+  point.positions = joint_angles2;
+  point.velocities = std::vector<double>(num_joints, 0.0);
+  point.accelerations = std::vector<double>(num_joints, 0.0);
+  point.effort = std::vector<double>(num_joints, 0.0);
+  point.time_from_start = ros::Duration(1.5);
+  joint_trajectory.points.push_back(point);
+
+  moveit_msgs::RobotTrajectory robot_trajectory;
+  robot_trajectory.joint_trajectory = joint_trajectory;
+
+  response.trajectory = robot_trajectory;
+
+  display_trajectory.trajectory_start = response.trajectory_start;
+  display_trajectory.trajectory.push_back(response.trajectory);
+  rep_state_publisher_.publish(display_trajectory);
+}
+
 void Visualizer::visualizeRepulsedState() {
   std::string user_input = " ";
 
+  std::size_t num_sample_angles =
+      contact_planner_->vis_data_.sample_joint_angles_.size();
+  std::size_t num_desired_angles =
+      contact_planner_->vis_data_.sample_desired_angles_.size();
+
+  std::cout << "num_sample_angles: " << num_sample_angles << std::endl;
+
   while (user_input != "q") {
-    if (contact_planner_->vis_data_.sample_joint_angles_.size() <=
-            viz_state_idx_ ||
-        contact_planner_->vis_data_.sample_desired_angles_.size() <=
-            viz_state_idx_) {
+    if (num_sample_angles <= viz_state_idx_ ||
+        num_desired_angles <= viz_state_idx_) {
       ROS_INFO_NAMED(LOGNAME,
                      "Insufficient data stored to vizualize repulsed states.");
       return;
@@ -440,61 +568,9 @@ void Visualizer::visualizeRepulsedState() {
     std::cout << "Displaying repulsed state with idx: " << viz_state_idx_
               << std::endl;
 
-    moveit_msgs::DisplayTrajectory display_trajectory;
-    moveit_msgs::MotionPlanResponse response;
-
-    sensor_msgs::JointState joint_start_state;
-    std::vector<std::string> names =
-        contact_planner_->joint_model_group_->getActiveJointModelNames();
-
-    std::size_t num_joints = names.size();
-    std::vector<double> joint_angles =
-        contact_planner_->vis_data_.sample_joint_angles_[viz_state_idx_];
-    std::cout << utilities::toEigen(joint_angles).transpose() << std::endl;
-    joint_start_state.name = names;
-    joint_start_state.position = joint_angles;
-    joint_start_state.velocity = std::vector<double>(num_joints, 0.0);
-    joint_start_state.effort = std::vector<double>(num_joints, 0.0);
-
-    moveit_msgs::RobotState robot_start_state;
-    robot_start_state.joint_state = joint_start_state;
-
-    response.group_name = group_name_;
-    response.trajectory_start = robot_start_state;
-
-    trajectory_msgs::JointTrajectory joint_trajectory;
-    joint_trajectory.joint_names = names;
-
-    trajectory_msgs::JointTrajectoryPoint point;
-
-    joint_angles =
-        contact_planner_->vis_data_.sample_joint_angles_[viz_state_idx_];
-    point.positions = joint_angles;
-    point.velocities = std::vector<double>(num_joints, 0.0);
-    point.accelerations = std::vector<double>(num_joints, 0.0);
-    point.effort = std::vector<double>(num_joints, 0.0);
-    point.time_from_start = ros::Duration(0.1);
-    joint_trajectory.points.push_back(point);
-
-    joint_angles =
-        contact_planner_->vis_data_.sample_desired_angles_[viz_state_idx_];
-    std::cout << utilities::toEigen(joint_angles).transpose() << std::endl;
-
-    point.positions = joint_angles;
-    point.velocities = std::vector<double>(num_joints, 0.0);
-    point.accelerations = std::vector<double>(num_joints, 0.0);
-    point.effort = std::vector<double>(num_joints, 0.0);
-    point.time_from_start = ros::Duration(1.5);
-    joint_trajectory.points.push_back(point);
-
-    moveit_msgs::RobotTrajectory robot_trajectory;
-    robot_trajectory.joint_trajectory = joint_trajectory;
-
-    response.trajectory = robot_trajectory;
-
-    display_trajectory.trajectory_start = response.trajectory_start;
-    display_trajectory.trajectory.push_back(response.trajectory);
-    rep_state_publisher_.publish(display_trajectory);
+    visualizeTwoStates(
+        contact_planner_->vis_data_.sample_joint_angles_[viz_state_idx_],
+        contact_planner_->vis_data_.sample_desired_angles_[viz_state_idx_]);
 
     visualizeRepulseVec(viz_state_idx_);
     visualizeRepulseOrigin(viz_state_idx_);
