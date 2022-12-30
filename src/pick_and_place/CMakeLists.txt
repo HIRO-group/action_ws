@@ -278,7 +278,7 @@ install(DIRECTORY config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
-install(FILES contact_control.xml
+install(FILES plugins/contact_control.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 

@@ -89,7 +89,7 @@
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <controller_interface plugin="${prefix}/contact_control.xml"/>
+    <controller_interface plugin="${prefix}/plugins/contact_control.xml"/>
   </export>
 
 </package>

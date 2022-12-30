@@ -22,12 +22,12 @@ contact_controller:
       - 50.0
       - 50.0
       - 50.0
-      - 20.0
-      - 20.0
-      - 20.0
-      - 10.0
+      - 50.0
+      - 30.0
+      - 25.0
+      - 15.0
   radius: 0.1
-  acceleration_time: 2.0
+  acceleration_time: 1.0
   vel_max: 0.15
   publish_rate: 10.0
   coriolis_factor: 1.0

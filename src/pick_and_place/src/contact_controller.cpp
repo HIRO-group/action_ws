@@ -170,6 +170,9 @@ void ContactController::update(const ros::Time& /*time*/,
 
   std::array<double, 7> tau_d_calculated;
   for (size_t i = 0; i < 7; ++i) {
+    // std::cout << i << " (k gain): " << k_gains_[i] << std::endl;
+    // std::cout << i << " (d gain): " << d_gains_[i] << std::endl;
+
     tau_d_calculated[i] =
         coriolis_factor_ * coriolis[i] +
         k_gains_[i] * (robot_state.q_d[i] - robot_state.q[i]) +
@@ -209,8 +212,7 @@ void ContactController::update(const ros::Time& /*time*/,
 
 std::array<double, 7> ContactController::saturateTorqueRate(
     const std::array<double, 7>& tau_d_calculated,
-    const std::array<double, 7>&
-        tau_J_d) {  // NOLINT (readability-identifier-naming)
+    const std::array<double, 7>& tau_J_d) {
   std::array<double, 7> tau_d_saturated{};
   for (size_t i = 0; i < 7; i++) {
     double difference = tau_d_calculated[i] - tau_J_d[i];
