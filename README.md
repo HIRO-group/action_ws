@@ -42,6 +42,7 @@ catkin build
 | moveit_tutorials     | ros-planning      | n/a |
 | panda_moveit_config  | ros-planning      | n/a |
 | moveit               | nataliya-dev      | ros-planning |
+| ruckig               | pantor            | n/a |
 
 
 ## TODO

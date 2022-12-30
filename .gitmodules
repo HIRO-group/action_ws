@@ -34,3 +34,6 @@
 	path = src/moveit
 	url = git@github.com:nataliya-dev/moveit.git
   branch = noetic-devel
+[submodule "src/ruckig"]
+	path = src/ruckig
+	url = git@github.com:pantor/ruckig.git
