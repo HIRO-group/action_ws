@@ -3,9 +3,11 @@
 
 // ROS
 #include <ros/ros.h>
+#include <trajectory_msgs/JointTrajectory.h>
 
 // C++
 #include <algorithm>
+#include <mutex>
 #include <vector>
 
 // MoveIt
@@ -40,6 +42,7 @@
 // Local libraries, helper functions, and utilities
 #include "contact_perception.h"
 #include "manipulability_measures.h"
+#include "pick_and_place/TrajExecutionMonitor.h"
 #include "utilities.h"
 #include "visualizer.h"
 #include "visualizer_data.h"
@@ -64,6 +67,9 @@ class ContactPlanner {
   std::string getDefaultPlannerId();
   ompl_interface::ModelBasedPlanningContextPtr getPlanningContext();
 
+  void executeTrajectory();
+  void monitorExecution();
+
  private:
   ros::NodeHandle nh_;
   const std::string group_name_ = "panda_arm";
@@ -72,13 +78,20 @@ class ContactPlanner {
   std::shared_ptr<ContactPerception> contact_perception_;
   VisualizerData vis_data_;
   friend class Visualizer;
-  std::size_t dof_ = 7;  // get this from robot model
 
+  const std::size_t dof_ = 7;  // get this from robot model
   std::size_t sample_state_count_ = 0;
 
-  const bool use_sim_obstacles_ = false;
+  ros::Publisher trajectory_pub_;
+  ros::Subscriber execution_monitor_sub_;
+  std::mutex monitor_mtx_;
+  pick_and_place::TrajExecutionMonitor monitor_msg_;
+
+  const bool use_sim_obstacles_ = true;
   std::vector<Eigen::Vector3d> sim_obstacle_pos_;
   std::vector<double> joint_goal_pos_;
+
+  planning_interface::MotionPlanResponse plan_response_;
 
   const moveit::core::JointModelGroup* joint_model_group_;
   robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
@@ -113,6 +126,10 @@ class ContactPlanner {
   std::vector<Eigen::Vector3d> getLinkToObsVec(
       const std::vector<std::vector<Eigen::Vector3d>>& rob_pts);
   std::vector<Eigen::Vector3d> getObstacles(const Eigen::Vector3d& pt_on_rob);
+
+  void executionMonitorCallback(
+      const pick_and_place::TrajExecutionMonitor& msg);
+  void updateObstacles();
 };
 }  // namespace pick_and_place
 #endif

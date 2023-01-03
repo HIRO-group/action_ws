@@ -24,7 +24,8 @@ int main(int argc, char** argv) {
   visualizer->setContactPlanner(contact_planner);
   visualizer->visualizeGoalState();
 
-  // make sure the planning scene, goal state and point cloud work for you
+  // visually confirm that the planning scene, obstacles, goal state are all
+  // correct
   utilities::promptAnyInput();
 
   planning_interface::MotionPlanRequest req;
@@ -35,12 +36,14 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 10.0;
+  req.allowed_planning_time = 1.0;
   req.planner_id = contact_planner->getDefaultPlannerId();
+  req.max_acceleration_scaling_factor = 0.1;
+  req.max_velocity_scaling_factor = 0.1;
 
   contact_planner->createPlanningContext(req);
 
-  contact_planner->changePlanner();
+  // contact_planner->changePlanner();
 
   contact_planner->generatePlan(res);
 
@@ -62,6 +65,14 @@ int main(int argc, char** argv) {
     utilities::promptAnyInput();
   }
 
+  if (res.error_code_.val == res.error_code_.SUCCESS) {
+    ROS_INFO_NAMED(LOGNAME, "Executing trajectory.");
+    contact_planner->executeTrajectory();
+    contact_planner->monitorExecution();
+    visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
+
+    utilities::promptAnyInput();
+  }
   std::cout << "Finished!" << std::endl;
 
   return 0;

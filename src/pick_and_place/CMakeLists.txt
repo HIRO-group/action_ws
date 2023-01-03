@@ -29,6 +29,7 @@ find_package(catkin REQUIRED
     roscpp
     rospy
     franka_hw
+    franka_msgs
     hardware_interface
     # eigen_conversions
     joint_limits_interface
@@ -89,6 +90,7 @@ find_package(PCL 1.2 REQUIRED)
 add_message_files(
   FILES
   JointTorqueComparison.msg
+  TrajExecutionMonitor.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -108,7 +110,8 @@ add_message_files(
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
-  std_msgs  # Or other packages containing msgs
+  franka_msgs
+  std_msgs
 )
 
 ################################################
@@ -177,7 +180,7 @@ include_directories(SYSTEM PUBLIC
 )
 
 ## Declare a C++ library
-add_library(contact_control SHARED src/contact_controller.cpp src/utilities.cpp)
+add_library(contact_control SHARED src/contact_controller.cpp src/joint_position_controller.cpp src/utilities.cpp)
 add_library(contact_planning SHARED src/contact_planner.cpp src/utilities.cpp src/visualizer_data.cpp)
 add_library(contact_perception SHARED src/contact_perception.cpp src/utilities.cpp)
 add_library(visualizer SHARED src/visualizer.cpp src/utilities.cpp src/visualizer_data.cpp)

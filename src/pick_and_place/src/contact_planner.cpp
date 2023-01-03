@@ -1,6 +1,10 @@
 #include "contact_planner.h"
 
+#include <franka_msgs/FrankaState.h>
+#include <moveit/trajectory_processing/iterative_time_parameterization.h>
+
 #include <chrono>
+
 using namespace std::chrono;
 constexpr char LOGNAME[] = "contact_planner";
 
@@ -13,7 +17,7 @@ ContactPlanner::ContactPlanner() {
 
   // fill obstacle positions
   contact_perception_ = std::make_shared<ContactPerception>();
-  // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.0, 0.6});
+  sim_obstacle_pos_.emplace_back(Eigen::Vector3d{1.5, 0.0, 1.6});
   // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.1, 0.2});
   // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.0, 0.5});
   // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.6, 0.2, 0.6});
@@ -608,9 +612,32 @@ bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
   bool is_solved = context_->solve(res);
   if (is_solved) {
     std::size_t state_count = res.trajectory_->getWayPointCount();
-    ROS_DEBUG_STREAM("Motion planner reported a solution path with "
-                     << state_count << " states");
+    ROS_INFO_NAMED(LOGNAME, "Motion planner reported a solution path with %ld",
+                   state_count);
   }
+
+  if (is_solved && res.trajectory_) {
+    trajectory_processing::IterativeParabolicTimeParameterization time_param_;
+    ROS_INFO_NAMED(LOGNAME, "Computing time parameterization.");
+    planning_interface::MotionPlanRequest req =
+        context_->getMotionPlanRequest();
+    ROS_INFO_NAMED(LOGNAME, "req.max_velocity_scaling_factor %f",
+                   req.max_velocity_scaling_factor);
+    ROS_INFO_NAMED(LOGNAME, "req.max_acceleration_scaling_factor %f",
+                   req.max_acceleration_scaling_factor);
+
+    if (!time_param_.computeTimeStamps(*res.trajectory_,
+                                       req.max_velocity_scaling_factor,
+                                       req.max_acceleration_scaling_factor)) {
+      ROS_ERROR_NAMED(LOGNAME,
+                      "Time parametrization for the solution path failed.");
+      is_solved = false;
+    } else {
+      ROS_INFO_NAMED(LOGNAME, "Time parameterization success.");
+      plan_response_ = res;
+    }
+  }
+
   ROS_INFO_NAMED(LOGNAME, "Is plan generated? %d", is_solved);
   return is_solved;
 }
@@ -696,6 +723,100 @@ void ContactPlanner::init() {
     ROS_INFO_NAMED(
         LOGNAME, "Using simulated obstacles. Point cloud will not be loaded.");
   }
+  trajectory_pub_ = nh_.advertise<trajectory_msgs::JointTrajectory>(
+      "/joint_position_controller/contact_trajectory", 1);
+
+  execution_monitor_sub_ =
+      nh_.subscribe("/joint_position_controller/trajectory_monitor", 1,
+                    &ContactPlanner::executionMonitorCallback, this);
+}
+
+void ContactPlanner::executionMonitorCallback(const TrajExecutionMonitor& msg) {
+  monitor_mtx_.lock();
+  monitor_msg_ = msg;
+  monitor_mtx_.unlock();
+}
+
+void ContactPlanner::monitorExecution() {
+  moveit_msgs::MotionPlanResponse msg;
+  plan_response_.getMessage(msg);
+  std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
+  ROS_INFO_NAMED(LOGNAME, "Monitoring trajectory with num pts: %ld", num_pts);
+  ros::Rate rate(30);  // hz
+  int is_valid = 1;
+  while (ros::ok() && monitor_msg_.pt_idx <= num_pts && is_valid != -1) {
+    monitor_mtx_.lock();
+    ROS_INFO_NAMED(LOGNAME, "monitor_msg_.pt_idx %d", monitor_msg_.pt_idx);
+    is_valid = monitor_msg_.is_valid;
+    ROS_INFO_NAMED(LOGNAME, "is_valid %d", is_valid);
+    if (is_valid == -1) {
+      ROS_ERROR_NAMED(LOGNAME, "Execution failure on trajectory point %d",
+                      monitor_msg_.pt_idx);
+      execution_monitor_sub_.shutdown();
+    }
+    monitor_mtx_.unlock();
+
+    ros::spinOnce();
+    rate.sleep();
+  }
+
+  ROS_INFO_NAMED(LOGNAME, "Finished trajectory execution monitoring.");
+  updateObstacles();
+}
+
+void ContactPlanner::updateObstacles() {
+  if (monitor_msg_.is_valid != -1) {
+    ROS_INFO_NAMED(LOGNAME,
+                   "Trajectory execution was valid. Nothing to update.");
+  }
+
+  std::size_t error_link_num = 0;
+  const double tau_thresh = 50.0;
+
+  for (std::size_t i = 0; i < monitor_msg_.franka_state.q.size(); i++) {
+    double tau_J = monitor_msg_.franka_state.tau_J[i];
+    if (std::abs(tau_J) > tau_thresh) {
+      error_link_num = i;
+      break;
+    }
+  }
+
+  moveit_msgs::MotionPlanResponse msg;
+  plan_response_.getMessage(msg);
+
+  trajectory_msgs::JointTrajectoryPoint point =
+      msg.trajectory.joint_trajectory.points[monitor_msg_.pt_idx];
+  std::vector<double> joint_angles(dof_, 0.0);
+  for (std::size_t i = 0; i < dof_; i++) {
+    joint_angles[i] = point.positions[i];
+  }
+
+  moveit::core::RobotStatePtr robot_state =
+      std::make_shared<moveit::core::RobotState>(*robot_state_);
+  robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
+
+  std::vector<std::vector<Eigen::Vector3d>> rob_pts;
+  std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
+
+  std::vector<Eigen::Vector3d> link_pts = rob_pts[error_link_num];
+  std::size_t num_link_pts = link_pts.size();
+
+  for (std::size_t i = 0; i < num_link_pts; i++) {
+    sim_obstacle_pos_.emplace_back(link_pts[i]);
+  }
+
+  ROS_INFO_NAMED(
+      LOGNAME,
+      "Finished updating obstacle positions based on trajectory execution.");
+}
+
+void ContactPlanner::executeTrajectory() {
+  moveit_msgs::MotionPlanResponse msg;
+  plan_response_.getMessage(msg);
+  std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
+  ROS_INFO_NAMED(LOGNAME, "Executing trajectory with num pts: %ld", num_pts);
+
+  trajectory_pub_.publish(msg.trajectory.joint_trajectory);
 }
 
 std::string ContactPlanner::getGroupName() { return group_name_; }

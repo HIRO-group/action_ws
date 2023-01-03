@@ -67,6 +67,7 @@
   <depend>roscpp</depend>
   <depend>rospy</depend>
   <depend>franka_hw</depend>
+  <depend>franka_msgs</depend>
   <depend>hardware_interface</depend>
   <!-- <depend>eigen_conversions</depend> -->
   <depend>joint_limits_interface</depend>
