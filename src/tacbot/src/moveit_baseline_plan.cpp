@@ -180,7 +180,7 @@ int main(int argc, char** argv) {
   // ^^^^^^^^^^^^^^^^^^^^
   ros::Publisher display_publisher =
       node_handle.advertise<moveit_msgs::DisplayTrajectory>(
-          "/pick_and_place/display_planned_path", 1, true);
+          "/tacbot/display_planned_path", 1, true);
   moveit_msgs::DisplayTrajectory display_trajectory;
 
   /* Visualize the trajectory */

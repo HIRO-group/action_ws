@@ -1,6 +1,6 @@
 #include "visualizer_data.h"
 
-namespace pick_and_place {
+namespace tacbot {
 void VisualizerData::setTotalNumRepulsePts(std::size_t num_pts) {
   cur_total_num_repulse_pts_ = num_pts;
 }
@@ -53,4 +53,4 @@ void VisualizerData::saveObstaclePos(
   }
 }
 
-}  // namespace pick_and_place
+}  // namespace tacbot

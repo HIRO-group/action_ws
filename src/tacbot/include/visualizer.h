@@ -10,7 +10,7 @@
 #include "utilities.h"
 #include "visualizer_data.h"
 
-namespace pick_and_place {
+namespace tacbot {
 
 /** Forward declaration of the ContactPlanner class.
  */
@@ -139,6 +139,6 @@ class Visualizer {
    * extracted.*/
   std::shared_ptr<ContactPlanner> contact_planner_;
 };
-}  // namespace pick_and_place
+}  // namespace tacbot
 
 #endif

@@ -14,7 +14,7 @@
 #include <chrono>
 using namespace std::chrono;
 constexpr char LOGNAME[] = "contact_perception";
-namespace pick_and_place {
+namespace tacbot {
 
 ContactPerception::ContactPerception()
     : point_cloud_(new pcl::PointCloud<pcl::PointXYZ>) {}
@@ -334,4 +334,4 @@ void ContactPerception::pointCloudCallback(
   point_cloud_ = std::move(cloud_filtered);
 }
 
-}  // namespace pick_and_place
+}  // namespace tacbot

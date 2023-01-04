@@ -42,12 +42,12 @@
 // Local libraries, helper functions, and utilities
 #include "contact_perception.h"
 #include "manipulability_measures.h"
-#include "pick_and_place/TrajExecutionMonitor.h"
+#include "tacbot/TrajExecutionMonitor.h"
 #include "utilities.h"
 #include "visualizer.h"
 #include "visualizer_data.h"
 
-namespace pick_and_place {
+namespace tacbot {
 
 /** \class This class is used to generate robot trajectories. Unlike traditional
  * motion planners, this planner can create a plan in which a robot will make
@@ -199,7 +199,7 @@ class ContactPlanner {
   /** \brief Each time the executionMonitorCallback gets called, it writes to
    * this member. The planner monitors this variable after execution, which is
    * why we use a mutex for this member.*/
-  pick_and_place::TrajExecutionMonitor monitor_msg_;
+  tacbot::TrajExecutionMonitor monitor_msg_;
 
   /** \brief Whether or not to use simulated obstacles or the ContactPerception
    * class to fill obstacles into the robot's planning scene.*/
@@ -345,12 +345,12 @@ class ContactPlanner {
     @param msg The ros msg.
   */
   void executionMonitorCallback(
-      const pick_and_place::TrajExecutionMonitor& msg);
+      const tacbot::TrajExecutionMonitor& msg);
 
   /** \brief If the trajectory execution was not successful then update the
    * environment. This function add new obstacles to the environment at the
    * point where execution has been stopped. */
   void updateObstacles();
 };
-}  // namespace pick_and_place
+}  // namespace tacbot
 #endif

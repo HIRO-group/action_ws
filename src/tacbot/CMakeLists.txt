@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.4)
-project(pick_and_place)
+project(tacbot)
 
 
 set(CMAKE_CXX_STANDARD 14)
@@ -312,7 +312,7 @@ install(FILES plugins/contact_control.xml
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_pick_and_place.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_tacbot.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

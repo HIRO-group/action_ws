@@ -4,7 +4,7 @@
 
 constexpr char LOGNAME[] = "utilites";
 
-namespace pick_and_place {
+namespace tacbot {
 namespace utilities {
 void promptAnyInput() {
   std::string user_input = " ";
@@ -202,4 +202,4 @@ std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
 }
 
 }  // namespace utilities
-}  // namespace pick_and_place
+}  // namespace tacbot

@@ -7,7 +7,7 @@
 #include <ros/ros.h>
 
 #include <cmath>
-namespace pick_and_place {
+namespace tacbot {
 
 bool ContactController::init(hardware_interface::RobotHW* robot_hw,
                              ros::NodeHandle& node_handle) {
@@ -223,7 +223,7 @@ std::array<double, 7> ContactController::saturateTorqueRate(
   return tau_d_saturated;
 }
 
-}  // namespace pick_and_place
+}  // namespace tacbot
 
-PLUGINLIB_EXPORT_CLASS(pick_and_place::ContactController,
+PLUGINLIB_EXPORT_CLASS(tacbot::ContactController,
                        controller_interface::ControllerBase)

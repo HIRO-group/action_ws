@@ -6,7 +6,7 @@
 
 #include "utilities.h"
 
-namespace pick_and_place {
+namespace tacbot {
 
 /** \class This struct is mainly used as a storage device. The ContactPlanner
  * stores its information here, and the Visualizer class will retrieve this
@@ -81,6 +81,6 @@ struct VisualizerData {
   void setTotalNumRepulsePts(std::size_t num_pts);
 };
 
-}  // namespace pick_and_place
+}  // namespace tacbot
 
 #endif

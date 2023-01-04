@@ -5,7 +5,7 @@
 
 constexpr char LOGNAME[] = "generate_plan";
 
-using namespace pick_and_place;
+using namespace tacbot;
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "generate_contact_plan");

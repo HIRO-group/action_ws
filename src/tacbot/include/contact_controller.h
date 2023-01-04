@@ -7,7 +7,7 @@
 #include <franka_hw/trigger_rate.h>
 #include <hardware_interface/joint_command_interface.h>
 #include <hardware_interface/robot_hw.h>
-#include <pick_and_place/JointTorqueComparison.h>
+#include <tacbot/JointTorqueComparison.h>
 #include <realtime_tools/realtime_publisher.h>
 #include <ros/node_handle.h>
 #include <ros/time.h>
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace pick_and_place {
+namespace tacbot {
 class ContactController
     : public controller_interface::MultiInterfaceController<
           franka_hw::FrankaModelInterface, franka_hw::FrankaStateInterface,
@@ -57,6 +57,6 @@ class ContactController
   realtime_tools::RealtimePublisher<JointTorqueComparison> torques_publisher_;
 };
 
-}  // namespace pick_and_place
+}  // namespace tacbot
 
 #endif

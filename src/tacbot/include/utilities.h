@@ -9,7 +9,7 @@
 #include <Eigen/Core>
 #include <iostream>
 #include <vector>
-namespace pick_and_place {
+namespace tacbot {
 namespace utilities {
 /** \brief
   @param
@@ -103,5 +103,5 @@ std::vector<std::size_t> find(const Eigen::MatrixXd& needle,
 std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose);
 
 }  // namespace utilities
-}  // namespace pick_and_place
+}  // namespace tacbot
 #endif

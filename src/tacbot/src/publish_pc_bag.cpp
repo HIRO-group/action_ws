@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
 
   // Variable holding the rosbag containing point cloud data.
   rosbag::Bag bagfile;
-  std::string path = ros::package::getPath("pick_and_place");
+  std::string path = ros::package::getPath("tacbot");
   path += "/bags/example.bag";
   bagfile.open(path, rosbag::bagmode::Read);
 

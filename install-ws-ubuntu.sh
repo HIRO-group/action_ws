@@ -2,14 +2,9 @@
 
 BLUE='\033[0;34m'
 NC='\033[0m'
-echo -e "${BLUE}Start!${NC}"
-
 set -eo pipefail
-
 SUDO="sudo -H"
-
 ubuntu_version=`lsb_release -rs | sed 's/\.//'`
-
 ROS_DISTRO=noetic
 
 install_common_dependencies()
@@ -112,15 +107,72 @@ set_upstream_branches(){
   cd ../../
 }
 
-set_upstream_branches
+pull_origin(){
+  git submodule foreach -q --recursive 'git pull'
+  cd src/pick_and_place/
+  git pull
+  cd ../../
+}
 
-git submodule foreach -q --recursive 'branch="$(git config -f $toplevel/.gitmodules submodule.$name.branch)"; git checkout $branch'
+fetch_and_merge(){
+  #incomplete function, not ready for use
+  BRANCH="$(git config -f $toplevel/.gitmodules submodule.$name.branch)";
 
-git submodule update --init --recursive --remote
+  if git ls-remote --exit-code upstream; then
+    git fetch upstream
+    git merge upstream/${BRANCH}
+  fi
+}
 
-install_common_dependencies
-install_libfranka
-install_ompl
-install_omplapp
+installer(){
+  set_upstream_branches
+  git submodule foreach -q --recursive 'branch="$(git config -f $toplevel/.gitmodules submodule.$name.branch)"; git checkout $branch'
+  git submodule update --init --recursive --remote
+  install_common_dependencies
+  install_libfranka
+  install_ompl
+  install_omplapp
+}
 
-catkin build -DCMAKE_BUILD_TYPE=Release -DFranka_DIR:PATH=$(pwd)/src/libfranka/build
+builder(){
+  catkin build -DCMAKE_BUILD_TYPE=Release -DFranka_DIR:PATH=$(pwd)/src/libfranka/build
+}
+
+helper()
+{
+   # Display Help
+   echo "Script used to help you build this repository."
+   echo
+   echo "Usage: ./install-ws-ubuntu [-h|i|b|s]"
+   echo "Options:"
+   echo "h     Help: Display this helper text."
+   echo "i     Install: Installs the modules and submodules from their remote repositories. Only needs to be called once unless an error occurs."
+   echo "b     Build: Builds the newly installed packages. Can be used as often as necessary until build success."
+   echo "s     Sync: Pull from remote and upstream branches then merge the new content to the main noetic branch."
+   echo
+}
+
+no_args="true"
+while getopts ":hibs" option; do
+   case $option in
+      h) # display Help
+        helper
+        exit;;
+      i) # install packages
+        installer
+        exit;;
+      b) # build packages
+        builder
+        exit;;
+      s) # sync with upstream
+        pull_origin
+        exit;;
+      \?) # invalid option
+        echo "Error: Invalid option"
+        helper
+        exit;;
+   esac
+   no_args="false"
+done
+
+[[ "$no_args" == "true" ]] && { helper; exit 1; }

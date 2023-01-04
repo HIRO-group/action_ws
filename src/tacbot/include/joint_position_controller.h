@@ -17,9 +17,9 @@
 #include <string>
 #include <vector>
 
-#include "pick_and_place/TrajExecutionMonitor.h"
+#include "tacbot/TrajExecutionMonitor.h"
 
-namespace pick_and_place {
+namespace tacbot {
 
 class JointPositionController
     : public controller_interface::MultiInterfaceController<
@@ -63,6 +63,6 @@ class JointPositionController
   void reset();
 };
 
-}  // namespace pick_and_place
+}  // namespace tacbot
 
 #endif

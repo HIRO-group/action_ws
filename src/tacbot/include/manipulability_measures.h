@@ -4,7 +4,7 @@
 #include <Eigen/Core>
 #include <iostream>
 
-namespace pick_and_place {
+namespace tacbot {
 
 struct ManipulabilityMeasures {
   Eigen::MatrixXd eigen_values;
@@ -18,6 +18,6 @@ struct ManipulabilityMeasures {
   bool pass = false;
 };
 
-}  // namespace pick_and_place
+}  // namespace tacbot
 
 #endif

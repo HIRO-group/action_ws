@@ -8,7 +8,7 @@
 using namespace std::chrono;
 constexpr char LOGNAME[] = "contact_planner";
 
-namespace pick_and_place {
+namespace tacbot {
 
 ContactPlanner::ContactPlanner() {
   // fill goal position
@@ -825,4 +825,4 @@ std::vector<Eigen::Vector3d> ContactPlanner::getSimObstaclePos() {
   return sim_obstacle_pos_;
 };
 
-}  // namespace pick_and_place
+}  // namespace tacbot

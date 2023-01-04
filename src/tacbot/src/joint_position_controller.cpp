@@ -8,7 +8,7 @@
 
 #include <cmath>
 
-namespace pick_and_place {
+namespace tacbot {
 
 bool JointPositionController::init(hardware_interface::RobotHW* robot_hardware,
                                    ros::NodeHandle& node_handle) {
@@ -375,7 +375,7 @@ void JointPositionController::robotStateToMsg(
   }
 }
 
-}  // namespace pick_and_place
+}  // namespace tacbot
 
-PLUGINLIB_EXPORT_CLASS(pick_and_place::JointPositionController,
+PLUGINLIB_EXPORT_CLASS(tacbot::JointPositionController,
                        controller_interface::ControllerBase)

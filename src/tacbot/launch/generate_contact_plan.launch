@@ -11,20 +11,20 @@
 
   <arg name="arm_id" default="panda" />
 
-  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find pick_and_place)/config/rosconsole.conf"/>
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find tacbot)/config/rosconsole.conf"/>
 
   <include file="$(find panda_moveit_config)/launch/planning_context.launch">
     <arg name="load_robot_description" value="true"/>
   </include>
 
   <!-- Broadcast static tf for world cand camera frame-->
-  <node pkg="pick_and_place" type="broadcast_tf" name="broadcast_tf" output="screen"/>
+  <node pkg="tacbot" type="broadcast_tf" name="broadcast_tf" output="screen"/>
 
   <!-- Play the rosbag that contains the pointcloud data -->
-  <node pkg="pick_and_place" type="publish_pc_bag" name="publish_pc_bag" output="screen"/>
+  <node pkg="tacbot" type="publish_pc_bag" name="publish_pc_bag" output="screen"/>
 
   <!-- Params for 3D sensors config -->
-  <!-- <rosparam command="load" file="$(find pick_and_place)/config/sensors_3d.yaml" /> -->
+  <!-- <rosparam command="load" file="$(find tacbot)/config/sensors_3d.yaml" /> -->
 
   <!-- Params for the octomap monitor -->
   <!-- <param name="robot_description_planning/shape_transform_cache_lookup_wait_time" value="0.5" />
@@ -49,7 +49,7 @@
   <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
   <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
 
-  <node name="generate_contact_plan" pkg="pick_and_place" type="generate_contact_plan" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
+  <node name="generate_contact_plan" pkg="tacbot" type="generate_contact_plan" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
   </node>
 
 </launch>

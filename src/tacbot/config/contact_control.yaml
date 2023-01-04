@@ -1,5 +1,5 @@
 contact_controller:
-  type: pick_and_place/ContactController
+  type: tacbot/ContactController
   publish_rate: 30  # [Hz]
   arm_id: $(arg arm_id)
   joint_names:
@@ -33,7 +33,7 @@ contact_controller:
   coriolis_factor: 1.0
 
 joint_position_controller:
-  type: pick_and_place/JointPositionController
+  type: tacbot/JointPositionController
   publish_rate: 30  # [Hz]
   arm_id: $(arg arm_id)
   joint_names:

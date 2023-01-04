@@ -7,7 +7,7 @@
 
 constexpr char LOGNAME[] = "visualizer";
 
-namespace pick_and_place {
+namespace tacbot {
 Visualizer::Visualizer() {
   robot_repulse_origin_pub_ =
       nh_.advertise<visualization_msgs::MarkerArray>("repulse_origin", 1, true);
@@ -586,4 +586,4 @@ void Visualizer::visualizeRepulsedState() {
   }
 }
 
-}  // namespace pick_and_place
+}  // namespace tacbot
