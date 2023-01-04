@@ -49,14 +49,22 @@
 
 namespace pick_and_place {
 
+/** \class This class is used to generate robot trajectories. Unlike traditional
+ * motion planners, this planner can create a plan in which a robot will make
+ * contact with obstacles. If there are obstacles in space but there is a
+ * contact-free path then the robot will generate this path. If there are
+ * obstacles in space and the planner needs to generate a plan such that some
+ * obstacle interaction occurs, then the robot will still generate this plan.
+ *
+ * This class uses the ContactPerception class, which feeds the robot points
+ * from a point cloud around the robot.
+ * This class uses the ContactController, which then can execute a desired
+ * trajectory. Finally, this class uses the VisualizerData class, where it
+ * stores certain planning elements for visualization.
+ *
+ */
 class ContactPlanner {
  public:
-  /** \brief
-      @param
-      @param
-      @return
-  */
-
   ContactPlanner();
 
   /** \brief Initialize the planning scene, monitoring, publishers and

@@ -9,7 +9,7 @@ constexpr char LOGNAME[] = "visualizer";
 
 namespace pick_and_place {
 Visualizer::Visualizer() {
-  robot_marker_pub_ =
+  robot_repulse_origin_pub_ =
       nh_.advertise<visualization_msgs::MarkerArray>("repulse_origin", 1, true);
   obstacle_marker_pub_ =
       nh_.advertise<visualization_msgs::MarkerArray>("obstacle", 1, true);
@@ -237,7 +237,7 @@ void Visualizer::visualizeRepulseOrigin(std::size_t state_num) {
 
     marker_array.markers.push_back(marker);
   }
-  robot_marker_pub_.publish(marker_array);
+  robot_repulse_origin_pub_.publish(marker_array);
 }
 
 void Visualizer::visualizeObstacleMarker(
@@ -328,7 +328,6 @@ void Visualizer::visualizeVertices() {
   std::cout << "num_states: " << num_states << std::endl;
   std::vector<const ompl::base::State*> states = storage->getStates();
 
-  // try something here
   std::size_t num_edges = planner_data.numEdges();
   std::size_t num_vertices = planner_data.numVertices();
   ROS_INFO_NAMED(LOGNAME, "num_edges %ld", num_edges);
