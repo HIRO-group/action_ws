@@ -6,7 +6,8 @@
 ```
 git clone --recurse-submodules git@github.com:nataliya-dev/action_ws.git
 cd action_ws
-./install-ws-ubuntu.sh
+./install-ws-ubuntu.sh -i
+./install-ws-ubuntu.sh -b
 ```
 
 ### Source the Catkin Workspace
