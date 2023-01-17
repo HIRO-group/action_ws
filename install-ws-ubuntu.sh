@@ -47,6 +47,14 @@ install_common_dependencies()
   ${SUDO} apt -y install ros-${ROS_DISTRO}-moveit-visual-tools
 }
 
+install_moveit(){
+  wstool init src
+  wstool merge -t src src/moveit/moveit.rosinstall
+  wstool update -t src
+  rosdep install -y --from-paths src --ignore-src --rosdistro ${ROS_DISTRO}
+  catkin config --extend /opt/ros/${ROS_DISTRO} --cmake-args -DCMAKE_BUILD_TYPE=Release
+}
+
 build_libfranka()
 {
   echo -e "${BLUE}Build and install libfranka${NC}"
@@ -152,6 +160,7 @@ installer(){
   git submodule foreach -q --recursive 'branch="$(git config -f $toplevel/.gitmodules submodule.$name.branch)"; git checkout $branch'
   git submodule update --init --recursive --remote
   install_common_dependencies
+  install_moveit
   build_ruckig
   build_libfranka
   build_ompl

@@ -14,22 +14,6 @@
 	path = src/omplapp
 	url = git@github.com:nataliya-dev/omplapp.git
   branch = main
-[submodule "src/moveit_tutorials"]
-	path = src/moveit_tutorials
-	url = git@github.com:ros-planning/moveit_tutorials.git
-  branch = master
-[submodule "src/panda_moveit_config"]
-	path = src/panda_moveit_config
-	url = https://github.com/ros-planning/panda_moveit_config.git
-  branch = noetic-devel
-[submodule "src/moveit_resources"]
-	path = src/moveit_resources
-	url = git@github.com:ros-planning/moveit_resources.git
-  branch = master
-[submodule "src/moveit_msgs"]
-	path = src/moveit_msgs
-	url = git@github.com:ros-planning/moveit_msgs.git
-  branch = master
 [submodule "src/moveit"]
 	path = src/moveit
 	url = git@github.com:nataliya-dev/moveit.git
