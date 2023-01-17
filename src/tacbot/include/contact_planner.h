@@ -344,8 +344,7 @@ class ContactPlanner {
     its execution state.
     @param msg The ros msg.
   */
-  void executionMonitorCallback(
-      const tacbot::TrajExecutionMonitor& msg);
+  void executionMonitorCallback(const tacbot::TrajExecutionMonitor& msg);
 
   /** \brief If the trajectory execution was not successful then update the
    * environment. This function add new obstacles to the environment at the

@@ -17,7 +17,7 @@ ContactPlanner::ContactPlanner() {
 
   // fill obstacle positions
   contact_perception_ = std::make_shared<ContactPerception>();
-  sim_obstacle_pos_.emplace_back(Eigen::Vector3d{1.5, 0.0, 1.6});
+  sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.0, 0.6});
   // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.1, 0.2});
   // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.0, 0.5});
   // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.6, 0.2, 0.6});
@@ -198,11 +198,23 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   // std::cout << "vec.norm() " << vec.norm() << std::endl;
   Eigen::Vector3d vec_out = Eigen::VectorXd::Zero(3);
 
+  double norm = vec.norm();
+  double norm_max = 0.1;
+  if (norm < norm_max) {
+    vec_out[0] = 1;
+    vec_out[1] = 1;
+    vec_out[2] = 1;
+  } else {
+    vec_out[0] = 0;
+    vec_out[1] = 0;
+    vec_out[2] = 0;
+  }
+
   // if (vec.norm() > 0.4) {
   //   return vec_out;
   // }
 
-  vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
+  // vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
 
   // std::cout << "vec.squaredNorm() " << vec.squaredNorm() << std::endl;
   // std::cout << "before scale " << vec.transpose() << std::endl;
@@ -430,7 +442,7 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
   auto stop = high_resolution_clock::now();
   auto duration = duration_cast<microseconds>(stop - start);
-  std::cout << "getPtsOnRobotSurface us: " << duration.count() << std::endl;
+  // std::cout << "getPtsOnRobotSurface us: " << duration.count() << std::endl;
 
   vis_data_.setTotalNumRepulsePts(num_pts);
 
@@ -438,7 +450,7 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(rob_pts);
   stop = high_resolution_clock::now();
   duration = duration_cast<microseconds>(stop - start);
-  std::cout << "getLinkToObsVec us: " << duration.count() << std::endl;
+  // std::cout << "getLinkToObsVec us: " << duration.count() << std::endl;
 
   // std::cout << "link_to_obs_vec.size(): " << link_to_obs_vec.size()
   //           << std::endl;
