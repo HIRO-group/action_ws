@@ -249,3 +249,14 @@ cython_debug/
 
 #VS
 .vscode/
+
+src/.rosinstall
+src/.rosinstall.bak
+src/geometric_shapes/
+src/moveit_msgs/
+src/moveit_resources/
+src/moveit_tutorials/
+src/moveit_visual_tools/
+src/panda_moveit_config/
+src/rviz_visual_tools/
+src/srdfdom/
