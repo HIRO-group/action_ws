@@ -1,26 +1,54 @@
 #include "contact_planner.h"
 
 #include <franka_msgs/FrankaState.h>
+#include <math.h>
+#include <moveit/collision_detection_fcl/collision_common.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
 #include <chrono>
-
 using namespace std::chrono;
 constexpr char LOGNAME[] = "contact_planner";
 
 namespace tacbot {
 
 ContactPlanner::ContactPlanner() {
-  // fill goal position
   joint_goal_pos_ = std::vector<double>{-1.0, 0.7, 0.7, -1.0, -0.7, 2.0, 0.0};
   // joint_goal_pos_ = std::vector<double>{0.0, 0.45, 0.0, -1.9, 0.0, 2.0, 0.0};
 
-  // fill obstacle positions
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.1, 0.0, 0.1}, 0.1));
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.5}, 0.1));
+
+  for (auto sphere : spherical_obstacles_) {
+    addSphericalObstacle(sphere.first, sphere.second);
+  }
+
   contact_perception_ = std::make_shared<ContactPerception>();
-  sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.0, 0.6});
-  // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.1, 0.2});
-  // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.5, 0.0, 0.5});
-  // sim_obstacle_pos_.emplace_back(Eigen::Vector3d{0.6, 0.2, 0.6});
+}
+
+void ContactPlanner::addSphericalObstacle(const Eigen::Vector3d& center,
+                                          double radius) {
+  const double inc = 0.4;
+  for (double theta = 0; theta < 2 * M_PI; theta += inc) {
+    for (double phi = 0; phi < 2 * M_PI; phi += inc) {
+      double x = radius * cos(phi) * sin(theta) + center[0];
+      double y = radius * sin(phi) * sin(theta) + center[1];
+      double z = radius * cos(theta) + center[2];
+      sim_obstacle_pos_.emplace_back(Eigen::Vector3d{x, y, z});
+    }
+  }
+}
+
+void ContactPlanner::addLineObstacle() {
+  const Eigen::Vector3d start{0.5, 1.0, 0.6};
+  const double inc = 0.05;
+  for (std::size_t i = 0; i < 40; i++) {
+    sim_obstacle_pos_.emplace_back(
+        Eigen::Vector3d{start[0], start[1] + -1.0 * i * inc, start[2]});
+  }
 }
 
 void ContactPlanner::setCurToStartState(
@@ -193,28 +221,28 @@ moveit_msgs::Constraints ContactPlanner::createJointGoal() {
 
 Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   double y_max = 5.0;
-  double D = 200.0;
-  double dist_max = 1.0;
+  double D = 50.0;
+  // double dist_max = 1.0;
   // std::cout << "vec.norm() " << vec.norm() << std::endl;
   Eigen::Vector3d vec_out = Eigen::VectorXd::Zero(3);
 
-  double norm = vec.norm();
-  double norm_max = 0.1;
-  if (norm < norm_max) {
-    vec_out[0] = 1;
-    vec_out[1] = 1;
-    vec_out[2] = 1;
-  } else {
-    vec_out[0] = 0;
-    vec_out[1] = 0;
-    vec_out[2] = 0;
-  }
-
-  // if (vec.norm() > 0.4) {
-  //   return vec_out;
+  // double norm = vec.norm();
+  // double norm_max = 0.1;
+  // if (norm < norm_max) {
+  //   vec_out[0] = 1;
+  //   vec_out[1] = 1;
+  //   vec_out[2] = 1;
+  // } else {
+  //   vec_out[0] = 0;
+  //   vec_out[1] = 0;
+  //   vec_out[2] = 0;
   // }
 
-  // vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
+  if (vec.norm() > 0.2) {
+    return vec_out;
+  }
+
+  vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
 
   // std::cout << "vec.squaredNorm() " << vec.squaredNorm() << std::endl;
   // std::cout << "before scale " << vec.transpose() << std::endl;
@@ -603,7 +631,7 @@ void ContactPlanner::changePlanner() {
   // double initial_lambda = 0.01;
   // unsigned int update_freq = 30;
   // ompl::base::PlannerPtr planner =
-  // std::make_shared<ompl::geometric::CVFRRT>(
+  // std::make_shared<ompl::geometric::ContactVFRRT>(
   //     si, vFieldFunc, exploration, initial_lambda, update_freq);
 
   optimization_objective_ =
@@ -613,8 +641,12 @@ void ContactPlanner::changePlanner() {
   simple_setup->setOptimizationObjective(optimization_objective_);
 
   ompl::base::PlannerPtr planner =
-      std::make_shared<ompl::geometric::ClassicTRRT>(
-          simple_setup->getSpaceInformation());
+      std::make_shared<ompl::geometric::ContactTRRT>(
+          simple_setup->getSpaceInformation(), vFieldFunc);
+
+  // ompl::base::PlannerPtr planner =
+  //     std::make_shared<ompl::geometric::ClassicTRRT>(
+  //         simple_setup->getSpaceInformation());
 
   simple_setup->setPlanner(planner);
 }
@@ -728,13 +760,7 @@ void ContactPlanner::init() {
   // robot_state->printStatePositions();
   robot_state_ = std::make_shared<moveit::core::RobotState>(*robot_state);
 
-  if (!use_sim_obstacles_) {
-    ROS_INFO_NAMED(LOGNAME, "Using a pre-configured point cloud model.");
-    contact_perception_->init();
-  } else {
-    ROS_INFO_NAMED(
-        LOGNAME, "Using simulated obstacles. Point cloud will not be loaded.");
-  }
+  contact_perception_->init();
   trajectory_pub_ = nh_.advertise<trajectory_msgs::JointTrajectory>(
       "/joint_position_controller/contact_trajectory", 1);
 
@@ -836,5 +862,68 @@ std::string ContactPlanner::getGroupName() { return group_name_; }
 std::vector<Eigen::Vector3d> ContactPlanner::getSimObstaclePos() {
   return sim_obstacle_pos_;
 };
+
+void ContactPlanner::runCollisionDetection() {
+  for (auto sphere : spherical_obstacles_) {
+    contact_perception_->addSphere(sphere.first, sphere.second);
+  }
+
+  // collision_tools.h can help with visualization
+  moveit_msgs::MotionPlanResponse msg;
+  plan_response_.getMessage(msg);
+  std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
+
+  collision_detection::CollisionRequest collision_request;
+  collision_request.distance = false;
+  collision_request.cost = false;
+  collision_request.contacts = true;
+  collision_request.max_contacts = 200;
+  collision_request.max_contacts_per_pair = 200;
+  collision_request.max_cost_sources = 200;
+  collision_request.verbose = false;
+
+  for (std::size_t pt_idx = 0; pt_idx < num_pts; pt_idx++) {
+    ROS_INFO_NAMED(LOGNAME, "Analyzing trajectory point number: %ld", pt_idx);
+
+    trajectory_msgs::JointTrajectoryPoint point =
+        msg.trajectory.joint_trajectory.points[pt_idx];
+    std::vector<double> joint_angles(dof_, 0.0);
+    for (std::size_t jnt_idx = 0; jnt_idx < dof_; jnt_idx++) {
+      joint_angles[jnt_idx] = point.positions[jnt_idx];
+    }
+
+    moveit::core::RobotState* robot_state =
+        new moveit::core::RobotState(psm_->getPlanningScene()->getRobotModel());
+    robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
+    robot_state->update();
+    collision_detection::CollisionResult collision_result;
+    planning_scene_monitor::LockedPlanningSceneRO(psm_)->checkCollision(
+        collision_request, collision_result, *robot_state);
+    bool collision = collision_result.collision;
+    std::size_t contact_count = collision_result.contact_count;
+    double distance = collision_result.distance;
+    collision_detection::CollisionResult::ContactMap contact_map =
+        collision_result.contacts;
+    double total_depth = 0;
+
+    for (auto contact : contact_map) {
+      std::size_t num_subcontacts = contact.second.size();
+      ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
+
+      for (std::size_t subc_idx = 0; subc_idx < num_subcontacts; subc_idx++) {
+        collision_detection::Contact subcontact = contact.second[subc_idx];
+        // ROS_INFO_NAMED(LOGNAME, "Body 1: %s",
+        // subcontact.body_name_1.c_str()); ROS_INFO_NAMED(LOGNAME, "Body 2:
+        // %s", subcontact.body_name_2.c_str()); ROS_INFO_NAMED(LOGNAME, "Depth:
+        // %f", subcontact.depth);
+        total_depth += std::abs(subcontact.depth);
+      }
+    }
+
+    ROS_INFO_NAMED(LOGNAME, "Total Depth: %f", total_depth);
+    std::set<collision_detection::CostSource> cost_sources =
+        collision_result.cost_sources;
+  }
+}
 
 }  // namespace tacbot

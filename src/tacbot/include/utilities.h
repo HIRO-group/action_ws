@@ -1,5 +1,5 @@
-#ifndef UTILITIES_H
-#define UTILITIES_H
+#ifndef TACBOT_UTILITIES_H
+#define TACBOT_UTILITIES_H
 
 #include <moveit/ompl_interface/ompl_interface.h>
 #include <moveit/planning_interface/planning_interface.h>

@@ -1,5 +1,5 @@
-#ifndef CONTACT_PLANNER_H
-#define CONTACT_PLANNER_H
+#ifndef TACBOT_CONTACT_PLANNER_H
+#define TACBOT_CONTACT_PLANNER_H
 
 // ROS
 #include <ros/ros.h>
@@ -25,9 +25,8 @@
 // OMPL
 #include <ompl/base/objectives/VFUpstreamCriterionOptimizationObjective.h>
 #include <ompl/geometric/SimpleSetup.h>
-#include <ompl/geometric/planners/rrt/CVFRRT.h>
 #include <ompl/geometric/planners/rrt/ClassicTRRT.h>
-#include <ompl/geometric/planners/rrt/RRTConnect.h>
+#include <ompl/geometric/planners/rrt/ContactTRRT.h>
 
 #include "ompl/base/OptimizationObjective.h"
 #include "ompl/geometric/PathSimplifier.h"
@@ -155,6 +154,8 @@ class ContactPlanner {
    */
   void monitorExecution();
 
+  void runCollisionDetection();
+
  private:
   ros::NodeHandle nh_;
 
@@ -227,6 +228,8 @@ class ContactPlanner {
   moveit::core::RobotStatePtr robot_state_;
   ompl_interface::ModelBasedPlanningContextPtr context_;
   ompl::base::OptimizationObjectivePtr optimization_objective_;
+
+  std::vector<std::pair<Eigen::Vector3d, double>> spherical_obstacles_;
 
   /** \brief Get the ompl interface for the robot. The interface is part of the
     moveit infrastructure.
@@ -350,6 +353,9 @@ class ContactPlanner {
    * environment. This function add new obstacles to the environment at the
    * point where execution has been stopped. */
   void updateObstacles();
+
+  void addSphericalObstacle(const Eigen::Vector3d& center, double radius);
+  void addLineObstacle();
 };
 }  // namespace tacbot
 #endif

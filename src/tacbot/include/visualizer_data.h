@@ -1,5 +1,5 @@
-#ifndef VISUALIZER_DATA_H
-#define VISUALIZER_DATA_H
+#ifndef TACBOT_VISUALIZER_DATA_H
+#define TACBOT_VISUALIZER_DATA_H
 #include <manipulability_measures.h>
 
 #include <vector>

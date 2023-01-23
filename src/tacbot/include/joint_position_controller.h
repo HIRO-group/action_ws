@@ -1,5 +1,5 @@
-#ifndef JOINT_POSITION_CONTROLLER_H
-#define JOINT_POSITION_CONTROLLER_H
+#ifndef TACBOT_JOINT_POSITION_CONTROLLER_H
+#define TACBOT_JOINT_POSITION_CONTROLLER_H
 
 #include <controller_interface/multi_interface_controller.h>
 #include <franka_hw/franka_model_interface.h>

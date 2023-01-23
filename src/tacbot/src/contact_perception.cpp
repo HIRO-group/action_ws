@@ -23,9 +23,9 @@ void ContactPerception::init() {
   planning_scene_diff_publisher_ =
       nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
-  cloud_subscriber_ =
-      nh_.subscribe("/camera/depth_registered/points", 1,
-                    &ContactPerception::pointCloudCallback, this);
+  // cloud_subscriber_ =
+  //     nh_.subscribe("/camera/depth_registered/points", 1,
+  //                   &ContactPerception::pointCloudCallback, this);
 
   addSafetyPerimeter();
 
@@ -35,7 +35,7 @@ void ContactPerception::init() {
 
   // this keeps callback through the duration of the class not just once, not
   // sure why
-  ros::spinOnce();
+  // ros::spinOnce();
 }
 
 void ContactPerception::addSafetyPerimeter() {
@@ -79,7 +79,7 @@ void ContactPerception::addSafetyPerimeter() {
 
   pose.position.x = 0.0;
   pose.position.y = 0.0;
-  pose.position.z = 0.0;
+  pose.position.z = -0.05;
 
   safety_perimeter.primitives.push_back(primitive);
   safety_perimeter.primitive_poses.push_back(pose);
@@ -103,10 +103,11 @@ void ContactPerception::addSafetyPerimeter() {
 }
 
 void ContactPerception::addCylinder() {
-  moveit_msgs::CollisionObject safety_perimeter;
-  safety_perimeter.header.frame_id = "panda_link0";
-  safety_perimeter.id = "cylinder";
-  safety_perimeter.operation = safety_perimeter.ADD;
+  moveit_msgs::CollisionObject collision_object;
+  collision_object.header.frame_id = "panda_link0";
+  collision_object.id = "cylinder_" + std::to_string(obst_num_);
+  obst_num_++;
+  collision_object.operation = collision_object.ADD;
 
   shape_msgs::SolidPrimitive primitive;
   primitive.type = primitive.CYLINDER;
@@ -124,14 +125,58 @@ void ContactPerception::addCylinder() {
   pose.position.y = -0.045;
   pose.position.z = 0.15;
 
-  safety_perimeter.primitives.push_back(primitive);
-  safety_perimeter.primitive_poses.push_back(pose);
+  collision_object.primitives.push_back(primitive);
+  collision_object.primitive_poses.push_back(pose);
 
   std::vector<moveit_msgs::CollisionObject> collision_objects;
-  collision_objects.emplace_back(safety_perimeter);
+  collision_objects.emplace_back(collision_object);
 
   moveit_msgs::ObjectColor obj_color;
-  // obj_color.id = safety_perimeter.id;
+  // obj_color.id = collision_object.id;
+  std_msgs::ColorRGBA color;
+  color.a = 1.0;
+  color.r = 1.0;
+  color.g = 0.0;
+  color.b = 0.0;
+  obj_color.color = color;
+
+  std::vector<moveit_msgs::ObjectColor> object_colors;
+  object_colors.emplace_back(obj_color);
+
+  addCollisionObjects(collision_objects, object_colors);
+}
+
+void ContactPerception::addSphere(const Eigen::Vector3d& center,
+                                  double radius) {
+  moveit_msgs::CollisionObject collision_object;
+  collision_object.header.frame_id = "panda_link0";
+  collision_object.id = "sphere_" + std::to_string(obst_num_);
+  obst_num_++;
+  collision_object.operation = collision_object.ADD;
+
+  shape_msgs::SolidPrimitive primitive;
+  primitive.type = primitive.SPHERE;
+  primitive.dimensions.resize(3);
+  primitive.dimensions[primitive.SPHERE_RADIUS] = radius;
+
+  geometry_msgs::Pose pose;
+  pose.orientation.w = 1.0;
+  pose.orientation.x = 0.0;
+  pose.orientation.y = 0.0;
+  pose.orientation.z = 0.0;
+
+  pose.position.x = center[0];
+  pose.position.y = center[1];
+  pose.position.z = center[2];
+
+  collision_object.primitives.push_back(primitive);
+  collision_object.primitive_poses.push_back(pose);
+
+  std::vector<moveit_msgs::CollisionObject> collision_objects;
+  collision_objects.emplace_back(collision_object);
+
+  moveit_msgs::ObjectColor obj_color;
+  // obj_color.id = collision_object.id;
   std_msgs::ColorRGBA color;
   color.a = 1.0;
   color.r = 1.0;

@@ -36,14 +36,14 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 10.0;
+  req.allowed_planning_time = 2.0;
   req.planner_id = contact_planner->getDefaultPlannerId();
   req.max_acceleration_scaling_factor = 0.1;
   req.max_velocity_scaling_factor = 0.1;
 
   contact_planner->createPlanningContext(req);
 
-  contact_planner->changePlanner();
+  // contact_planner->changePlanner();
 
   contact_planner->generatePlan(res);
 
@@ -52,8 +52,8 @@ int main(int argc, char** argv) {
               res.error_code_.val);
   }
 
-  ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
-  visualizer->visualizeRepulsedState();
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
+  // visualizer->visualizeRepulsedState();
 
   // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
   // visualizer->visualizeTreeStates();
@@ -62,6 +62,12 @@ int main(int argc, char** argv) {
   if (res.error_code_.val == res.error_code_.SUCCESS) {
     ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
     visualizer->visualizeTrajectory(res, "planned_path");
+    utilities::promptAnyInput();
+  }
+
+  if (res.error_code_.val == res.error_code_.SUCCESS) {
+    ROS_INFO_NAMED(LOGNAME, "Checking for collisions on path.");
+    contact_planner->runCollisionDetection();
     utilities::promptAnyInput();
   }
 

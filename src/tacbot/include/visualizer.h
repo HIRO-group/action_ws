@@ -1,5 +1,5 @@
-#ifndef VISUALIZER_H
-#define VISUALIZER_H
+#ifndef TACBOT_VISUALIZER_H
+#define TACBOT_VISUALIZER_H
 
 // ROS
 #include <moveit/planning_interface/planning_interface.h>

@@ -1,5 +1,5 @@
-#ifndef CONTACT_CONTROLLER_H
-#define CONTACT_CONTROLLER_H
+#ifndef TACBOT_CONTACT_CONTROLLER_H
+#define TACBOT_CONTACT_CONTROLLER_H
 
 #include <controller_interface/multi_interface_controller.h>
 #include <franka_hw/franka_model_interface.h>
@@ -7,10 +7,10 @@
 #include <franka_hw/trigger_rate.h>
 #include <hardware_interface/joint_command_interface.h>
 #include <hardware_interface/robot_hw.h>
-#include <tacbot/JointTorqueComparison.h>
 #include <realtime_tools/realtime_publisher.h>
 #include <ros/node_handle.h>
 #include <ros/time.h>
+#include <tacbot/JointTorqueComparison.h>
 
 #include <memory>
 #include <string>

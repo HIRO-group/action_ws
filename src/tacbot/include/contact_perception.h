@@ -1,5 +1,5 @@
-#ifndef CONTACT_PERCEPTION_H
-#define CONTACT_PERCEPTION_H
+#ifndef TACBOT_CONTACT_PERCEPTION_H
+#define TACBOT_CONTACT_PERCEPTION_H
 
 // ROS
 #include <ros/ros.h>
@@ -47,6 +47,17 @@ class ContactPerception {
    * this radius from a given point on the robot. Value in meters. */
   const double PROXIMITY_RADIUS = 0.5;
 
+  void addSphere(const Eigen::Vector3d& center, double radius);
+
+  /** \brief Add a cylinder primitive to the center of the point cloud table.
+   * This is used to contrast any non-contact planner with the contact planner.
+   */
+  void addCylinder();
+
+  /** \brief Add the dront wall that appears in the point cloud.
+   */
+  void addFrontWall();
+
  private:
   ros::NodeHandle nh_;
 
@@ -63,20 +74,13 @@ class ContactPerception {
   /** \brief Processes point cloud from the callback. */
   pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_;
 
+  std::size_t obst_num_ = 0;
+
   /** \brief Add a set of static obstacle around the robot. These obstacles
    * include any walls, tables, or beams that the robot should not approach
    * under any circumstances.
    */
   void addSafetyPerimeter();
-
-  /** \brief Add a cylinder primitive to the center of the point cloud table.
-   * This is used to contrast any non-contact planner with the contact planner.
-   */
-  void addCylinder();
-
-  /** \brief Add the dront wall that appears in the point cloud.
-   */
-  void addFrontWall();
 
   /** \brief Given the point normals and point indices, extract the normals for
      the indices.
