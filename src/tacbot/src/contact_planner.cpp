@@ -20,7 +20,11 @@ ContactPlanner::ContactPlanner() {
   spherical_obstacles_.emplace_back(
       std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
   spherical_obstacles_.emplace_back(
-      std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.5}, 0.1));
+      std::make_pair(Eigen::Vector3d{0.5, -0.1, 0.5}, 0.1));
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.5, -0.3, 0.8}, 0.1));
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.5, -0.3, 0.3}, 0.1));
 
   for (auto sphere : spherical_obstacles_) {
     addSphericalObstacle(sphere.first, sphere.second);
@@ -669,7 +673,6 @@ bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
                    req.max_velocity_scaling_factor);
     ROS_INFO_NAMED(LOGNAME, "req.max_acceleration_scaling_factor %f",
                    req.max_acceleration_scaling_factor);
-
     if (!time_param_.computeTimeStamps(*res.trajectory_,
                                        req.max_velocity_scaling_factor,
                                        req.max_acceleration_scaling_factor)) {

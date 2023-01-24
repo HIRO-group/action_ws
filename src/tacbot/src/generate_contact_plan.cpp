@@ -36,14 +36,14 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 2.0;
+  req.allowed_planning_time = 5.0;
   req.planner_id = contact_planner->getDefaultPlannerId();
   req.max_acceleration_scaling_factor = 0.1;
   req.max_velocity_scaling_factor = 0.1;
 
   contact_planner->createPlanningContext(req);
 
-  // contact_planner->changePlanner();
+  contact_planner->changePlanner();
 
   contact_planner->generatePlan(res);
 
