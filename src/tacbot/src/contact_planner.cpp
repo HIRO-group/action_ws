@@ -27,7 +27,7 @@ ContactPlanner::ContactPlanner() {
   //     std::make_pair(Eigen::Vector3d{0.5, -0.3, 0.3}, 0.1));
 
   spherical_obstacles_.emplace_back(
-      std::make_pair(Eigen::Vector3d{0.5, -0.45, 0.6}, 0.1));
+      std::make_pair(Eigen::Vector3d{0.45, -0.45, 0.6}, 0.1));
   for (auto sphere : spherical_obstacles_) {
     addSphericalObstacle(sphere.first, sphere.second);
   }
@@ -646,13 +646,13 @@ void ContactPlanner::changePlanner() {
 
   simple_setup->setOptimizationObjective(optimization_objective_);
 
-  // ompl::base::PlannerPtr planner =
-  //     std::make_shared<ompl::geometric::ContactTRRT>(
-  //         simple_setup->getSpaceInformation(), vFieldFunc);
-
   ompl::base::PlannerPtr planner =
-      std::make_shared<ompl::geometric::ClassicTRRT>(
-          simple_setup->getSpaceInformation());
+      std::make_shared<ompl::geometric::ContactTRRT>(
+          simple_setup->getSpaceInformation(), vFieldFunc);
+
+  // ompl::base::PlannerPtr planner =
+  //     std::make_shared<ompl::geometric::ClassicTRRT>(
+  //         simple_setup->getSpaceInformation());
 
   simple_setup->setPlanner(planner);
 }
