@@ -5,6 +5,9 @@
 #include <ompl/geometric/SimpleSetup.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include <chrono>
+#include <thread>
+
 constexpr char LOGNAME[] = "visualizer";
 
 namespace tacbot {
@@ -583,6 +586,8 @@ void Visualizer::visualizeRepulsedState() {
                  "next state "
               << std::endl;
     std::cin >> user_input;
+
+    // std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
 }
 

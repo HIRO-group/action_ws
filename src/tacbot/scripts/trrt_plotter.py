@@ -42,8 +42,10 @@ class Cleaner:
     def get_df(self) -> pd.DataFrame:
         return copy.deepcopy(self.df)
 
-    def remove_outliers(self, col_name: str, vals: list) -> None:
-        ousted = self.df.index[(self.df["distToGoal"] > 100)]
+    def remove_outliers(self) -> None:
+        ousted = self.df.index[(self.df["minDistToGoal"] > 100)]
+        self.df.drop(ousted, inplace=True)
+        ousted = self.df.index[(self.df["maxTemp"] < 0)]
         self.df.drop(ousted, inplace=True)
         print("{} outliers removed".format(
             len(ousted)))
@@ -64,12 +66,18 @@ class Plotter:
     def clear_ax(self) -> None:
         self.ax.cla()
 
-    def line_plot(self, df: pd.DataFrame) -> None:
-        sns.lineplot(x="sampleNumber", y="minDistToGoal", data=df, color="b")
+    def plot(self, df: pd.DataFrame) -> None:
+        sns.lineplot(x="sampleNumber", y="minDistToGoal",
+                     data=df, color="b", lw=5, label="minDistToGoal")
         ax2 = plt.twinx()
-        sns.lineplot(x="sampleNumber", y="temp", data=df, ax=ax2, color="r")
+        sns.lineplot(x="sampleNumber", y="temp",
+                     data=df, ax=ax2, color="r", lw=5, label="temp")
+        self.ax.legend(loc=9)
+        ax2.legend(loc=0)
         plt.show()
 
+
+sns.set(font_scale=2)
 
 reader = Reader()
 path = ""
@@ -82,4 +90,4 @@ cleaner.df = reader.df
 cleaner.remove_outliers()
 
 plotter = Plotter()
-plotter.line_plot(cleaner.df)
+plotter.plot(cleaner.df)

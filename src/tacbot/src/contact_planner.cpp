@@ -15,19 +15,19 @@ ContactPlanner::ContactPlanner() {
   joint_goal_pos_ = std::vector<double>{-1.0, 0.7, 0.7, -1.0, -0.7, 2.0, 0.0};
   // joint_goal_pos_ = std::vector<double>{0.0, 0.45, 0.0, -1.9, 0.0, 2.0, 0.0};
 
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.1, 0.0, 0.1}, 0.1));
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.5, -0.1, 0.5}, 0.1));
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.5, -0.3, 0.8}, 0.1));
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.5, -0.3, 0.3}, 0.1));
-
   spherical_obstacles_.emplace_back(
-      std::make_pair(Eigen::Vector3d{0.45, -0.45, 0.6}, 0.1));
+      std::make_pair(Eigen::Vector3d{0.1, 0.0, 0.1}, 0.2));
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.5, -0.1, 0.5}, 0.1));
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.5, -0.3, 0.8}, 0.1));
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.5, -0.3, 0.2}, 0.1));
+
+  // spherical_obstacles_.emplace_back(
+  //     std::make_pair(Eigen::Vector3d{0.45, 0.0, 0.6}, 0.1));
   for (auto sphere : spherical_obstacles_) {
     addSphericalObstacle(sphere.first, sphere.second);
   }
