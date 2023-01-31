@@ -34,6 +34,8 @@ struct VisualizerData {
   /** \brief The repulsed vectors at each robot state.*/
   std::vector<Eigen::VectorXd> repulsed_vec_at_link_;
 
+  std::vector<std::vector<Eigen::Vector3d>> repulsed_vec_avg_at_link_;
+
   /** \brief The repulse vector origin at each robot state. */
   std::vector<Eigen::VectorXd> repulsed_origin_at_link_;
 
@@ -79,6 +81,8 @@ struct VisualizerData {
     @param num_pts The total number of points sampled across the robot's body.
   */
   void setTotalNumRepulsePts(std::size_t num_pts);
+
+  void saveAvgRepulseVec(const std::vector<Eigen::Vector3d>& vec);
 };
 
 }  // namespace tacbot

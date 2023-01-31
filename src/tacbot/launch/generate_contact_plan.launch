@@ -21,7 +21,7 @@
   <node pkg="tacbot" type="broadcast_tf" name="broadcast_tf" output="screen"/>
 
   <!-- Play the rosbag that contains the pointcloud data -->
-  <node pkg="tacbot" type="publish_pc_bag" name="publish_pc_bag" output="screen"/>
+  <!-- <node pkg="tacbot" type="publish_pc_bag" name="publish_pc_bag" output="screen"/> -->
 
   <!-- Params for 3D sensors config -->
   <!-- <rosparam command="load" file="$(find tacbot)/config/sensors_3d.yaml" /> -->

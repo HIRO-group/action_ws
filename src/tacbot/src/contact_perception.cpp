@@ -27,7 +27,7 @@ void ContactPerception::init() {
   //     nh_.subscribe("/camera/depth_registered/points", 1,
   //                   &ContactPerception::pointCloudCallback, this);
 
-  addSafetyPerimeter();
+  // addSafetyPerimeter();
 
   // addCylinder();
 

@@ -65,11 +65,11 @@ int main(int argc, char** argv) {
     utilities::promptAnyInput();
   }
 
-  if (res.error_code_.val == res.error_code_.SUCCESS) {
-    ROS_INFO_NAMED(LOGNAME, "Checking for collisions on path.");
-    contact_planner->runCollisionDetection();
-    utilities::promptAnyInput();
-  }
+  // if (res.error_code_.val == res.error_code_.SUCCESS) {
+  //   ROS_INFO_NAMED(LOGNAME, "Checking for collisions on path.");
+  //   contact_planner->runCollisionDetection();
+  //   utilities::promptAnyInput();
+  // }
 
   // if (res.error_code_.val == res.error_code_.SUCCESS) {
   //   ROS_INFO_NAMED(LOGNAME, "Executing trajectory.");

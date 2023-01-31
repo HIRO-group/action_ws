@@ -81,7 +81,7 @@ sns.set(font_scale=2)
 
 reader = Reader()
 path = ""
-file_name = "classicTRRT.csv"
+file_name = "contactTRRT.csv"
 reader.read(path, file_name)
 
 

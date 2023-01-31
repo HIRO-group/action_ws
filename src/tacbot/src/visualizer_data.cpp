@@ -53,4 +53,9 @@ void VisualizerData::saveObstaclePos(
   }
 }
 
+void VisualizerData::saveAvgRepulseVec(
+    const std::vector<Eigen::Vector3d>& vec) {
+  repulsed_vec_avg_at_link_.emplace_back(vec);
+}
+
 }  // namespace tacbot

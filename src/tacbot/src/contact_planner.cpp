@@ -4,8 +4,13 @@
 #include <math.h>
 #include <moveit/collision_detection_fcl/collision_common.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
+#include <ompl/geometric/planners/fmt/FMT.h>
 
 #include <chrono>
+
+#include "ompl/geometric/planners/informedtrees/BITstar.h"
+#include "ompl/geometric/planners/rrt/RRTstar.h"
+
 using namespace std::chrono;
 constexpr char LOGNAME[] = "contact_planner";
 
@@ -15,22 +20,25 @@ ContactPlanner::ContactPlanner() {
   joint_goal_pos_ = std::vector<double>{-1.0, 0.7, 0.7, -1.0, -0.7, 2.0, 0.0};
   // joint_goal_pos_ = std::vector<double>{0.0, 0.45, 0.0, -1.9, 0.0, 2.0, 0.0};
 
-  spherical_obstacles_.emplace_back(
-      std::make_pair(Eigen::Vector3d{0.1, 0.0, 0.1}, 0.2));
-  spherical_obstacles_.emplace_back(
-      std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
-  spherical_obstacles_.emplace_back(
-      std::make_pair(Eigen::Vector3d{0.5, -0.1, 0.5}, 0.1));
-  spherical_obstacles_.emplace_back(
-      std::make_pair(Eigen::Vector3d{0.5, -0.3, 0.8}, 0.1));
-  spherical_obstacles_.emplace_back(
-      std::make_pair(Eigen::Vector3d{0.5, -0.3, 0.2}, 0.1));
-
   // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.45, 0.0, 0.6}, 0.1));
+  //     std::make_pair(Eigen::Vector3d{0.1, 0.1, 0.0}, 0.1));
+  // spherical_obstacles_.emplace_back(
+  //     std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
+  // spherical_obstacles_.emplace_back(
+  //     std::make_pair(Eigen::Vector3d{0.8, -0.1, 0.5}, 0.1));
+  // spherical_obstacles_.emplace_back(
+  //     std::make_pair(Eigen::Vector3d{0.5, 0.3, 0.8}, 0.1));
+  // spherical_obstacles_.emplace_back(
+  //     std::make_pair(Eigen::Vector3d{-0.5, -0.3, 0.2}, 0.1));
+
+  spherical_obstacles_.emplace_back(
+      std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.6}, 0.1));
+
   for (auto sphere : spherical_obstacles_) {
     addSphericalObstacle(sphere.first, sphere.second);
   }
+
+  // addLineObstacle();
 
   contact_perception_ = std::make_shared<ContactPerception>();
 }
@@ -244,7 +252,7 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   //   vec_out[2] = 0;
   // }
 
-  if (vec.norm() > 0.2) {
+  if (vec.squaredNorm() > 0.2) {
     return vec_out;
   }
 
@@ -397,7 +405,8 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
   for (std::size_t i = 0; i < num_links; i++) {
     std::vector<Eigen::Vector3d> pts_on_link = rob_pts[i];
     std::size_t num_pts_on_link = pts_on_link.size();
-    // std::cout << "link_num: " << i << std::endl;
+    std::cout << "link_num: " << i << std::endl;
+    std::cout << "num_pts_on_link: " << num_pts_on_link << std::endl;
 
     Eigen::MatrixXd pts_link_vec = Eigen::MatrixXd::Zero(num_pts_on_link, 3);
 
@@ -412,11 +421,19 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
       // std::vector<Eigen::Vector3d> obstacle_pos = getObstacles(pt_on_rob);
 
       std::size_t num_obstacles = obstacle_pos.size();
+      // std::cout << "num_obstacles: " << num_obstacles << std::endl;
+
       Eigen::MatrixXd pt_to_obs = Eigen::MatrixXd::Zero(num_obstacles, 3);
       for (std::size_t k = 0; k < num_obstacles; k++) {
         Eigen::Vector3d vec = pt_on_rob - obstacle_pos[k];
+        // std::cout << "vec: " << vec.transpose() << std::endl;
+        // std::cout << "obstacle_pos: " << obstacle_pos[k].transpose()
+        //           << std::endl;
+        // std::cout << "pt_on_rob: " << pt_on_rob.transpose() << std::endl;
+
         vec = scaleToDist(vec);
         // std::cout << "vec: " << vec.transpose() << std::endl;
+
         pt_to_obs(k, 0) = vec[0];
         pt_to_obs(k, 1) = vec[1];
         pt_to_obs(k, 2) = vec[2];
@@ -453,6 +470,8 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
 
     link_to_obs_vec[i] = link_to_obs_avg;
   }
+  vis_data_.saveAvgRepulseVec(link_to_obs_vec);
+
   // std::cout << "total_norm: " << total_norm << std::endl;
 
   return link_to_obs_vec;
@@ -565,6 +584,9 @@ Eigen::VectorXd ContactPlanner::obstacleField(
     // std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
   }
 
+  Eigen::VectorXd vel_out = jacobian * d_q_out;
+  std::cout << "vel_out:\n " << vel_out.transpose() << std::endl;
+
   // d_q_out = d_q_out * 0.5;
   // d_q_out.normalize();
 
@@ -572,7 +594,7 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   vis_data_.saveRepulseAngles(joint_angles, d_q_out);
   sample_state_count_++;
   // std::cout << "d_q_out.norm():\n " << d_q_out.norm() << std::endl;
-  // std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
+  std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
 
   return d_q_out;
 }
@@ -653,6 +675,17 @@ void ContactPlanner::changePlanner() {
   // ompl::base::PlannerPtr planner =
   //     std::make_shared<ompl::geometric::ClassicTRRT>(
   //         simple_setup->getSpaceInformation());
+
+  // ompl::base::PlannerPtr planner =
+  // std::make_shared<ompl::geometric::BITstar>(
+  //     simple_setup->getSpaceInformation());
+
+  // ompl::base::PlannerPtr planner =
+  // std::make_shared<ompl::geometric::RRTstar>(
+  //     simple_setup->getSpaceInformation());
+
+  // ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::FMT>(
+  //     simple_setup->getSpaceInformation());
 
   simple_setup->setPlanner(planner);
 }
