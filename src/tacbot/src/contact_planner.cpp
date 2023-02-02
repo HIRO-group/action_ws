@@ -21,7 +21,7 @@ ContactPlanner::ContactPlanner() {
   // joint_goal_pos_ = std::vector<double>{0.0, 0.45, 0.0, -1.9, 0.0, 2.0, 0.0};
 
   // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.1, 0.1, 0.0}, 0.1));
+  //     std::make_pair(Eigen::Vector3d{0.1, 0.1, 0.0}, 0.15));
   // spherical_obstacles_.emplace_back(
   //     std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
   // spherical_obstacles_.emplace_back(
@@ -523,8 +523,7 @@ Eigen::VectorXd ContactPlanner::obstacleField(
     utilities::pseudoInverse(link_jac, jac_pinv_);
     // std::cout << "jac_pinv_:\n " << jac_pinv_ << std::endl;
     Eigen::Vector3d vec = link_to_obs_vec[i];
-    // std::cout << "i: vec: \n " << i << ": " << vec.transpose() <<
-    // std::endl;
+    std::cout << "i: vec: \n " << i << ": " << vec.norm() << std::endl;
 
     Eigen::Vector3d rob_vec =
         utilities::toEigen(std::vector<double>{vec[0], vec[1], vec[2]});

@@ -260,3 +260,4 @@ src/moveit_visual_tools/
 src/panda_moveit_config/
 src/rviz_visual_tools/
 src/srdfdom/
+*.csv
