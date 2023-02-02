@@ -405,8 +405,8 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
   for (std::size_t i = 0; i < num_links; i++) {
     std::vector<Eigen::Vector3d> pts_on_link = rob_pts[i];
     std::size_t num_pts_on_link = pts_on_link.size();
-    std::cout << "link_num: " << i << std::endl;
-    std::cout << "num_pts_on_link: " << num_pts_on_link << std::endl;
+    // std::cout << "link_num: " << i << std::endl;
+    // std::cout << "num_pts_on_link: " << num_pts_on_link << std::endl;
 
     Eigen::MatrixXd pts_link_vec = Eigen::MatrixXd::Zero(num_pts_on_link, 3);
 
