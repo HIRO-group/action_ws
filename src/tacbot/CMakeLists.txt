@@ -196,6 +196,7 @@ add_library(visualizer SHARED src/visualizer.cpp src/utilities.cpp src/visualize
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(moveit_baseline_plan src/moveit_baseline_plan.cpp)
 add_executable(generate_contact_plan src/generate_contact_plan.cpp src/utilities.cpp)
+add_executable(benchmark_planners src/benchmark_planners.cpp src/utilities.cpp)
 add_executable(publish_pc_bag src/publish_pc_bag.cpp)
 add_executable(broadcast_tf src/broadcast_tf.cpp)
 
@@ -233,6 +234,11 @@ target_link_libraries(generate_contact_plan
   visualizer
 )
 
+target_link_libraries(benchmark_planners
+  ${catkin_LIBRARIES}
+  contact_planning
+)
+
 #############
 ## Install ##
 #############
@@ -265,6 +271,7 @@ install(
 TARGETS
   moveit_baseline_plan
   generate_contact_plan
+  benchmark_planners
   publish_pc_bag
   broadcast_tf
 RUNTIME DESTINATION

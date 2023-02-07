@@ -10,6 +10,17 @@
 #include <iostream>
 #include <vector>
 namespace tacbot {
+
+// should be in its own header file
+struct PlanAnalysisData {
+  std::size_t total_contact_count = 0;
+  std::size_t num_contact_states = 0;
+  std::size_t num_path_states = 0;
+  double total_contact_depth = 0.0;
+  double joint_path_len = 0.0;
+  double ee_path_len = 0.0;
+};
+
 namespace utilities {
 /** \brief
   @param

@@ -20,9 +20,6 @@ int main(int argc, char** argv) {
   contact_planner->init();
 
   std::shared_ptr<Visualizer> visualizer = std::make_shared<Visualizer>();
-  visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
-  visualizer->setContactPlanner(contact_planner);
-  visualizer->visualizeGoalState();
 
   // visually confirm that the planning scene, obstacles, goal state are all
   // correct
@@ -36,15 +33,25 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 15.0;
+  req.allowed_planning_time = 50.0;
   req.planner_id = contact_planner->getDefaultPlannerId();
   req.max_acceleration_scaling_factor = 0.1;
   req.max_velocity_scaling_factor = 0.1;
 
   contact_planner->createPlanningContext(req);
 
-  contact_planner->changePlanner();
+  const std::string PLANNER_NAME = "ContactTRRT";
+  const std::string OBJECTIVE_NAME = "UpstreamCost";
+  const std::size_t OBSTACLE_SCENE_OPT = 4;
+  const std::size_t GOAL_STATE_OPT = 1;
+  contact_planner->setObstacleScene(OBSTACLE_SCENE_OPT);
+  contact_planner->setGoalState(GOAL_STATE_OPT);
 
+  visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
+  visualizer->setContactPlanner(contact_planner);
+  visualizer->visualizeGoalState();
+
+  contact_planner->changePlanner(PLANNER_NAME, OBJECTIVE_NAME);
   contact_planner->generatePlan(res);
 
   if (res.error_code_.val != res.error_code_.SUCCESS) {

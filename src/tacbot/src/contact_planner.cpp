@@ -4,12 +4,8 @@
 #include <math.h>
 #include <moveit/collision_detection_fcl/collision_common.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
-#include <ompl/geometric/planners/fmt/FMT.h>
 
 #include <chrono>
-
-#include "ompl/geometric/planners/informedtrees/BITstar.h"
-#include "ompl/geometric/planners/rrt/RRTstar.h"
 
 using namespace std::chrono;
 constexpr char LOGNAME[] = "contact_planner";
@@ -17,30 +13,63 @@ constexpr char LOGNAME[] = "contact_planner";
 namespace tacbot {
 
 ContactPlanner::ContactPlanner() {
-  joint_goal_pos_ = std::vector<double>{-1.0, 0.7, 0.7, -1.0, -0.7, 2.0, 0.0};
-  // joint_goal_pos_ = std::vector<double>{0.0, 0.45, 0.0, -1.9, 0.0, 2.0, 0.0};
+  setObstacleScene(1);
+  setGoalState(1);
+  contact_perception_ = std::make_shared<ContactPerception>();
+}
 
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.1, 0.1, 0.0}, 0.15));
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.8, -0.1, 0.5}, 0.1));
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{0.5, 0.3, 0.8}, 0.1));
-  // spherical_obstacles_.emplace_back(
-  //     std::make_pair(Eigen::Vector3d{-0.5, -0.3, 0.2}, 0.1));
+void ContactPlanner::setGoalState(std::size_t option) {
+  switch (option) {
+    default:
+    case 1:
+      joint_goal_pos_ =
+          std::vector<double>{-1.0, 0.7, 0.7, -1.0, -0.7, 2.0, 0.0};
+      break;
+  }
+}
 
-  spherical_obstacles_.emplace_back(
-      std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.6}, 0.1));
-
-  for (auto sphere : spherical_obstacles_) {
-    addSphericalObstacle(sphere.first, sphere.second);
+void ContactPlanner::setObstacleScene(std::size_t option) {
+  spherical_obstacles_.clear();
+  sim_obstacle_pos_.clear();
+  ROS_INFO_NAMED(LOGNAME, "Obstacle scene option selected: %ld", option);
+  switch (option) {
+    case 1:
+      // free start state, free goal state, single obstacle
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.6}, 0.1));
+      break;
+    case 2:
+      // free start state, goal state in contact
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
+      break;
+    case 3:
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.6}, 0.1));
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.15, -0.15, 0.4}, 0.1));
+      break;
+    case 4:
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.15, 0.0, 0.4}, 0.1));
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.6}, 0.08));
+      break;
+    case 5:
+      addLineObstacle();
+      break;
+    default:
+      ROS_ERROR_NAMED(LOGNAME,
+                      "Selected obstacle scene option is out of bounds: %ld",
+                      option);
+      break;
   }
 
-  // addLineObstacle();
-
-  contact_perception_ = std::make_shared<ContactPerception>();
+  for (auto obstacle : spherical_obstacles_) {
+    addSphericalObstacle(obstacle.first, obstacle.second);
+  }
 }
 
 void ContactPlanner::addSphericalObstacle(const Eigen::Vector3d& center,
@@ -477,7 +506,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
   return link_to_obs_vec;
 }
 
-Eigen::VectorXd ContactPlanner::obstacleField(
+Eigen::VectorXd ContactPlanner::obstacleFieldTaskSpace(
     const ompl::base::State* base_state) {
   const ompl::base::RealVectorStateSpace::StateType& vec_state =
       *base_state->as<ompl::base::RealVectorStateSpace::StateType>();
@@ -488,25 +517,34 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
 
   std::vector<std::vector<Eigen::Vector3d>> rob_pts;
-
-  // make getter in vis data
-
-  auto start = high_resolution_clock::now();
   std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
-  auto stop = high_resolution_clock::now();
-  auto duration = duration_cast<microseconds>(stop - start);
-  // std::cout << "getPtsOnRobotSurface us: " << duration.count() << std::endl;
-
   vis_data_.setTotalNumRepulsePts(num_pts);
-
-  start = high_resolution_clock::now();
   std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(rob_pts);
-  stop = high_resolution_clock::now();
-  duration = duration_cast<microseconds>(stop - start);
-  // std::cout << "getLinkToObsVec us: " << duration.count() << std::endl;
+  Eigen::VectorXd field_out = Eigen::VectorXd::Zero(dof_);
+  for (std::size_t i = 0; i < dof_; i++) {
+    {
+      Eigen::Vector3d vec = link_to_obs_vec[i];
+      field_out[i] = vec.norm();
+      // std::cout << "field_out[i]: " << field_out[i] << std::endl;
+    }
+  }
+  return field_out;
+}
 
-  // std::cout << "link_to_obs_vec.size(): " << link_to_obs_vec.size()
-  //           << std::endl;
+Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
+    const ompl::base::State* base_state) {
+  const ompl::base::RealVectorStateSpace::StateType& vec_state =
+      *base_state->as<ompl::base::RealVectorStateSpace::StateType>();
+  std::vector<double> joint_angles = utilities::toStlVec(vec_state, dof_);
+
+  moveit::core::RobotStatePtr robot_state =
+      std::make_shared<moveit::core::RobotState>(*robot_state_);
+  robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
+
+  std::vector<std::vector<Eigen::Vector3d>> rob_pts;
+  std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
+  vis_data_.setTotalNumRepulsePts(num_pts);
+  std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(rob_pts);
 
   Eigen::MatrixXd jacobian = robot_state->getJacobian(joint_model_group_);
 
@@ -523,7 +561,7 @@ Eigen::VectorXd ContactPlanner::obstacleField(
     utilities::pseudoInverse(link_jac, jac_pinv_);
     // std::cout << "jac_pinv_:\n " << jac_pinv_ << std::endl;
     Eigen::Vector3d vec = link_to_obs_vec[i];
-    std::cout << "i: vec: \n " << i << ": " << vec.norm() << std::endl;
+    // std::cout << "i: vec: \n " << i << ": " << vec.norm() << std::endl;
 
     Eigen::Vector3d rob_vec =
         utilities::toEigen(std::vector<double>{vec[0], vec[1], vec[2]});
@@ -584,7 +622,7 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   }
 
   Eigen::VectorXd vel_out = jacobian * d_q_out;
-  std::cout << "vel_out:\n " << vel_out.transpose() << std::endl;
+  // std::cout << "vel_out:\n " << vel_out.transpose() << std::endl;
 
   // d_q_out = d_q_out * 0.5;
   // d_q_out.normalize();
@@ -593,7 +631,7 @@ Eigen::VectorXd ContactPlanner::obstacleField(
   vis_data_.saveRepulseAngles(joint_angles, d_q_out);
   sample_state_count_++;
   // std::cout << "d_q_out.norm():\n " << d_q_out.norm() << std::endl;
-  std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
+  // std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
 
   return d_q_out;
 }
@@ -633,7 +671,7 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
       *state->as<ompl::base::RealVectorStateSpace::StateType>();
   Eigen::VectorXd goal_vec = goalField(state);
   std::cout << "\ngoal_vec\n" << goal_vec.transpose() << std::endl;
-  Eigen::VectorXd obstacle_vec = obstacleField(state);
+  Eigen::VectorXd obstacle_vec = obstacleFieldConfigSpace(state);
   std::cout << "obstacle_vec\n" << obstacle_vec.transpose() << std::endl;
   Eigen::VectorXd total_vec = goal_vec + obstacle_vec;
   std::cout << "total_vec\n" << total_vec.transpose() << std::endl;
@@ -641,7 +679,8 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
   return total_vec;
 }
 
-void ContactPlanner::changePlanner() {
+void ContactPlanner::changePlanner(std::string planner_name,
+                                   std::string objective_name) {
   ompl::geometric::SimpleSetupPtr simple_setup = context_->getOMPLSimpleSetup();
   ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
 
@@ -651,40 +690,65 @@ void ContactPlanner::changePlanner() {
   simplifier->setSimplificationType(
       ompl::geometric::SimplificationType::SMOOTH_COST);
 
-  std::function<Eigen::VectorXd(const ompl::base::State*)> vFieldFunc =
-      std::bind(&ContactPlanner::obstacleField, this, std::placeholders::_1);
+  std::function<Eigen::VectorXd(const ompl::base::State*)> vFieldFunc;
 
-  // double exploration = 0.5;
-  // double initial_lambda = 0.01;
-  // unsigned int update_freq = 30;
-  // ompl::base::PlannerPtr planner =
-  // std::make_shared<ompl::geometric::ContactVFRRT>(
-  //     si, vFieldFunc, exploration, initial_lambda, update_freq);
-
-  optimization_objective_ =
-      std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
-          si, vFieldFunc);
+  if (objective_name == "UpstreamCost") {
+    ROS_INFO_NAMED(LOGNAME, "Using UpstreamCost optimization objective.");
+    vFieldFunc = std::bind(&ContactPlanner::obstacleFieldConfigSpace, this,
+                           std::placeholders::_1);
+    optimization_objective_ =
+        std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
+            si, vFieldFunc);
+  } else if (objective_name == "FieldMagnitude") {
+    ROS_INFO_NAMED(LOGNAME, "Using FieldMagnitude optimization objective.");
+    vFieldFunc = std::bind(&ContactPlanner::obstacleFieldTaskSpace, this,
+                           std::placeholders::_1);
+    optimization_objective_ =
+        std::make_shared<ompl::base::VFMagnitudeOptimizationObjective>(
+            si, vFieldFunc);
+  } else {
+    ROS_ERROR_NAMED(LOGNAME, "Invalid optimization objective.");
+    ROS_INFO_NAMED(LOGNAME,
+                   "Default: Using UpstreamCost optimization objective.");
+    vFieldFunc = std::bind(&ContactPlanner::obstacleFieldConfigSpace, this,
+                           std::placeholders::_1);
+    optimization_objective_ =
+        std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
+            si, vFieldFunc);
+  }
 
   simple_setup->setOptimizationObjective(optimization_objective_);
 
-  ompl::base::PlannerPtr planner =
-      std::make_shared<ompl::geometric::ContactTRRT>(
-          simple_setup->getSpaceInformation(), vFieldFunc);
-
-  // ompl::base::PlannerPtr planner =
-  //     std::make_shared<ompl::geometric::ClassicTRRT>(
-  //         simple_setup->getSpaceInformation());
-
-  // ompl::base::PlannerPtr planner =
-  // std::make_shared<ompl::geometric::BITstar>(
-  //     simple_setup->getSpaceInformation());
-
-  // ompl::base::PlannerPtr planner =
-  // std::make_shared<ompl::geometric::RRTstar>(
-  //     simple_setup->getSpaceInformation());
-
-  // ompl::base::PlannerPtr planner = std::make_shared<ompl::geometric::FMT>(
-  //     simple_setup->getSpaceInformation());
+  ompl::base::PlannerPtr planner;
+  if (planner_name == "ClassicTRRT") {
+    ROS_INFO_NAMED(LOGNAME, "Using planner: ClassicTRRT.");
+    planner = std::make_shared<ompl::geometric::ClassicTRRT>(
+        simple_setup->getSpaceInformation());
+  } else if (planner_name == "ContactTRRT") {
+    ROS_INFO_NAMED(LOGNAME, "Using planner: ContactTRRT.");
+    planner = std::make_shared<ompl::geometric::ContactTRRT>(
+        simple_setup->getSpaceInformation(), vFieldFunc);
+  } else if (planner_name == "BITstar") {
+    ROS_INFO_NAMED(LOGNAME, "Using planner: BITstar.");
+    planner = std::make_shared<ompl::geometric::BITstar>(
+        simple_setup->getSpaceInformation());
+  } else if (planner_name == "RRTstar") {
+    ROS_INFO_NAMED(LOGNAME, "Using planner: RRTstar.");
+    planner = std::make_shared<ompl::geometric::RRTstar>(
+        simple_setup->getSpaceInformation());
+  } else if (planner_name == "FMT") {
+    ROS_INFO_NAMED(LOGNAME, "Using planner: FMT.");
+    planner = std::make_shared<ompl::geometric::FMT>(
+        simple_setup->getSpaceInformation());
+  } else if (planner_name == "VFRRT") {
+    ROS_INFO_NAMED(LOGNAME, "Using planner: VFRRT.");
+    double exploration = 0.7;
+    double initial_lambda = 1.0;
+    std::size_t update_freq = 10.0;
+    planner = std::make_shared<ompl::geometric::VFRRT>(
+        simple_setup->getSpaceInformation(), vFieldFunc, exploration,
+        initial_lambda, update_freq);
+  }
 
   simple_setup->setPlanner(planner);
 }
@@ -880,9 +944,9 @@ void ContactPlanner::updateObstacles() {
     sim_obstacle_pos_.emplace_back(link_pts[i]);
   }
 
-  ROS_INFO_NAMED(
-      LOGNAME,
-      "Finished updating obstacle positions based on trajectory execution.");
+  ROS_INFO_NAMED(LOGNAME,
+                 "Finished updating obstacle positions based on trajectory "
+                 "execution.");
 }
 
 void ContactPlanner::executeTrajectory() {
@@ -900,7 +964,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getSimObstaclePos() {
   return sim_obstacle_pos_;
 };
 
-void ContactPlanner::runCollisionDetection() {
+void ContactPlanner::analyzePlanResponse(PlanAnalysisData& plan_analysis) {
   for (auto sphere : spherical_obstacles_) {
     contact_perception_->addSphere(sphere.first, sphere.second);
   }
@@ -909,6 +973,7 @@ void ContactPlanner::runCollisionDetection() {
   moveit_msgs::MotionPlanResponse msg;
   plan_response_.getMessage(msg);
   std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
+  plan_analysis.num_path_states = num_pts;
 
   collision_detection::CollisionRequest collision_request;
   collision_request.distance = false;
@@ -919,8 +984,12 @@ void ContactPlanner::runCollisionDetection() {
   collision_request.max_cost_sources = 200;
   collision_request.verbose = false;
 
+  moveit::core::RobotState* prev_robot_state;
+  Eigen::Vector3d prev_tip_pos;
+
   for (std::size_t pt_idx = 0; pt_idx < num_pts; pt_idx++) {
-    ROS_INFO_NAMED(LOGNAME, "Analyzing trajectory point number: %ld", pt_idx);
+    // ROS_INFO_NAMED(LOGNAME, "Analyzing trajectory point number: %ld",
+    // pt_idx);
 
     trajectory_msgs::JointTrajectoryPoint point =
         msg.trajectory.joint_trajectory.points[pt_idx];
@@ -933,31 +1002,50 @@ void ContactPlanner::runCollisionDetection() {
         new moveit::core::RobotState(psm_->getPlanningScene()->getRobotModel());
     robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
     robot_state->update();
+
+    if (pt_idx > 0) {
+      plan_analysis.joint_path_len += robot_state->distance(*prev_robot_state);
+      std::vector<std::string> tips;
+      joint_model_group_->getEndEffectorTips(tips);
+      Eigen::Isometry3d tip_tf =
+          robot_state->getGlobalLinkTransform("panda_link8");
+      Eigen::Vector3d tip_pos{tip_tf.translation().x(),
+                              tip_tf.translation().y(),
+                              tip_tf.translation().z()};
+      plan_analysis.ee_path_len +=
+          utilities::getDistance(tip_pos, prev_tip_pos);
+    }
+    prev_robot_state = robot_state;
+
     collision_detection::CollisionResult collision_result;
     planning_scene_monitor::LockedPlanningSceneRO(psm_)->checkCollision(
         collision_request, collision_result, *robot_state);
     bool collision = collision_result.collision;
+
     std::size_t contact_count = collision_result.contact_count;
+    plan_analysis.total_contact_count += contact_count;
+    if (contact_count > 0) {
+      plan_analysis.num_contact_states += 1;
+    }
+
     double distance = collision_result.distance;
+
     collision_detection::CollisionResult::ContactMap contact_map =
         collision_result.contacts;
-    double total_depth = 0;
 
     for (auto contact : contact_map) {
       std::size_t num_subcontacts = contact.second.size();
-      ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
-
+      // ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
       for (std::size_t subc_idx = 0; subc_idx < num_subcontacts; subc_idx++) {
         collision_detection::Contact subcontact = contact.second[subc_idx];
         // ROS_INFO_NAMED(LOGNAME, "Body 1: %s",
         // subcontact.body_name_1.c_str()); ROS_INFO_NAMED(LOGNAME, "Body 2:
-        // %s", subcontact.body_name_2.c_str()); ROS_INFO_NAMED(LOGNAME, "Depth:
-        // %f", subcontact.depth);
-        total_depth += std::abs(subcontact.depth);
+        // %s", subcontact.body_name_2.c_str()); ROS_INFO_NAMED(LOGNAME,
+        // "Depth: %f", subcontact.depth);
+        plan_analysis.total_contact_depth += std::abs(subcontact.depth);
       }
     }
 
-    ROS_INFO_NAMED(LOGNAME, "Total Depth: %f", total_depth);
     std::set<collision_detection::CostSource> cost_sources =
         collision_result.cost_sources;
   }

@@ -1,0 +1,33 @@
+<launch>
+  <!-- GDB Debug Option -->
+  <arg name="debug" default="false" />
+  <arg unless="$(arg debug)" name="launch_prefix" value="" />
+  <arg if="$(arg debug)" name="launch_prefix" value="gdb -x $(dirname)/gdb_settings.gdb --ex run --args" />
+
+  <!-- Verbose Mode Option -->
+  <arg name="info" default="$(arg debug)" />
+  <arg unless="$(arg info)" name="command_args" value="" />
+  <arg if="$(arg info)" name="command_args" value="--debug" />
+
+  <arg name="arm_id" default="panda" />
+
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find tacbot)/config/rosconsole.conf"/>
+
+  <include file="$(find panda_moveit_config)/launch/planning_context.launch">
+    <arg name="load_robot_description" value="true"/>
+  </include>
+
+  <arg name="planning_plugin" value="ompl_interface/OMPLPlanner" />
+  <arg name="planning_adapters" default="default_planner_request_adapters/AddTimeParameterization"/>
+
+  <param name="planning_plugin" value="$(arg planning_plugin)" />
+  <param name="request_adapters" value="$(arg planning_adapters)" />
+  <param name="start_state_max_bounds_error" value="0.1" />
+  <param name="jiggle_fraction" value="0.05" />
+  <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
+  <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
+
+  <node name="benchmark_planners" pkg="tacbot" type="benchmark_planners" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
+  </node>
+
+</launch>
