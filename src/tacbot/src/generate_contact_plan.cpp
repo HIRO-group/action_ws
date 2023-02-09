@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
 
   const std::string PLANNER_NAME = "ContactTRRT";
   const std::string OBJECTIVE_NAME = "UpstreamCost";
-  const std::size_t OBSTACLE_SCENE_OPT = 4;
+  const std::size_t OBSTACLE_SCENE_OPT = 1;
   const std::size_t GOAL_STATE_OPT = 1;
   contact_planner->setObstacleScene(OBSTACLE_SCENE_OPT);
   contact_planner->setGoalState(GOAL_STATE_OPT);
@@ -59,8 +59,8 @@ int main(int argc, char** argv) {
               res.error_code_.val);
   }
 
-  ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
-  visualizer->visualizeRepulsedState();
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
+  // visualizer->visualizeRepulsedState();
 
   // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
   // visualizer->visualizeTreeStates();
