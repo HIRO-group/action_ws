@@ -54,6 +54,9 @@ install_moveit(){
   wstool update -t src
   rosdep install -y --from-paths src --ignore-src --rosdistro ${ROS_DISTRO}
   catkin config --extend /opt/ros/${ROS_DISTRO} --cmake-args -DCMAKE_BUILD_TYPE=Release
+  cd src/moveit
+  git checkout ${ROS_DISTRO}-devel
+  cd ../../
 }
 
 build_libfranka()

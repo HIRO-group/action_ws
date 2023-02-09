@@ -2,6 +2,7 @@
 
 
 ## Installation
+It is recommended that you uninstall any ros moveit packages on your system. Better yet, uninstall ros and install it from scratch. 
 ### Build
 ```
 git clone --recurse-submodules git@github.com:nataliya-dev/action_ws.git
