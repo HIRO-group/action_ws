@@ -81,6 +81,11 @@
   <depend>tf2_ros</depend>
   <depend>pcl_ros</depend>
 
+  <build_depend>trac_ik_lib</build_depend>
+  <exec_depend>trac_ik_lib</exec_depend>
+  <exec_depend>nlopt</exec_depend>
+  <build_depend>nlopt</build_depend>
+
   <exec_depend>franka_control</exec_depend>
   <exec_depend>franka_description</exec_depend>
 

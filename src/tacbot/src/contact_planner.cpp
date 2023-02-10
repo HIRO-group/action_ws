@@ -3,6 +3,7 @@
 #include <franka_msgs/FrankaState.h>
 #include <math.h>
 #include <moveit/collision_detection_fcl/collision_common.h>
+#include <moveit/trajectory_processing/iterative_spline_parameterization.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
 #include <chrono>
@@ -132,9 +133,9 @@ void ContactPlanner::setPlanningContextParams(
   unsigned int max_goal_sampling_attempts_ = 1000;
   unsigned int max_planning_threads_ = 4;
   double max_solution_segment_length_ = 0.0;
-  unsigned int minimum_waypoint_count_ = 2;
+  unsigned int minimum_waypoint_count_ = 30;
   double goal_threshold_ = 0.1;
-  bool simplify_solution_ = false;
+  bool simplify_solution_ = true;
   bool interpolate_ = true;
   bool hybridize_ = false;
 
@@ -763,7 +764,17 @@ bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
   }
 
   if (is_solved && res.trajectory_) {
-    trajectory_processing::IterativeParabolicTimeParameterization time_param_;
+    // trajectory_processing::IterativeParabolicTimeParameterization
+    // time_param_(
+    //     100, 10.0);
+    trajectory_processing::IterativeSplineParameterization time_param_(true);
+    moveit::core::RobotStatePtr first_prt =
+        res.trajectory_->getFirstWayPointPtr();
+    moveit::core::RobotStatePtr last_prt =
+        res.trajectory_->getLastWayPointPtr();
+    first_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
+    last_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
+
     ROS_INFO_NAMED(LOGNAME, "Computing time parameterization.");
     planning_interface::MotionPlanRequest req =
         context_->getMotionPlanRequest();
@@ -963,6 +974,51 @@ std::string ContactPlanner::getGroupName() { return group_name_; }
 std::vector<Eigen::Vector3d> ContactPlanner::getSimObstaclePos() {
   return sim_obstacle_pos_;
 };
+
+void ContactPlanner::convertTraj(
+    std::vector<std::array<double, 7>>& joint_waypoints,
+    std::vector<std::array<double, 7>>& joint_velocities) {
+  moveit_msgs::MotionPlanResponse msg;
+  plan_response_.getMessage(msg);
+  std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
+
+  for (std::size_t pt_idx = 1; pt_idx < num_pts; pt_idx++) {
+    ROS_INFO_NAMED(LOGNAME, "Converting trajectory point number: %ld", pt_idx);
+    trajectory_msgs::JointTrajectoryPoint point =
+        msg.trajectory.joint_trajectory.points[pt_idx];
+    std::array<double, 7> joint_angles;
+    std::array<double, 7> joint_velocity_pt;
+
+    for (std::size_t jnt_idx = 0; jnt_idx < dof_; jnt_idx++) {
+      joint_angles[jnt_idx] = point.positions[jnt_idx];
+      joint_velocity_pt[jnt_idx] = point.velocities[jnt_idx];
+      ROS_INFO_NAMED(LOGNAME, "Velocity: %f", point.velocities[jnt_idx]);
+    }
+
+    ROS_INFO_NAMED(LOGNAME, "time_from_start: %f",
+                   point.time_from_start.toSec());
+
+    trajectory_msgs::JointTrajectoryPoint point_a =
+        msg.trajectory.joint_trajectory.points[pt_idx - 1];
+
+    trajectory_msgs::JointTrajectoryPoint point_b =
+        msg.trajectory.joint_trajectory.points[pt_idx];
+
+    double time_a = point_a.time_from_start.toSec();
+    double time_b = point_b.time_from_start.toSec();
+
+    double time_diff = time_b - time_a;
+
+    ROS_INFO_NAMED(LOGNAME, "time_diff: %f", time_diff);
+
+    std::size_t time_pts = std::ceil(time_diff * 1000);
+
+    for (std::size_t time_pt = 0; time_pt < time_pts; time_pt++) {
+      joint_waypoints.emplace_back(joint_angles);
+      joint_velocities.emplace_back(joint_velocity_pt);
+    }
+  }
+}
 
 void ContactPlanner::analyzePlanResponse(PlanAnalysisData& plan_analysis) {
   for (auto sphere : spherical_obstacles_) {

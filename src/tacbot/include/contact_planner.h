@@ -163,6 +163,8 @@ class ContactPlanner {
   void analyzePlanResponse(PlanAnalysisData& plan_analysis_data);
   void setObstacleScene(std::size_t option);
   void setGoalState(std::size_t option);
+  void convertTraj(std::vector<std::array<double, 7>>& joint_waypoints,
+                   std::vector<std::array<double, 7>>& joint_velocities);
 
  private:
   ros::NodeHandle nh_;
