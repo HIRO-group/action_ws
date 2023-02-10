@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
   std::array<double, 7> robot_q = robot_state.q;
   Eigen::Vector3d position_d(initial_transform.translation());
   Eigen::Quaterniond orientation_d(initial_transform.rotation());
-  std::cout << "joint positions" << std::endl;
+  std::cout << "joint positions\n" << std::endl;
   for (int i = 0; i < 7; i++) {
     std::cout << robot_q[i] << std::endl;
   }

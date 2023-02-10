@@ -5,6 +5,7 @@
 #include <moveit/collision_detection_fcl/collision_common.h>
 #include <moveit/trajectory_processing/iterative_spline_parameterization.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
+#include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
 
 #include <chrono>
 
@@ -767,7 +768,10 @@ bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
     // trajectory_processing::IterativeParabolicTimeParameterization
     // time_param_(
     //     100, 10.0);
-    trajectory_processing::IterativeSplineParameterization time_param_(true);
+    // trajectory_processing::IterativeSplineParameterization time_param_(true);
+    trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
+        0.05, 0.001, 0.01);
+
     moveit::core::RobotStatePtr first_prt =
         res.trajectory_->getFirstWayPointPtr();
     moveit::core::RobotStatePtr last_prt =
@@ -994,6 +998,8 @@ void ContactPlanner::convertTraj(
       joint_velocity_pt[jnt_idx] = point.velocities[jnt_idx];
       ROS_INFO_NAMED(LOGNAME, "Velocity: %f", point.velocities[jnt_idx]);
     }
+    joint_waypoints.emplace_back(joint_angles);
+    joint_velocities.emplace_back(joint_velocity_pt);
 
     ROS_INFO_NAMED(LOGNAME, "time_from_start: %f",
                    point.time_from_start.toSec());
@@ -1011,12 +1017,11 @@ void ContactPlanner::convertTraj(
 
     ROS_INFO_NAMED(LOGNAME, "time_diff: %f", time_diff);
 
-    std::size_t time_pts = std::ceil(time_diff * 1000);
+    // std::size_t time_pts = std::ceil(time_diff * 100);
 
-    for (std::size_t time_pt = 0; time_pt < time_pts; time_pt++) {
-      joint_waypoints.emplace_back(joint_angles);
-      joint_velocities.emplace_back(joint_velocity_pt);
-    }
+    // for (std::size_t time_pt = 0; time_pt < time_pts; time_pt++) {
+    //   joint_velocities.emplace_back(joint_velocity_pt);
+    // }
   }
 }
 
