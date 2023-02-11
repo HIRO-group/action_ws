@@ -392,6 +392,35 @@ void Visualizer::visualizeTrajectory(
   trajectory_publishers_.push_back(pub_raw_traj);
 }
 
+void Visualizer::visualizeTrajectory(
+    const moveit_msgs::MotionPlanResponse& resp_final_traj, std::string name) {
+  // first publish the final path
+  moveit_msgs::DisplayTrajectory display_final_traj;
+  ros::Publisher pub_final_traj;
+
+  pub_final_traj = nh_.advertise<moveit_msgs::DisplayTrajectory>(name, 1, true);
+  display_final_traj.trajectory_start = resp_final_traj.trajectory_start;
+  display_final_traj.trajectory.push_back(resp_final_traj.trajectory);
+  pub_final_traj.publish(display_final_traj);
+  trajectory_publishers_.push_back(pub_final_traj);
+
+  moveit_msgs::DisplayTrajectory display_raw_traj;
+  moveit_msgs::MotionPlanResponse resp_raw_traj;
+  ros::Publisher pub_raw_traj;
+
+  // next publish the raw path aka the path without smoothing
+  pub_raw_traj =
+      nh_.advertise<moveit_msgs::DisplayTrajectory>(name + "_raw", 1, true);
+  robot_trajectory::RobotTrajectory trajectory =
+      contact_planner_->context_->getRawTrajectory();
+  trajectory.getRobotTrajectoryMsg(resp_raw_traj.trajectory);
+
+  display_raw_traj.trajectory_start = resp_raw_traj.trajectory_start;
+  display_raw_traj.trajectory.push_back(resp_raw_traj.trajectory);
+  pub_raw_traj.publish(display_raw_traj);
+  trajectory_publishers_.push_back(pub_raw_traj);
+}
+
 void Visualizer::visualizeVertices() {
   ompl::geometric::SimpleSetupPtr simple_setup =
       contact_planner_->context_->getOMPLSimpleSetup();

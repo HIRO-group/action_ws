@@ -19,12 +19,20 @@ int main(int argc, char** argv) {
   std::shared_ptr<ContactPlanner> contact_planner =
       std::make_shared<ContactPlanner>();
   contact_planner->init();
+  utilities::promptAnyInput();
 
   std::shared_ptr<Visualizer> visualizer = std::make_shared<Visualizer>();
 
   // visually confirm that the planning scene, obstacles, goal state are all
   // correct
-  // utilities::promptAnyInput();
+  Eigen::Vector3d vec;
+  vec[0] = 0;
+  vec[1] = 0;
+  vec[2] = 0;
+
+  visualizer->visualizeObstacleMarker(contact_planner->getObstacles(vec));
+
+  utilities::promptAnyInput();
 
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
@@ -34,25 +42,25 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 5.0;
+  req.allowed_planning_time = 10.0;
   req.planner_id = contact_planner->getDefaultPlannerId();
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;
 
   contact_planner->createPlanningContext(req);
 
-  const std::string PLANNER_NAME = "BITstar";
+  const std::string PLANNER_NAME = "ContactTRRT";
   const std::string OBJECTIVE_NAME = "UpstreamCost";
   const std::size_t OBSTACLE_SCENE_OPT = 1;
   const std::size_t GOAL_STATE_OPT = 1;
   contact_planner->setObstacleScene(OBSTACLE_SCENE_OPT);
   contact_planner->setGoalState(GOAL_STATE_OPT);
 
-  visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
+  // visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
   visualizer->setContactPlanner(contact_planner);
   visualizer->visualizeGoalState();
 
-  // contact_planner->changePlanner(PLANNER_NAME, OBJECTIVE_NAME);
+  contact_planner->changePlanner(PLANNER_NAME, OBJECTIVE_NAME);
   contact_planner->generatePlan(res);
 
   if (res.error_code_.val != res.error_code_.SUCCESS) {
@@ -70,7 +78,12 @@ int main(int argc, char** argv) {
 
   if (res.error_code_.val == res.error_code_.SUCCESS) {
     ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
-    visualizer->visualizeTrajectory(res, "planned_path");
+    std::cout << "num pts: "
+              << contact_planner->fast_plan_response_.trajectory
+                     .joint_trajectory.points.size()
+              << std::endl;
+    visualizer->visualizeTrajectory(contact_planner->fast_plan_response_,
+                                    "planned_path");
     utilities::promptAnyInput();
   }
 

@@ -136,7 +136,7 @@ void ContactPlanner::setPlanningContextParams(
   double max_solution_segment_length_ = 0.0;
   unsigned int minimum_waypoint_count_ = 30;
   double goal_threshold_ = 0.1;
-  bool simplify_solution_ = true;
+  bool simplify_solution_ = false;
   bool interpolate_ = true;
   bool hybridize_ = false;
 
@@ -765,6 +765,7 @@ bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
   }
 
   if (is_solved && res.trajectory_) {
+    res.getMessage(fast_plan_response_);
     // trajectory_processing::IterativeParabolicTimeParameterization
     // time_param_(
     //     100, 10.0);

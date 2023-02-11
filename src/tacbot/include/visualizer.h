@@ -98,6 +98,9 @@ class Visualizer {
   */
   void visualizeVertices();
 
+  void visualizeTrajectory(
+      const moveit_msgs::MotionPlanResponse& resp_final_traj, std::string name);
+
  private:
   ros::NodeHandle nh_;
   std::size_t dof_ = 7;

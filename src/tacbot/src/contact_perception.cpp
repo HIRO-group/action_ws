@@ -23,11 +23,10 @@ void ContactPerception::init() {
   planning_scene_diff_publisher_ =
       nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
-  // cloud_subscriber_ =
-  //     nh_.subscribe("/camera/depth_registered/points", 1,
-  //                   &ContactPerception::pointCloudCallback, this);
+  cloud_subscriber_ = nh_.subscribe(
+      "/oak/points", 1, &ContactPerception::pointCloudCallback, this);
 
-  // addSafetyPerimeter();
+  addSafetyPerimeter();
 
   // addCylinder();
 
@@ -35,7 +34,7 @@ void ContactPerception::init() {
 
   // this keeps callback through the duration of the class not just once, not
   // sure why
-  // ros::spinOnce();
+  ros::spinOnce();
 }
 
 void ContactPerception::addSafetyPerimeter() {
@@ -354,11 +353,11 @@ void ContactPerception::pointCloudCallback(
   // most of the processing.
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromROSMsg(*input, *cloud);
-  std::cout << "raw cloud.size(): " << cloud->size() << std::endl;
+  // std::cout << "raw cloud.size(): " << cloud->size() << std::endl;
 
   tf::StampedTransform transform;
   try {
-    tf_listener_.lookupTransform("world", "camera_rgb_optical_frame",
+    tf_listener_.lookupTransform("world", "oak_rgb_camera_optical_frame",
                                  ros::Time(0), transform);
   } catch (tf::TransformException ex) {
     ROS_ERROR("%s", ex.what());
@@ -375,7 +374,8 @@ void ContactPerception::pointCloudCallback(
   sor.setInputCloud(cloud_transformed);
   sor.setLeafSize(0.05f, 0.05f, 0.05f);
   sor.filter(*cloud_filtered);
-  std::cout << "filtered cloud.size(): " << cloud_filtered->size() << std::endl;
+  // std::cout << "filtered cloud.size(): " << cloud_filtered->size() <<
+  // std::endl;
   point_cloud_ = std::move(cloud_filtered);
 }
 
