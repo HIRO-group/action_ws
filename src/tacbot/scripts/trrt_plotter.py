@@ -3,6 +3,7 @@ import os
 import copy
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class Reader:
@@ -47,8 +48,9 @@ class Cleaner:
         self.df.drop(ousted, inplace=True)
         ousted = self.df.index[(self.df["maxTemp"] < 0)]
         self.df.drop(ousted, inplace=True)
-        print("{} outliers removed".format(
-            len(ousted)))
+        self.df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.df.dropna(inplace=True)
+        print("Outliers removed")
 
 
 class Plotter:
@@ -67,13 +69,13 @@ class Plotter:
         self.ax.cla()
 
     def plot(self, df: pd.DataFrame) -> None:
-        sns.lineplot(x="sampleNumber", y="minDistToGoal",
-                     data=df, color="b", lw=5, label="minDistToGoal")
-        ax2 = plt.twinx()
-        sns.lineplot(x="sampleNumber", y="temp",
-                     data=df, ax=ax2, color="r", lw=5, label="temp")
-        self.ax.legend(loc=9)
-        ax2.legend(loc=0)
+        sns.lineplot(x="sampleNumber", y="slopeM",
+                     data=df, color="b", lw=5, label="slopeM")
+        # ax2 = plt.twinx()
+        # sns.lineplot(x="sampleNumber", y="temp",
+        #              data=df, ax=ax2, color="r", lw=5, label="temp")
+        # self.ax.legend(loc=9)
+        # ax2.legend(loc=0)
         plt.show()
 
 
