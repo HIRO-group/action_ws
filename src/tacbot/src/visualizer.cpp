@@ -656,7 +656,7 @@ void Visualizer::visualizeRepulsedState() {
     visualizeObstacleMarker(
         contact_planner_->vis_data_.sample_obstacle_pos_[viz_state_idx_]);
 
-    viz_state_idx_++;
+    viz_state_idx_ += 10;
 
     std::cout << "Press 'q' to exit this visualization or 'c' to go to the "
                  "next state "

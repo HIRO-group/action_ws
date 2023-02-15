@@ -221,6 +221,9 @@ class ContactPlanner {
   /** \brief The goal pose for the robot. The robot will try to move to this
    * state when planning a trajectory.*/
   std::vector<double> joint_goal_pos_;
+  std::vector<std::vector<Eigen::Vector3d>> goal_rob_pts_;
+  void extractPtsFromGoalState();
+  Eigen::Vector3d getAttractPt(std::size_t link_num, std::size_t pt_num);
 
   /** \brief The resonse after a plan has been generated.*/
   planning_interface::MotionPlanResponse plan_response_;

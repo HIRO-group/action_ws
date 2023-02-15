@@ -59,8 +59,8 @@ int main(int argc, char** argv) {
               res.error_code_.val);
   }
 
-  // ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
-  // visualizer->visualizeRepulsedState();
+  ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
+  visualizer->visualizeRepulsedState();
 
   // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
   // visualizer->visualizeTreeStates();

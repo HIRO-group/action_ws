@@ -263,7 +263,7 @@ moveit_msgs::Constraints ContactPlanner::createJointGoal() {
 }
 
 Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
-  double y_max = 5.0;
+  double y_max = 3.0;
   double D = 50.0;
   // double dist_max = 1.0;
   // std::cout << "vec.norm() " << vec.norm() << std::endl;
@@ -291,6 +291,21 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   // std::cout << "before scale " << vec.transpose() << std::endl;
   // std::cout << "vec_out " << vec_out.transpose() << std::endl;
   return vec_out;
+}
+
+void ContactPlanner::extractPtsFromGoalState() {
+  moveit::core::RobotStatePtr robot_state =
+      std::make_shared<moveit::core::RobotState>(*robot_state_);
+  robot_state->setJointGroupPositions(joint_model_group_, joint_goal_pos_);
+  std::size_t num_pts = getPtsOnRobotSurface(robot_state, goal_rob_pts_);
+  std::cout << "num pts from robot goal state: " << num_pts << std::endl;
+}
+
+Eigen::Vector3d ContactPlanner::getAttractPt(std::size_t link_num,
+                                             std::size_t pt_num) {
+  std::vector<Eigen::Vector3d> pts_on_link = goal_rob_pts_[link_num];
+  Eigen::Vector3d pt_on_rob = pts_on_link[pt_num];
+  return pt_on_rob;
 }
 
 void ContactPlanner::extractPtsFromModel(
@@ -461,6 +476,23 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
         // std::cout << "pt_on_rob: " << pt_on_rob.transpose() << std::endl;
 
         vec = scaleToDist(vec);
+
+        Eigen::Vector3d att_pt = getAttractPt(i, j);
+
+        Eigen::Vector3d att_vec = att_pt - pt_on_rob;
+
+        if (vec.norm() == 0.0) {
+          att_vec = Eigen::VectorXd::Zero(3);
+        } else {
+          att_vec.normalize();
+        }
+
+        double dot = att_vec.dot(vec);
+        if (dot < 0) {
+          att_vec = Eigen::VectorXd::Zero(3);
+        }
+
+        vec = 0.5 * vec + 0.1 * att_vec;
         // std::cout << "vec: " << vec.transpose() << std::endl;
 
         pt_to_obs(k, 0) = vec[0];
@@ -543,6 +575,8 @@ Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
 
   std::vector<std::vector<Eigen::Vector3d>> rob_pts;
   std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
+  // std::cout << "getPtsOnRobotSurface num_pts: " << num_pts << std::endl;
+
   vis_data_.setTotalNumRepulsePts(num_pts);
   std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(rob_pts);
 
@@ -561,13 +595,13 @@ Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
     utilities::pseudoInverse(link_jac, jac_pinv_);
     // std::cout << "jac_pinv_:\n " << jac_pinv_ << std::endl;
     Eigen::Vector3d vec = link_to_obs_vec[i];
-    // std::cout << "i: vec: \n " << i << ": " << vec.norm() << std::endl;
+    std::cout << "i: vec: \n " << i << ": " << vec.norm() << std::endl;
 
     Eigen::Vector3d rob_vec =
         utilities::toEigen(std::vector<double>{vec[0], vec[1], vec[2]});
 
-    Eigen::MatrixXd j_t = link_jac.transpose();
-    Eigen::MatrixXd j_sq = link_jac * j_t;
+    // Eigen::MatrixXd j_t = link_jac.transpose();
+    // Eigen::MatrixXd j_sq = link_jac * j_t;
 
     // Eigen::EigenSolver<Eigen::MatrixXd> eigensolver(j_sq);
     // ManipulabilityMeasures manip;
@@ -618,7 +652,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
     }
 
     // std::cout << "d_q:\n" << d_q.transpose() << std::endl;
-    // std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
+    std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
   }
 
   Eigen::VectorXd vel_out = jacobian * d_q_out;
@@ -631,7 +665,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
   vis_data_.saveRepulseAngles(joint_angles, d_q_out);
   sample_state_count_++;
   // std::cout << "d_q_out.norm():\n " << d_q_out.norm() << std::endl;
-  // std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
+  std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
 
   return d_q_out;
 }
@@ -868,6 +902,8 @@ void ContactPlanner::init() {
   execution_monitor_sub_ =
       nh_.subscribe("/joint_position_controller/trajectory_monitor", 1,
                     &ContactPlanner::executionMonitorCallback, this);
+
+  extractPtsFromGoalState();
 }
 
 void ContactPlanner::executionMonitorCallback(const TrajExecutionMonitor& msg) {
