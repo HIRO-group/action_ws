@@ -18,6 +18,8 @@ Visualizer::Visualizer() {
       nh_.advertise<visualization_msgs::MarkerArray>("obstacle", 1, true);
   arrow_pub_ =
       nh_.advertise<visualization_msgs::MarkerArray>("vector_field", 1, true);
+  nearrand_pub_ =
+      nh_.advertise<visualization_msgs::MarkerArray>("nearrand_field", 1, true);
   arrow_avg_pub_ =
       nh_.advertise<visualization_msgs::MarkerArray>("vec_avg_field", 1, true);
   manipulability_pub_ =
@@ -260,6 +262,85 @@ void Visualizer::visualizeRepulseVec(std::size_t state_num) {
     marker_array.markers.push_back(marker);
   }
   arrow_pub_.publish(marker_array);
+}
+
+void Visualizer::visualizeNearRandVec(std::size_t state_num) {
+  if (contact_planner_->vis_data_.nearrand_origin_at_link_.size() <=
+          state_num ||
+      contact_planner_->vis_data_.nearrand_vec_at_link_.size() <= state_num) {
+    ROS_INFO_NAMED(LOGNAME,
+                   "Insufficient data stored to vizualize nearrand vector.");
+    return;
+  }
+
+  visualization_msgs::MarkerArray marker_array;
+  auto repulsed_origin_at_link =
+      contact_planner_->vis_data_.nearrand_origin_at_link_[state_num];
+  auto repulsed_vec_at_link =
+      contact_planner_->vis_data_.nearrand_vec_at_link_[state_num];
+
+  // std::cout << "repulsed_origin_at_link.size(): "
+  //           << repulsed_origin_at_link.size() << std::endl;
+  std::cout
+      << "nearrand_dot_at_link: "
+      << contact_planner_->vis_data_.nearrand_dot_at_link[state_num].transpose()
+      << std::endl;
+
+  std::size_t max_num = (int)(repulsed_origin_at_link.size() / 3);
+  for (std::size_t i = 0; i < max_num; i++) {
+    // std::cout << "i: " << i << std::endl;
+    Eigen::Vector3d origin(repulsed_origin_at_link[i * 3],
+                           repulsed_origin_at_link[i * 3 + 1],
+                           repulsed_origin_at_link[i * 3 + 2]);
+
+    Eigen::Vector3d dir(repulsed_vec_at_link[i * 3],
+                        repulsed_vec_at_link[i * 3 + 1],
+                        repulsed_vec_at_link[i * 3 + 2]);
+
+    // std::cout << "i: " << i << std::endl;
+    // std::cout << "origin: " << origin.transpose() << std::endl;
+    // std::cout << "dir: " << dir.transpose() << std::endl;
+
+    Eigen::Vector3d vec = origin + dir;
+
+    uint32_t shape = visualization_msgs::Marker::ARROW;
+
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "world";
+    marker.header.stamp = ros::Time::now();
+    // marker.ns = "basic_shapes";
+    marker.id = i;
+    marker.type = shape;
+
+    // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+    marker.action = visualization_msgs::Marker::ADD;
+
+    geometry_msgs::Point start_pt;
+    start_pt.x = origin[0];
+    start_pt.y = origin[1];
+    start_pt.z = origin[2];
+
+    geometry_msgs::Point end_pt;
+    end_pt.x = vec[0];
+    end_pt.y = vec[1];
+    end_pt.z = vec[2];
+
+    marker.points.push_back(start_pt);
+    marker.points.push_back(end_pt);
+
+    marker.scale.x = 0.01;
+    marker.scale.y = 0.01;
+    marker.scale.z = 0.01;
+
+    marker.color.r = 0.0f;
+    marker.color.g = 0.5f;
+    marker.color.b = 0.5f;
+    marker.color.a = 1.0;
+
+    marker.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker);
+  }
+  nearrand_pub_.publish(marker_array);
 }
 
 void Visualizer::visualizeRepulseOrigin(std::size_t state_num) {
@@ -650,13 +731,14 @@ void Visualizer::visualizeRepulsedState() {
         contact_planner_->vis_data_.sample_desired_angles_[viz_state_idx_]);
 
     visualizeRepulseVec(viz_state_idx_);
+    visualizeNearRandVec(viz_state_idx_);
     visualizeAvgRepulseVec(viz_state_idx_);
     visualizeRepulseOrigin(viz_state_idx_);
     visualizeManipVec(viz_state_idx_);
     visualizeObstacleMarker(
         contact_planner_->vis_data_.sample_obstacle_pos_[viz_state_idx_]);
 
-    viz_state_idx_ += 10;
+    viz_state_idx_ += 1;
 
     std::cout << "Press 'q' to exit this visualization or 'c' to go to the "
                  "next state "

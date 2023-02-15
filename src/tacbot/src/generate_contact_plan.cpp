@@ -33,15 +33,15 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 10.0;
+  req.allowed_planning_time = 5.0;
   req.planner_id = contact_planner->getDefaultPlannerId();
   req.max_acceleration_scaling_factor = 0.1;
   req.max_velocity_scaling_factor = 0.1;
 
   contact_planner->createPlanningContext(req);
 
-  const std::string PLANNER_NAME = "ContactTRRT";
-  const std::string OBJECTIVE_NAME = "UpstreamCost";
+  const std::string PLANNER_NAME = "ContactTRRTDuo";
+  const std::string OBJECTIVE_NAME = "FieldAlign";
   const std::size_t OBSTACLE_SCENE_OPT = 1;
   const std::size_t GOAL_STATE_OPT = 1;
   contact_planner->setObstacleScene(OBSTACLE_SCENE_OPT);

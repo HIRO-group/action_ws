@@ -436,6 +436,59 @@ std::vector<Eigen::Vector3d> ContactPlanner::getObstacles(
   return obstacles;
 }
 
+Eigen::VectorXd ContactPlanner::getRobtPtsVecDiffAvg(
+    const std::vector<std::vector<Eigen::Vector3d>>& near_state_rob_pts,
+    const std::vector<std::vector<Eigen::Vector3d>>& rand_state_rob_pts,
+    const std::vector<Eigen::Vector3d>& link_to_obs_vec) {
+  std::size_t num_links = near_state_rob_pts.size();
+  Eigen::VectorXd mean_per_link = Eigen::VectorXd::Zero(num_links);
+
+  std::size_t pt_num = 0;
+
+  for (std::size_t i = 0; i < num_links; i++) {
+    std::vector<Eigen::Vector3d> near_pts_on_link = near_state_rob_pts[i];
+    std::vector<Eigen::Vector3d> rand_pts_on_link = rand_state_rob_pts[i];
+
+    std::size_t num_pts_on_link = near_pts_on_link.size();
+    Eigen::MatrixXd diff_per_link = Eigen::MatrixXd::Zero(num_pts_on_link, 3);
+
+    for (std::size_t j = 0; j < num_pts_on_link; j++) {
+      Eigen::Vector3d near_pt_on_rob = near_pts_on_link[j];
+      Eigen::Vector3d rand_pt_on_rob = rand_pts_on_link[j];
+      Eigen::Vector3d nearrand_diff = rand_pt_on_rob - near_pt_on_rob;
+
+      diff_per_link(j, 0) = nearrand_diff[0];
+      diff_per_link(j, 1) = nearrand_diff[1];
+      diff_per_link(j, 2) = nearrand_diff[2];
+
+      // std::cout << "pt_num: " << pt_num << std::endl;
+      // std::cout << "sample_state_count_: " << sample_state_count_ <<
+      // std::endl;
+
+      vis_data_.saveNearRandVec(near_pt_on_rob, nearrand_diff, pt_num,
+                                sample_state_count_);
+
+      pt_num++;
+    }
+
+    double av_x = diff_per_link.col(0).mean();
+    double av_y = diff_per_link.col(1).mean();
+    double av_z = diff_per_link.col(2).mean();
+
+    Eigen::Vector3d nearrand_av(av_x, av_y, av_z);
+    Eigen::Vector3d link_to_obs = link_to_obs_vec[i];
+
+    std::cout << "nearrand_av: " << nearrand_av.transpose() << std::endl;
+    std::cout << "link_to_obs: " << link_to_obs.transpose() << std::endl;
+    double dot = link_to_obs.dot(nearrand_av);
+    std::cout << "dot: " << dot << std::endl;
+
+    mean_per_link[i] = dot;
+  }
+  vis_data_.saveNearRandDot(mean_per_link);
+  return mean_per_link;
+}
+
 std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
     const std::vector<std::vector<Eigen::Vector3d>>& rob_pts) {
   std::size_t num_links = rob_pts.size();
@@ -488,7 +541,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
         }
 
         double dot = att_vec.dot(vec);
-        if (dot < 0) {
+        if (dot < -0.5) {
           att_vec = Eigen::VectorXd::Zero(3);
         }
 
@@ -505,8 +558,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
       double av_z = pt_to_obs.col(2).mean();
 
       Eigen::Vector3d pt_to_obs_av(av_x, av_y, av_z);
-      // std::cout << "pt_to_obs_av: " << pt_to_obs_av.transpose() <<
-      // std::endl;
+      // std::cout << "pt_to_obs_av: " << pt_to_obs_av.transpose() << std::endl;
 
       pts_link_vec(j, 0) = pt_to_obs_av[0];
       pts_link_vec(j, 1) = pt_to_obs_av[1];
@@ -520,8 +572,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
                               sample_state_count_);
       pt_num++;
     }
-    // std::cout << "pts_link_vec.rows(): " << pts_link_vec.rows() <<
-    // std::endl;
+    // std::cout << "pts_link_vec.rows(): " << pts_link_vec.rows() << std::endl;
     double av_x = pts_link_vec.col(0).mean();
     double av_y = pts_link_vec.col(1).mean();
     double av_z = pts_link_vec.col(2).mean();
@@ -532,8 +583,6 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
     link_to_obs_vec[i] = link_to_obs_avg;
   }
   vis_data_.saveAvgRepulseVec(link_to_obs_vec);
-
-  // std::cout << "total_norm: " << total_norm << std::endl;
 
   return link_to_obs_vec;
 }
@@ -561,6 +610,43 @@ Eigen::VectorXd ContactPlanner::obstacleFieldTaskSpace(
     }
   }
   return field_out;
+}
+
+Eigen::VectorXd ContactPlanner::obstacleFieldCartesian(
+    const ompl::base::State* near_state, const ompl::base::State* rand_state) {
+  const ompl::base::RealVectorStateSpace::StateType& vec_state1 =
+      *near_state->as<ompl::base::RealVectorStateSpace::StateType>();
+  std::vector<double> joint_angles1 = utilities::toStlVec(vec_state1, dof_);
+
+  moveit::core::RobotStatePtr robot_state1 =
+      std::make_shared<moveit::core::RobotState>(*robot_state_);
+  robot_state1->setJointGroupPositions(joint_model_group_, joint_angles1);
+  std::vector<std::vector<Eigen::Vector3d>> near_rob_pts;
+  std::size_t num_pts = getPtsOnRobotSurface(robot_state1, near_rob_pts);
+
+  vis_data_.setTotalNumRepulsePts(num_pts);
+  // std::cout << "num pts from near state: " << num_pts << std::endl;
+  std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(near_rob_pts);
+  // std::cout << "link_to_obs_vec.size(): " << link_to_obs_vec.size()
+  //           << std::endl;
+
+  const ompl::base::RealVectorStateSpace::StateType& vec_state2 =
+      *rand_state->as<ompl::base::RealVectorStateSpace::StateType>();
+  std::vector<double> joint_angles2 = utilities::toStlVec(vec_state2, dof_);
+
+  moveit::core::RobotStatePtr robot_state2 =
+      std::make_shared<moveit::core::RobotState>(*robot_state_);
+  robot_state2->setJointGroupPositions(joint_model_group_, joint_angles2);
+  std::vector<std::vector<Eigen::Vector3d>> rand_rob_pts;
+  num_pts = getPtsOnRobotSurface(robot_state2, rand_rob_pts);
+  // std::cout << "num pts from rand state: " << num_pts << std::endl;
+
+  Eigen::VectorXd vfield =
+      getRobtPtsVecDiffAvg(near_rob_pts, rand_rob_pts, link_to_obs_vec);
+
+  vis_data_.saveRepulseAngles(joint_angles1, joint_angles2);
+  sample_state_count_++;
+  return vfield;
 }
 
 Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
@@ -726,6 +812,10 @@ void ContactPlanner::changePlanner(std::string planner_name,
 
   std::function<Eigen::VectorXd(const ompl::base::State*)> vFieldFunc;
 
+  std::function<Eigen::VectorXd(const ompl::base::State*,
+                                const ompl::base::State*)>
+      vFieldFuncDuo;
+
   if (objective_name == "UpstreamCost") {
     ROS_INFO_NAMED(LOGNAME, "Using UpstreamCost optimization objective.");
     vFieldFunc = std::bind(&ContactPlanner::obstacleFieldConfigSpace, this,
@@ -740,6 +830,13 @@ void ContactPlanner::changePlanner(std::string planner_name,
     optimization_objective_ =
         std::make_shared<ompl::base::VFMagnitudeOptimizationObjective>(
             si, vFieldFunc);
+  } else if (objective_name == "FieldAlign") {
+    ROS_INFO_NAMED(LOGNAME, "Using FieldAlign optimization objective.");
+    vFieldFuncDuo = std::bind(&ContactPlanner::obstacleFieldCartesian, this,
+                              std::placeholders::_1, std::placeholders::_2);
+    // optimization_objective_ =
+    //     std::make_shared<ompl::base::VFMagnitudeOptimizationObjective>(
+    //         si, vFieldFuncDuo);
   } else {
     ROS_ERROR_NAMED(LOGNAME, "Invalid optimization objective.");
     ROS_INFO_NAMED(LOGNAME,
@@ -762,6 +859,10 @@ void ContactPlanner::changePlanner(std::string planner_name,
     ROS_INFO_NAMED(LOGNAME, "Using planner: ContactTRRT.");
     planner = std::make_shared<ompl::geometric::ContactTRRT>(
         simple_setup->getSpaceInformation(), vFieldFunc);
+  } else if (planner_name == "ContactTRRTDuo") {
+    ROS_INFO_NAMED(LOGNAME, "Using planner: ContactTRRTDuo.");
+    planner = std::make_shared<ompl::geometric::ContactTRRT>(
+        simple_setup->getSpaceInformation(), vFieldFuncDuo);
   } else if (planner_name == "BITstar") {
     ROS_INFO_NAMED(LOGNAME, "Using planner: BITstar.");
     planner = std::make_shared<ompl::geometric::BITstar>(

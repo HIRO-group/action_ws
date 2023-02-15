@@ -79,9 +79,9 @@ int main(int argc, char** argv) {
   const std::size_t NUM_PLANNING_ATTEMPTS = 10;
   const std::size_t MAX_PLANNING_TIME = 10;
 
-  const std::string PLANNER_NAME = "ContactTRRT";
+  const std::string PLANNER_NAME = "ContactTRRTDuo";
   const std::string OBJECTIVE_NAME =
-      "UpstreamCost";  // FieldMagnitude or UpstreamCost
+      "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
   const std::size_t OBSTACLE_SCENE_OPT = 1;
   const std::size_t GOAL_STATE_OPT = 1;
 
@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
   std::string test_name = PLANNER_NAME + "_" + OBJECTIVE_NAME + "_" + "OBST_" +
                           std::to_string(OBSTACLE_SCENE_OPT) + "_" + "GOAL_" +
                           std::to_string(GOAL_STATE_OPT);
-  std::string file_path = "/home/nataliya/action_ws/src/tacbot/scripts/";
+  std::string file_path = "/home/nn/action_ws/src/tacbot/scripts/";
   benchmark_data.file_name = file_path + test_name + ".csv";
 
   initDataFile(benchmark_data);

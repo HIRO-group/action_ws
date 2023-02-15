@@ -39,6 +39,10 @@ struct VisualizerData {
   /** \brief The repulse vector origin at each robot state. */
   std::vector<Eigen::VectorXd> repulsed_origin_at_link_;
 
+  std::vector<Eigen::VectorXd> nearrand_vec_at_link_;
+  std::vector<Eigen::VectorXd> nearrand_origin_at_link_;
+  std::vector<Eigen::VectorXd> nearrand_dot_at_link;
+
   /** \brief The number of repulse points at any given time. This number changes
    * during trajectory generation. It is used to resize vectors which store
    * information.*/
@@ -56,6 +60,14 @@ struct VisualizerData {
   void saveOriginVec(const Eigen::Vector3d& origin, const Eigen::Vector3d& vec,
                      std::size_t pt_num, std::size_t sample_state_count);
 
+  void saveNearRandVec(const Eigen::Vector3d& origin,
+                       const Eigen::Vector3d& vec, std::size_t pt_num,
+                       std::size_t sample_state_count);
+
+  void saveNearRandDot(const Eigen::VectorXd& vec) {
+    nearrand_dot_at_link.emplace_back(vec);
+  }
+
   /** \brief Store the joint angles sampled by the planner.
     @param joint_angles
   */
@@ -68,6 +80,9 @@ struct VisualizerData {
   */
   void saveRepulseAngles(const std::vector<double>& joint_angles,
                          const Eigen::VectorXd& d_q_out);
+
+  void saveRepulseAngles(const std::vector<double>& joint_angles1,
+                         const std::vector<double>& joint_angles2);
 
   /** \brief Save the obstacle position at the robot's state.
     @param obstacle_pos The positions of obstacles in cartesian space.

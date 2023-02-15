@@ -27,6 +27,28 @@ void VisualizerData::saveOriginVec(const Eigen::Vector3d& origin,
   cur_origin[pt_num * 3 + 2] = origin[2];
 }
 
+void VisualizerData::saveNearRandVec(const Eigen::Vector3d& origin,
+                                     const Eigen::Vector3d& vec,
+                                     std::size_t pt_num,
+                                     std::size_t sample_state_count) {
+  if (sample_state_count == nearrand_vec_at_link_.size()) {
+    nearrand_vec_at_link_.emplace_back(
+        Eigen::VectorXd::Zero(cur_total_num_repulse_pts_ * 3));
+    nearrand_origin_at_link_.emplace_back(
+        Eigen::VectorXd::Zero(cur_total_num_repulse_pts_ * 3));
+  }
+
+  Eigen::VectorXd& cur_repulsed = nearrand_vec_at_link_[sample_state_count];
+  cur_repulsed[pt_num * 3] = vec[0];
+  cur_repulsed[pt_num * 3 + 1] = vec[1];
+  cur_repulsed[pt_num * 3 + 2] = vec[2];
+
+  Eigen::VectorXd& cur_origin = nearrand_origin_at_link_[sample_state_count];
+  cur_origin[pt_num * 3] = origin[0];
+  cur_origin[pt_num * 3 + 1] = origin[1];
+  cur_origin[pt_num * 3 + 2] = origin[2];
+}
+
 void VisualizerData::saveJointAngles(const std::vector<double>& joint_angles) {
   sample_joint_angles_.emplace_back(joint_angles);
 }
@@ -36,6 +58,13 @@ void VisualizerData::saveRepulseAngles(const std::vector<double>& joint_angles,
   saveJointAngles(joint_angles);
   sample_desired_angles_.emplace_back(
       utilities::toStlVec(utilities::toEigen(joint_angles) + d_q_out));
+}
+
+void VisualizerData::saveRepulseAngles(
+    const std::vector<double>& joint_angles1,
+    const std::vector<double>& joint_angles2) {
+  sample_joint_angles_.emplace_back(joint_angles1);
+  sample_desired_angles_.emplace_back(joint_angles2);
 }
 
 void VisualizerData::saveObstaclePos(

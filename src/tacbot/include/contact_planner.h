@@ -225,6 +225,14 @@ class ContactPlanner {
   void extractPtsFromGoalState();
   Eigen::Vector3d getAttractPt(std::size_t link_num, std::size_t pt_num);
 
+  Eigen::VectorXd getRobtPtsVecDiffAvg(
+      const std::vector<std::vector<Eigen::Vector3d>>& near_state_rob_pts,
+      const std::vector<std::vector<Eigen::Vector3d>>& rand_state_rob_pts,
+      const std::vector<Eigen::Vector3d>& link_to_obs_vec);
+
+  Eigen::VectorXd obstacleFieldCartesian(const ompl::base::State* near_state,
+                                         const ompl::base::State* rand_state);
+
   /** \brief The resonse after a plan has been generated.*/
   planning_interface::MotionPlanResponse plan_response_;
 

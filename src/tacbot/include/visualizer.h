@@ -49,6 +49,8 @@ class Visualizer {
 
   void visualizeAvgRepulseVec(std::size_t state_num);
 
+  void visualizeNearRandVec(std::size_t state_num);
+
   /** \brief Visualize the origin of the repulsive vector.
       @param state_num The index of the origin within an array.
   */
@@ -112,6 +114,8 @@ class Visualizer {
   /** \brief  Publisher for the vectors that show the repulsion of the robot
    * link from obstacles. */
   ros::Publisher arrow_pub_;
+
+  ros::Publisher nearrand_pub_;
 
   ros::Publisher arrow_avg_pub_;
 
