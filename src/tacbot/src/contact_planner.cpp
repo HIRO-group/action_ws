@@ -45,19 +45,31 @@ void ContactPlanner::setObstacleScene(std::size_t option) {
       break;
     case 3:
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.6}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.4, 0.0, 0.6}, 0.1));
       spherical_obstacles_.emplace_back(
           std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
-      spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.15, -0.15, 0.4}, 0.1));
+      // spherical_obstacles_.emplace_back(
+      //     std::make_pair(Eigen::Vector3d{0.15, -0.15, 0.4}, 0.1));
       break;
     case 4:
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.15, 0.0, 0.4}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.4, 0.0, 0.6}, 0.1));
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.6}, 0.08));
+          std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.15, 0.0, 0.2}, 0.1));
       break;
     case 5:
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.4, 0.0, 0.6}, 0.1));
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{-0.3, 0.0, 0.4}, 0.1));
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{0.1, -0.1, 0.4}, 0.1));
+      break;
+    case 6:
       addLineObstacle();
       break;
     default:
@@ -545,7 +557,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
           att_vec = Eigen::VectorXd::Zero(3);
         }
 
-        vec = 0.5 * vec + 0.1 * att_vec;
+        vec = 0.9 * vec + 0.05 * att_vec;
         // std::cout << "vec: " << vec.transpose() << std::endl;
 
         pt_to_obs(k, 0) = vec[0];
@@ -681,7 +693,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
     utilities::pseudoInverse(link_jac, jac_pinv_);
     // std::cout << "jac_pinv_:\n " << jac_pinv_ << std::endl;
     Eigen::Vector3d vec = link_to_obs_vec[i];
-    std::cout << "i: vec: \n " << i << ": " << vec.norm() << std::endl;
+    // std::cout << "i: vec: \n " << i << ": " << vec.norm() << std::endl;
 
     Eigen::Vector3d rob_vec =
         utilities::toEigen(std::vector<double>{vec[0], vec[1], vec[2]});
@@ -738,7 +750,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
     }
 
     // std::cout << "d_q:\n" << d_q.transpose() << std::endl;
-    std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
+    // std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
   }
 
   Eigen::VectorXd vel_out = jacobian * d_q_out;
@@ -751,7 +763,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
   vis_data_.saveRepulseAngles(joint_angles, d_q_out);
   sample_state_count_++;
   // std::cout << "d_q_out.norm():\n " << d_q_out.norm() << std::endl;
-  std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
+  // std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
 
   return d_q_out;
 }
@@ -834,9 +846,9 @@ void ContactPlanner::changePlanner(std::string planner_name,
     ROS_INFO_NAMED(LOGNAME, "Using FieldAlign optimization objective.");
     vFieldFuncDuo = std::bind(&ContactPlanner::obstacleFieldCartesian, this,
                               std::placeholders::_1, std::placeholders::_2);
-    // optimization_objective_ =
-    //     std::make_shared<ompl::base::VFMagnitudeOptimizationObjective>(
-    //         si, vFieldFuncDuo);
+    optimization_objective_ =
+        std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
+            si, vFieldFunc);
   } else {
     ROS_ERROR_NAMED(LOGNAME, "Invalid optimization objective.");
     ROS_INFO_NAMED(LOGNAME,
@@ -847,6 +859,9 @@ void ContactPlanner::changePlanner(std::string planner_name,
         std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
             si, vFieldFunc);
   }
+
+  optimization_objective_->setCostToGoHeuristic(
+      &ompl::base::goalRegionCostToGo);
 
   simple_setup->setOptimizationObjective(optimization_objective_);
 
