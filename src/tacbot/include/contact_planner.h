@@ -160,6 +160,15 @@ class ContactPlanner {
    */
   void monitorExecution();
 
+  /** \brief Obtain the obstacles in the robot's surroundings. These could be
+    simulated obstacles or obstacles from the ContactPerception class.
+    @param pt_on_rob If we are not using simulated obstacles then this point is
+    used in the ContactPerception class to obstain obstacles close enough to
+    this point.
+    @return std::vector<Eigen::Vector3d> A vector of obstacle positions.
+  */
+  std::vector<Eigen::Vector3d> getObstacles(const Eigen::Vector3d& pt_on_rob);
+
   void analyzePlanResponse(PlanAnalysisData& plan_analysis_data);
   void setObstacleScene(std::size_t option);
   void setGoalState(std::size_t option);
@@ -212,7 +221,7 @@ class ContactPlanner {
 
   /** \brief Whether or not to use simulated obstacles or the ContactPerception
    * class to fill obstacles into the robot's planning scene.*/
-  const bool use_sim_obstacles_ = true;
+  const bool use_sim_obstacles_ = false;
 
   /** \brief The posisitoins of the simulated obstacles. It's a vector of the
    * x,y,z positions of the obstacles in cartesian space.*/
@@ -352,15 +361,6 @@ class ContactPlanner {
   */
   std::vector<Eigen::Vector3d> getLinkToObsVec(
       const std::vector<std::vector<Eigen::Vector3d>>& rob_pts);
-
-  /** \brief Obtain the obstacles in the robot's surroundings. These could be
-    simulated obstacles or obstacles from the ContactPerception class.
-    @param pt_on_rob If we are not using simulated obstacles then this point is
-    used in the ContactPerception class to obstain obstacles close enough to
-    this point.
-    @return std::vector<Eigen::Vector3d> A vector of obstacle positions.
-  */
-  std::vector<Eigen::Vector3d> getObstacles(const Eigen::Vector3d& pt_on_rob);
 
   /** \brief Callback function for the topic to which the controller advertises
     its execution state.

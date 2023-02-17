@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
 
   // visually confirm that the planning scene, obstacles, goal state are all
   // correct
-  // utilities::promptAnyInput();
+  utilities::promptAnyInput();
 
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
@@ -48,7 +48,8 @@ int main(int argc, char** argv) {
   contact_planner->setObstacleScene(OBSTACLE_SCENE_OPT);
   contact_planner->setGoalState(GOAL_STATE_OPT);
 
-  visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
+  Eigen::Vector3d origin(0, 0, 0);
+  visualizer->visualizeObstacleMarker(contact_planner->getObstacles(origin));
   visualizer->setContactPlanner(contact_planner);
   visualizer->visualizeGoalState();
 
