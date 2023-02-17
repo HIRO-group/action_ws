@@ -79,10 +79,10 @@ int main(int argc, char** argv) {
   const std::size_t NUM_PLANNING_ATTEMPTS = 10;
   const std::size_t MAX_PLANNING_TIME = 10;
 
-  const std::string PLANNER_NAME = "ContactTRRTDuo";
+  const std::string PLANNER_NAME = "RRTstar";
   const std::string OBJECTIVE_NAME =
-      "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 1;
+      "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
+  const std::size_t OBSTACLE_SCENE_OPT = 3;
   const std::size_t GOAL_STATE_OPT = 1;
 
   BenchMarkData benchmark_data;
@@ -118,21 +118,22 @@ int main(int argc, char** argv) {
     contact_planner->changePlanner(PLANNER_NAME, OBJECTIVE_NAME);
     contact_planner->generatePlan(res);
 
+    PlanAnalysisData plan_analysis;
+
     if (res.error_code_.val != res.error_code_.SUCCESS) {
       ROS_ERROR("Could not compute plan successfully. Error code: %d",
                 res.error_code_.val);
       benchmark_data.success = 0;
+      benchmark_data.plan_time = 0;
+      benchmark_data.test_num = i + 1;
+      benchmark_data.plan_analysis = plan_analysis;
     } else {
       benchmark_data.success = 1;
+      benchmark_data.plan_time = res.planning_time_;
+      benchmark_data.test_num = i + 1;
+      contact_planner->analyzePlanResponse(plan_analysis);
+      benchmark_data.plan_analysis = plan_analysis;
     }
-
-    benchmark_data.plan_time = res.planning_time_;
-    benchmark_data.test_num = i + 1;
-
-    PlanAnalysisData plan_analysis;
-    contact_planner->analyzePlanResponse(plan_analysis);
-    benchmark_data.plan_analysis = plan_analysis;
-
     saveData(benchmark_data);
   }
 

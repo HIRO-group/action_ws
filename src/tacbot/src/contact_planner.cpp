@@ -293,7 +293,7 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   //   vec_out[2] = 0;
   // }
 
-  if (vec.squaredNorm() > 0.2) {
+  if (vec.squaredNorm() > 0.02) {
     return vec_out;
   }
 
@@ -542,22 +542,22 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
 
         vec = scaleToDist(vec);
 
-        Eigen::Vector3d att_pt = getAttractPt(i, j);
+        // Eigen::Vector3d att_pt = getAttractPt(i, j);
 
-        Eigen::Vector3d att_vec = att_pt - pt_on_rob;
+        // Eigen::Vector3d att_vec = att_pt - pt_on_rob;
 
-        if (vec.norm() == 0.0) {
-          att_vec = Eigen::VectorXd::Zero(3);
-        } else {
-          att_vec.normalize();
-        }
+        // if (vec.norm() == 0.0) {
+        //   att_vec = Eigen::VectorXd::Zero(3);
+        // } else {
+        //   att_vec.normalize();
+        // }
 
-        double dot = att_vec.dot(vec);
-        if (dot < -0.5) {
-          att_vec = Eigen::VectorXd::Zero(3);
-        }
+        // double dot = att_vec.dot(vec);
+        // if (dot < -0.5) {
+        //   att_vec = Eigen::VectorXd::Zero(3);
+        // }
 
-        vec = 0.9 * vec + 0.05 * att_vec;
+        // vec = 0.9 * vec + 0.1 * att_vec;
         // std::cout << "vec: " << vec.transpose() << std::endl;
 
         pt_to_obs(k, 0) = vec[0];

@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
 
   // visually confirm that the planning scene, obstacles, goal state are all
   // correct
-  utilities::promptAnyInput();
+  // utilities::promptAnyInput();
 
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 50.0;
+  req.allowed_planning_time = 10.0;
   req.planner_id = contact_planner->getDefaultPlannerId();
   req.max_acceleration_scaling_factor = 0.1;
   req.max_velocity_scaling_factor = 0.1;
@@ -43,13 +43,14 @@ int main(int argc, char** argv) {
   const std::string PLANNER_NAME = "ContactTRRTDuo";
   const std::string OBJECTIVE_NAME =
       "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 5;
+  const std::size_t OBSTACLE_SCENE_OPT = 3;
   const std::size_t GOAL_STATE_OPT = 1;
   contact_planner->setObstacleScene(OBSTACLE_SCENE_OPT);
   contact_planner->setGoalState(GOAL_STATE_OPT);
 
-  Eigen::Vector3d origin(0, 0, 0);
-  visualizer->visualizeObstacleMarker(contact_planner->getObstacles(origin));
+  // Eigen::Vector3d origin(0, 0, 0);
+  // visualizer->visualizeObstacleMarker(contact_planner->getObstacles(origin));
+  visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
   visualizer->setContactPlanner(contact_planner);
   visualizer->visualizeGoalState();
 
