@@ -172,6 +172,10 @@ class ContactPlanner {
   void analyzePlanResponse(PlanAnalysisData& plan_analysis_data);
   void setObstacleScene(std::size_t option);
   void setGoalState(std::size_t option);
+  void convertTraj(std::vector<std::array<double, 7>>& joint_waypoints,
+                   std::vector<std::array<double, 7>>& joint_velocities);
+
+  moveit_msgs::MotionPlanResponse fast_plan_response_;
 
  private:
   ros::NodeHandle nh_;
@@ -221,7 +225,7 @@ class ContactPlanner {
 
   /** \brief Whether or not to use simulated obstacles or the ContactPerception
    * class to fill obstacles into the robot's planning scene.*/
-  const bool use_sim_obstacles_ = true;
+  const bool use_sim_obstacles_ = false;
 
   /** \brief The posisitoins of the simulated obstacles. It's a vector of the
    * x,y,z positions of the obstacles in cartesian space.*/

@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.4)
 project(tacbot)
 
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 # set(CMAKE_CXX_EXTENSIONS OFF)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++17)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -43,6 +43,8 @@ find_package(catkin REQUIRED
     tf2
     tf2_ros
     pcl_ros
+    trac_ik_lib
+    nlopt
     # tf2_eigen
     # tf2_geometry_msgs
 )
@@ -50,7 +52,7 @@ find_package(catkin REQUIRED
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED system filesystem date_time thread)
 find_package(ompl REQUIRED)
-# find_package(Franka REQUIRED)
+find_package(Franka REQUIRED)
 find_package(PCL 1.2 REQUIRED)
 
 ## System dependencies are found with CMake's conventions
@@ -146,6 +148,7 @@ generate_messages(
 catkin_package(
 INCLUDE_DIRS include
 LIBRARIES
+  ${nlopt_LIBRARY}
   # contact_control
   # contact_planning
   # visualizer
@@ -154,10 +157,11 @@ CATKIN_DEPENDS
   moveit_visual_tools
   moveit_ros_planning_interface
   interactive_markers
+  trac_ik_lib
 DEPENDS
   EIGEN3
   OMPL
-  # Franka
+  Franka
 )
 
 ###########
@@ -176,7 +180,8 @@ include_directories(SYSTEM PUBLIC
   ${EIGEN3_INCLUDE_DIRS}
   ${OMPL_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
-  # ${Franka_INCLUDE_DIRS}
+  ${Franka_INCLUDE_DIRS}
+  ${nlopt_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -184,6 +189,8 @@ add_library(contact_control SHARED src/contact_controller.cpp src/joint_position
 add_library(contact_planning SHARED src/contact_planner.cpp src/utilities.cpp src/visualizer_data.cpp)
 add_library(contact_perception SHARED src/contact_perception.cpp src/utilities.cpp)
 add_library(visualizer SHARED src/visualizer.cpp src/utilities.cpp src/visualizer_data.cpp)
+add_library(panda_interface SHARED src/panda_interface.cpp)
+add_library(common STATIC src/common.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -220,6 +227,8 @@ target_link_libraries(contact_perception PUBLIC
   ${PCL_LIBRARIES}
 )
 target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES} contact_perception visualizer)
+target_link_libraries(common PUBLIC  ${catkin_LIBRARIES} ${Franka_LIBRARIES})
+target_link_libraries(panda_interface PUBLIC ${catkin_LIBRARIES} ${Franka_LIBRARIES} ${nlopt_LIBRARY} ruckig common)
 
 
 target_link_libraries(moveit_baseline_plan ${catkin_LIBRARIES})
@@ -232,6 +241,7 @@ target_link_libraries(generate_contact_plan
   contact_planning
   contact_perception
   visualizer
+  panda_interface
 )
 
 target_link_libraries(benchmark_planners
@@ -262,6 +272,7 @@ TARGETS
   contact_planning
   contact_perception
   visualizer
+  panda_interface
 ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

@@ -8,16 +8,26 @@ geometry_msgs::TransformStamped createCamTf() {
   geometry_msgs::TransformStamped transformStamped;
 
   transformStamped.header.stamp = ros::Time::now();
-  transformStamped.header.frame_id = "world";
-  transformStamped.child_frame_id = "camera_rgb_optical_frame";
-  transformStamped.transform.translation.x = -0.3;
-  transformStamped.transform.translation.y = -0.20;
-  transformStamped.transform.translation.z = 0.6;
+  transformStamped.header.frame_id = "panda_link0";
+  transformStamped.child_frame_id = "oak_undist_rgb_cam_frame";
+  // transformStamped.transform.translation.x = -0.3;
+  // transformStamped.transform.translation.y = -0.20;
+  // transformStamped.transform.translation.z = 0.6;
+  // tf2::Quaternion q;
+  // transformStamped.transform.rotation.x = 0.583;
+  // transformStamped.transform.rotation.y = -0.571;
+  // transformStamped.transform.rotation.z = 0.373;
+  // transformStamped.transform.rotation.w = -0.442;
+  // return transformStamped;
+
+  transformStamped.transform.translation.x = 0.318894;
+  transformStamped.transform.translation.y = -0.390716;
+  transformStamped.transform.translation.z = 0.602591;
   tf2::Quaternion q;
-  transformStamped.transform.rotation.x = 0.583;
-  transformStamped.transform.rotation.y = -0.571;
-  transformStamped.transform.rotation.z = 0.373;
-  transformStamped.transform.rotation.w = -0.442;
+  transformStamped.transform.rotation.x = 0.803583;
+  transformStamped.transform.rotation.y = -0.438683;
+  transformStamped.transform.rotation.z = 0.133163;
+  transformStamped.transform.rotation.w = -0.379578;
   return transformStamped;
 }
 

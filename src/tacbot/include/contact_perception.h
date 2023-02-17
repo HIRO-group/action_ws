@@ -45,7 +45,7 @@ class ContactPerception {
 
   /** \brief Kd search will consider a point as an obstacle when it is within
    * this radius from a given point on the robot. Value in meters. */
-  const double PROXIMITY_RADIUS = 0.9;
+  const double PROXIMITY_RADIUS = 0.3;
 
   void addSphere(const Eigen::Vector3d& center, double radius);
 

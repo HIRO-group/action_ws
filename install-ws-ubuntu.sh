@@ -46,6 +46,8 @@ install_common_dependencies()
   ${SUDO} apt -y install ros-${ROS_DISTRO}-rviz-visual-tools
   ${SUDO} apt -y install ros-${ROS_DISTRO}-moveit-visual-tools
   ${SUDO} apt -y install ros-${ROS_DISTRO}-turtlesim
+  ${SUDO} apt -y install ros-${ROS_DISTRO}-trac-ik-lib
+  ${SUDO} apt -y install ros-${ROS_DISTRO}-nlopt
 }
 
 install_moveit(){
