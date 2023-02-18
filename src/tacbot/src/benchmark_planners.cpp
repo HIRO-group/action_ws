@@ -5,8 +5,84 @@ constexpr char LOGNAME[] = "generate_plan";
 
 using namespace tacbot;
 
+void saveTrajData(const BenchMarkData& benchmark_data) {
+  std::fstream file(benchmark_data.file_name + "_Traj.csv",
+                    std::ios::out | std::ios::app);
+
+  TrajectoryAnalysisData analysis =
+      benchmark_data.plan_analysis.trajectory_analysis;
+  std::size_t num_states = analysis.total_depth.size();
+
+  for (std::size_t i = 0; i < num_states; i++) {
+    double total_depth = analysis.total_depth[i];
+    std::vector<double> depth_per_link = analysis.depth_per_link[i];
+    if (file.is_open()) {
+      file << i;
+      file << ",";
+      file << total_depth;
+      file << ",";
+      file << depth_per_link[0];
+      file << ",";
+      file << depth_per_link[1];
+      file << ",";
+      file << depth_per_link[2];
+      file << ",";
+      file << depth_per_link[3];
+      file << ",";
+      file << depth_per_link[4];
+      file << ",";
+      file << depth_per_link[5];
+      file << ",";
+      file << depth_per_link[6];
+      file << ",";
+      file << depth_per_link[7];
+      file << ",";
+      file << depth_per_link[8];
+      file << "\n";
+    } else {
+      OMPL_ERROR("Unable to open file for writing.");
+      return;
+    }
+  }
+  file.close();
+}
+
+void initTrajDataFile(const BenchMarkData& benchmark_data) {
+  std::fstream file(benchmark_data.file_name + "_Traj.csv",
+                    std::ios::out | std::ios::trunc);
+
+  if (file.is_open()) {
+    file << "state_num";
+    file << ",";
+    file << "total_depth";
+    file << ",";
+    file << "panda_link0";
+    file << ",";
+    file << "panda_link1";
+    file << ",";
+    file << "panda_link2";
+    file << ",";
+    file << "panda_link3";
+    file << ",";
+    file << "panda_link4";
+    file << ",";
+    file << "panda_link5";
+    file << ",";
+    file << "panda_link6";
+    file << ",";
+    file << "panda_link7";
+    file << ",";
+    file << "panda_link8";
+    file << "\n";
+    file.close();
+  } else {
+    OMPL_ERROR("Unable to open file for writing.");
+  }
+}
+
 void saveData(const BenchMarkData& benchmark_data) {
-  std::fstream file(benchmark_data.file_name, std::ios::out | std::ios::app);
+  std::fstream file(benchmark_data.file_name + ".csv",
+                    std::ios::out | std::ios::app);
   if (file.is_open()) {
     file << benchmark_data.test_num;
     file << ",";
@@ -30,10 +106,12 @@ void saveData(const BenchMarkData& benchmark_data) {
   } else {
     OMPL_ERROR("Unable to open file for writing.");
   }
+  saveTrajData(benchmark_data);
 }
 
 void initDataFile(const BenchMarkData& benchmark_data) {
-  std::fstream file(benchmark_data.file_name, std::ios::out | std::ios::trunc);
+  std::fstream file(benchmark_data.file_name + ".csv",
+                    std::ios::out | std::ios::trunc);
 
   if (file.is_open()) {
     file << "test_num";
@@ -58,6 +136,7 @@ void initDataFile(const BenchMarkData& benchmark_data) {
   } else {
     OMPL_ERROR("Unable to open file for writing.");
   }
+  initTrajDataFile(benchmark_data);
 }
 
 int main(int argc, char** argv) {
@@ -71,18 +150,18 @@ int main(int argc, char** argv) {
   const std::size_t NUM_PLANNING_ATTEMPTS = 1;
   const std::size_t MAX_PLANNING_TIME = 30;
 
-  const std::string PLANNER_NAME = "RRTstar";
+  const std::string PLANNER_NAME = "ContactTRRTDuo";
   const std::string OBJECTIVE_NAME =
-      "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 2;
+      "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
+  const std::size_t OBSTACLE_SCENE_OPT = 4;
   const std::size_t GOAL_STATE_OPT = 1;
 
   BenchMarkData benchmark_data;
   std::string test_name = PLANNER_NAME + "_" + OBJECTIVE_NAME + "_" + "OBST_" +
                           std::to_string(OBSTACLE_SCENE_OPT) + "_" + "GOAL_" +
                           std::to_string(GOAL_STATE_OPT);
-  std::string file_path = "/home/nataliya/action_ws/src/tacbot/scripts/";
-  benchmark_data.file_name = file_path + test_name + ".csv";
+  std::string file_path = "/home/nn/action_ws/src/tacbot/scripts/";
+  benchmark_data.file_name = file_path + test_name;
 
   initDataFile(benchmark_data);
 

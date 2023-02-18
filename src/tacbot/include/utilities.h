@@ -14,14 +14,12 @@ namespace tacbot {
 // should be in its own header file
 
 struct TrajectoryAnalysisData {
-  TrajectoryAnalysisData() : depth_per_link(8, 0.0) {}
-  std::size_t state_num = 0;
-  double total_depth = 0.0;
-  std::vector<double> depth_per_link;
+  std::vector<double> total_depth;
+  std::vector<std::vector<double>> depth_per_link;
 };
 
 struct PlanAnalysisData {
-    std::size_t total_contact_count = 0;
+  std::size_t total_contact_count = 0;
   std::size_t num_contact_states = 0;
   std::size_t num_path_states = 0;
   double total_contact_depth = 0.0;

@@ -57,19 +57,15 @@ void ContactPlanner::setObstacleScene(std::size_t option) {
       spherical_obstacles_.emplace_back(
           std::make_pair(Eigen::Vector3d{0.4, 0.0, 0.6}, 0.1));
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.5, -0.46, 0.5}, 0.1));
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.15, 0.0, 0.2}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.1, 0.0, 0.2}, 0.1));
       break;
     case 5:
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.4, 0.0, 0.6}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.5, -0.46, 0.5}, 0.1));
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
-      spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{-0.3, 0.0, 0.4}, 0.1));
-      spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.1, -0.1, 0.4}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.2, -0.2, 0.42}, 0.1));
       break;
     case 6:
       addLineObstacle();
@@ -295,7 +291,7 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   //   vec_out[2] = 0;
   // }
 
-  if (vec.squaredNorm() > 0.02) {
+  if (vec.squaredNorm() > 0.2) {
     return vec_out;
   }
 
@@ -470,6 +466,8 @@ Eigen::VectorXd ContactPlanner::getRobtPtsVecDiffAvg(
       Eigen::Vector3d near_pt_on_rob = near_pts_on_link[j];
       Eigen::Vector3d rand_pt_on_rob = rand_pts_on_link[j];
       Eigen::Vector3d nearrand_diff = rand_pt_on_rob - near_pt_on_rob;
+      nearrand_diff.normalize();
+      nearrand_diff *= 0.05;
 
       diff_per_link(j, 0) = nearrand_diff[0];
       diff_per_link(j, 1) = nearrand_diff[1];
@@ -544,22 +542,22 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
 
         vec = scaleToDist(vec);
 
-        // Eigen::Vector3d att_pt = getAttractPt(i, j);
+        Eigen::Vector3d att_pt = getAttractPt(i, j);
 
-        // Eigen::Vector3d att_vec = att_pt - pt_on_rob;
+        Eigen::Vector3d att_vec = att_pt - pt_on_rob;
 
-        // if (vec.norm() == 0.0) {
-        //   att_vec = Eigen::VectorXd::Zero(3);
-        // } else {
-        //   att_vec.normalize();
-        // }
+        if (vec.norm() == 0.0) {
+          att_vec = Eigen::VectorXd::Zero(3);
+        } else {
+          att_vec.normalize();
+        }
 
-        // double dot = att_vec.dot(vec);
-        // if (dot < -0.5) {
-        //   att_vec = Eigen::VectorXd::Zero(3);
-        // }
+        double dot = att_vec.dot(vec);
+        if (dot < -0.5) {
+          att_vec = Eigen::VectorXd::Zero(3);
+        }
 
-        // vec = 0.9 * vec + 0.1 * att_vec;
+        vec = vec + 0.09 * att_vec;
         // std::cout << "vec: " << vec.transpose() << std::endl;
 
         pt_to_obs(k, 0) = vec[0];
@@ -1192,7 +1190,7 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
   plan_analysis.num_path_states = num_pts;
 
   collision_detection::CollisionRequest collision_request;
-  collision_request.distance = false;
+  collision_request.distance = true;
   collision_request.cost = false;
   collision_request.contacts = true;
   collision_request.max_contacts = 200;
@@ -1200,7 +1198,8 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
   collision_request.max_cost_sources = 200;
   collision_request.verbose = false;
 
-  moveit::core::RobotState* prev_robot_state;
+  moveit::core::RobotState prev_robot_state(
+      psm_->getPlanningScene()->getRobotModel());
   Eigen::Vector3d prev_tip_pos;
 
   for (std::size_t pt_idx = 0; pt_idx < num_pts; pt_idx++) {
@@ -1214,19 +1213,19 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
       joint_angles[jnt_idx] = point.positions[jnt_idx];
     }
 
-    moveit::core::RobotState* robot_state =
-        new moveit::core::RobotState(psm_->getPlanningScene()->getRobotModel());
-    robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
-    robot_state->update();
+    moveit::core::RobotState robot_state(
+        psm_->getPlanningScene()->getRobotModel());
+    robot_state.setJointGroupPositions(joint_model_group_, joint_angles);
+    robot_state.update();
 
     if (pt_idx > 0) {
-      double dist_travelled = robot_state->distance(*prev_robot_state);
+      double dist_travelled = robot_state.distance(prev_robot_state);
       ROS_INFO_NAMED(LOGNAME, "dist_travelled: %f", dist_travelled);
       plan_analysis.joint_path_len += dist_travelled;
       std::vector<std::string> tips;
       joint_model_group_->getEndEffectorTips(tips);
       Eigen::Isometry3d tip_tf =
-          robot_state->getGlobalLinkTransform("panda_link8");
+          robot_state.getGlobalLinkTransform("panda_link8");
       Eigen::Vector3d tip_pos{tip_tf.translation().x(),
                               tip_tf.translation().y(),
                               tip_tf.translation().z()};
@@ -1237,7 +1236,7 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
 
     collision_detection::CollisionResult collision_result;
     planning_scene_monitor::LockedPlanningSceneRO(psm_)->checkCollision(
-        collision_request, collision_result, *robot_state);
+        collision_request, collision_result, robot_state);
     bool collision = collision_result.collision;
 
     std::size_t contact_count = collision_result.contact_count;
@@ -1247,13 +1246,13 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
     }
 
     double distance = collision_result.distance;
-    // ROS_INFO_NAMED(LOGNAME, "distance: %f", distance);
+    ROS_INFO_NAMED(LOGNAME, "distance: %f", distance);
 
     collision_detection::CollisionResult::ContactMap contact_map =
         collision_result.contacts;
 
     double depth_per_state = 0;
-    plan_analysis.trajectory_analysis.depth_per_link.resize(8, 0);
+    std::vector<double> depth_per_link(9, 0);
 
     for (auto contact : contact_map) {
       std::size_t num_subcontacts = contact.second.size();
@@ -1268,14 +1267,14 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
 
         std::size_t idx = 0;
         if (linkNameToIdx(subcontact.body_name_1, idx)) {
-          plan_analysis.trajectory_analysis.depth_per_link[idx] =
-              std::abs(subcontact.depth);
+          depth_per_link[idx] = std::abs(subcontact.depth);
         }
       }
     }
 
-    plan_analysis.trajectory_analysis.state_num = pt_idx;
-    plan_analysis.trajectory_analysis.total_depth = depth_per_state;
+    plan_analysis.trajectory_analysis.total_depth.emplace_back(depth_per_state);
+    plan_analysis.trajectory_analysis.depth_per_link.emplace_back(
+        depth_per_link);
     std::set<collision_detection::CostSource> cost_sources =
         collision_result.cost_sources;
   }
@@ -1283,16 +1282,18 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
 
 bool ContactPlanner::linkNameToIdx(const std::string& link_name,
                                    std::size_t& idx) {
-  std::vector<std::string> link_names = joint_model_group_->getLinkModelNames();
+  std::vector<std::string> link_names{
+      "panda_link0", "panda_link1", "panda_link2", "panda_link3", "panda_link4",
+      "panda_link5", "panda_link6", "panda_link7", "panda_hand"};
   auto it = std::find(link_names.begin(), link_names.end(), link_name);
   if (it == link_names.end()) {
     ROS_ERROR_NAMED(LOGNAME, "Unable to find the following link in model: %s",
                     link_name.c_str());
     return false;
-  } else {
-    idx = std::distance(link_names.begin(), it);
   }
+  idx = std::distance(link_names.begin(), it);
   ROS_INFO_NAMED(LOGNAME, "link_name: %s, idx %ld", link_name.c_str(), idx);
+  return true;
 }
 
 }  // namespace tacbot

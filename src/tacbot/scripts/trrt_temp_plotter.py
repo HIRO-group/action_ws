@@ -69,8 +69,6 @@ class Plotter:
         self.ax.cla()
 
     def plot(self, df: pd.DataFrame) -> None:
-        sns.lineplot(x="sampleNumber", y="slopeM",
-                     data=df, color="b", lw=5, label="slopeM")
         # ax2 = plt.twinx()
         # sns.lineplot(x="sampleNumber", y="temp",
         #              data=df, ax=ax2, color="r", lw=5, label="temp")
