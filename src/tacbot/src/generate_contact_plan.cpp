@@ -19,20 +19,16 @@ int main(int argc, char** argv) {
   std::shared_ptr<ContactPlanner> contact_planner =
       std::make_shared<ContactPlanner>();
   contact_planner->init();
-  utilities::promptAnyInput();
+  // utilities::promptAnyInput();
 
   std::shared_ptr<Visualizer> visualizer = std::make_shared<Visualizer>();
 
   // visually confirm that the planning scene, obstacles, goal state are all
   // correct
-  Eigen::Vector3d vec;
-  vec[0] = 0;
-  vec[1] = 0;
-  vec[2] = 0;
+  // Eigen::Vector3d vec(0, 0, 0);
+  // visualizer->visualizeObstacleMarker(contact_planner->getObstacles(vec));
 
-  visualizer->visualizeObstacleMarker(contact_planner->getObstacles(vec));
-
-  utilities::promptAnyInput();
+  // utilities::promptAnyInput();
 
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
@@ -42,17 +38,17 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 10.0;
+  req.allowed_planning_time = 30.0;
   req.planner_id = contact_planner->getDefaultPlannerId();
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;
 
   contact_planner->createPlanningContext(req);
 
-  const std::string PLANNER_NAME = "ContactTRRTDuo";
+  const std::string PLANNER_NAME = "RRTstar";
   const std::string OBJECTIVE_NAME =
-      "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 3;
+      "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
+  const std::size_t OBSTACLE_SCENE_OPT = 2;
   const std::size_t GOAL_STATE_OPT = 1;
   contact_planner->setObstacleScene(OBSTACLE_SCENE_OPT);
   contact_planner->setGoalState(GOAL_STATE_OPT);
@@ -72,8 +68,8 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
-  visualizer->visualizeRepulsedState();
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
+  // visualizer->visualizeRepulsedState();
 
   // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
   // visualizer->visualizeTreeStates();

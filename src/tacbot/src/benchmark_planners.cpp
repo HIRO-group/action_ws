@@ -5,14 +5,6 @@ constexpr char LOGNAME[] = "generate_plan";
 
 using namespace tacbot;
 
-struct BenchMarkData {
-  std::size_t test_num = 0;
-  std::size_t success = 0;
-  double plan_time = 0.0;
-  std::string file_name = "";
-  PlanAnalysisData plan_analysis;
-};
-
 void saveData(const BenchMarkData& benchmark_data) {
   std::fstream file(benchmark_data.file_name, std::ios::out | std::ios::app);
   if (file.is_open()) {
@@ -76,20 +68,20 @@ int main(int argc, char** argv) {
 
   ROS_INFO_NAMED(LOGNAME, "Start!");
 
-  const std::size_t NUM_PLANNING_ATTEMPTS = 10;
-  const std::size_t MAX_PLANNING_TIME = 10;
+  const std::size_t NUM_PLANNING_ATTEMPTS = 1;
+  const std::size_t MAX_PLANNING_TIME = 30;
 
   const std::string PLANNER_NAME = "RRTstar";
   const std::string OBJECTIVE_NAME =
       "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 3;
+  const std::size_t OBSTACLE_SCENE_OPT = 2;
   const std::size_t GOAL_STATE_OPT = 1;
 
   BenchMarkData benchmark_data;
   std::string test_name = PLANNER_NAME + "_" + OBJECTIVE_NAME + "_" + "OBST_" +
                           std::to_string(OBSTACLE_SCENE_OPT) + "_" + "GOAL_" +
                           std::to_string(GOAL_STATE_OPT);
-  std::string file_path = "/home/nn/action_ws/src/tacbot/scripts/";
+  std::string file_path = "/home/nataliya/action_ws/src/tacbot/scripts/";
   benchmark_data.file_name = file_path + test_name + ".csv";
 
   initDataFile(benchmark_data);
@@ -119,6 +111,7 @@ int main(int argc, char** argv) {
     contact_planner->generatePlan(res);
 
     PlanAnalysisData plan_analysis;
+    benchmark_data.plan_analysis = plan_analysis;
 
     if (res.error_code_.val != res.error_code_.SUCCESS) {
       ROS_ERROR("Could not compute plan successfully. Error code: %d",
@@ -126,13 +119,11 @@ int main(int argc, char** argv) {
       benchmark_data.success = 0;
       benchmark_data.plan_time = 0;
       benchmark_data.test_num = i + 1;
-      benchmark_data.plan_analysis = plan_analysis;
     } else {
       benchmark_data.success = 1;
       benchmark_data.plan_time = res.planning_time_;
       benchmark_data.test_num = i + 1;
-      contact_planner->analyzePlanResponse(plan_analysis);
-      benchmark_data.plan_analysis = plan_analysis;
+      contact_planner->analyzePlanResponse(benchmark_data);
     }
     saveData(benchmark_data);
   }

@@ -23,10 +23,10 @@ void ContactPerception::init() {
   planning_scene_diff_publisher_ =
       nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
-  cloud_subscriber_ = nh_.subscribe(
-      "/oak/points", 1, &ContactPerception::pointCloudCallback, this);
+  // cloud_subscriber_ = nh_.subscribe(
+  //     "/oak/points", 1, &ContactPerception::pointCloudCallback, this);
 
-  addSafetyPerimeter();
+  // addSafetyPerimeter();
 
   // addCylinder();
 
@@ -34,7 +34,7 @@ void ContactPerception::init() {
 
   // this keeps callback through the duration of the class not just once, not
   // sure why
-  ros::spinOnce();
+  // ros::spinOnce();
 }
 
 void ContactPerception::addSafetyPerimeter() {

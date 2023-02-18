@@ -169,7 +169,7 @@ class ContactPlanner {
   */
   std::vector<Eigen::Vector3d> getObstacles(const Eigen::Vector3d& pt_on_rob);
 
-  void analyzePlanResponse(PlanAnalysisData& plan_analysis_data);
+  void analyzePlanResponse(BenchMarkData& benchmark_data);
   void setObstacleScene(std::size_t option);
   void setGoalState(std::size_t option);
   void convertTraj(std::vector<std::array<double, 7>>& joint_waypoints,
@@ -225,7 +225,7 @@ class ContactPlanner {
 
   /** \brief Whether or not to use simulated obstacles or the ContactPerception
    * class to fill obstacles into the robot's planning scene.*/
-  const bool use_sim_obstacles_ = false;
+  const bool use_sim_obstacles_ = true;
 
   /** \brief The posisitoins of the simulated obstacles. It's a vector of the
    * x,y,z positions of the obstacles in cartesian space.*/
@@ -379,6 +379,8 @@ class ContactPlanner {
 
   void addSphericalObstacle(const Eigen::Vector3d& center, double radius);
   void addLineObstacle();
+
+  bool linkNameToIdx(const std::string& link_name, std::size_t& idx);
 };
 }  // namespace tacbot
 #endif

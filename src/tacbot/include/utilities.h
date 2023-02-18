@@ -12,13 +12,31 @@
 namespace tacbot {
 
 // should be in its own header file
+
+struct TrajectoryAnalysisData {
+  TrajectoryAnalysisData() : depth_per_link(8, 0.0) {}
+  std::size_t state_num = 0;
+  double total_depth = 0.0;
+  std::vector<double> depth_per_link;
+};
+
 struct PlanAnalysisData {
-  std::size_t total_contact_count = 0;
+    std::size_t total_contact_count = 0;
   std::size_t num_contact_states = 0;
   std::size_t num_path_states = 0;
   double total_contact_depth = 0.0;
   double joint_path_len = 0.0;
   double ee_path_len = 0.0;
+
+  TrajectoryAnalysisData trajectory_analysis;
+};
+
+struct BenchMarkData {
+  std::size_t test_num = 0;
+  std::size_t success = 0;
+  double plan_time = 0.0;
+  std::string file_name = "";
+  PlanAnalysisData plan_analysis;
 };
 
 namespace utilities {
