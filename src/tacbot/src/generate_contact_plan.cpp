@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
 
   req.group_name = contact_planner->getGroupName();
   req.allowed_planning_time = 30.0;
-  req.planner_id = contact_planner->getDefaultPlannerId();
+  req.planner_id = contact_planner->getPlannerId();
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;
 
@@ -66,6 +66,9 @@ int main(int argc, char** argv) {
     ROS_ERROR("Could not compute plan successfully. Error code: %d",
               res.error_code_.val);
   }
+
+  BenchMarkData benchmark_data;
+  contact_planner->analyzePlanResponse(benchmark_data);
 
   ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
   visualizer->visualizeRepulsedState();

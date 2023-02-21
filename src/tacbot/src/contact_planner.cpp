@@ -63,9 +63,13 @@ void ContactPlanner::setObstacleScene(std::size_t option) {
       break;
     case 5:
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.5, -0.46, 0.5}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.45, 0.0, 0.6}, 0.1));
+      // spherical_obstacles_.emplace_back(
+      //     std::make_pair(Eigen::Vector3d{0.1, 0.0, 0.5}, 0.08));
+      // spherical_obstacles_.emplace_back(
+      //     std::make_pair(Eigen::Vector3d{-0.4, 0.0, 0.5}, 0.08));
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.2, -0.2, 0.42}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.1, 0.0, 0.45}, 0.08));
       break;
     case 6:
       addLineObstacle();
@@ -178,9 +182,7 @@ ContactPlanner::getPlannerConfigSettings(
   return pc->second;
 }
 
-std::string ContactPlanner::getDefaultPlannerId() {
-  return default_planner_id_;
-}
+std::string ContactPlanner::getPlannerId() { return planner_id_; }
 
 void ContactPlanner::createPlanningContext(
     const moveit_msgs::MotionPlanRequest& req) {
@@ -199,7 +201,7 @@ void ContactPlanner::createPlanningContext(
       ompl_interface->getPlannerConfigurations();
 
   planning_interface::PlannerConfigurationSettings pconfig_settings =
-      getPlannerConfigSettings(pconfig_map, default_planner_id_);
+      getPlannerConfigSettings(pconfig_map, planner_id_);
 
   ompl_interface::PlanningContextManager planning_context_manager =
       ompl_interface->getPlanningContextManager();
@@ -291,8 +293,18 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   //   vec_out[2] = 0;
   // }
 
-  if (vec.squaredNorm() > 0.2) {
+  double prox_radius = 0.02;
+  if (planner_id_ == "ContactTRRTDuo") {
+    prox_radius = 0.2;
+  }
+
+  if (vec.squaredNorm() > prox_radius) {
     return vec_out;
+  }
+
+  if (planner_id_ != "ContactTRRTDuo") {
+    vec.normalize();
+    return vec;
   }
 
   vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
@@ -542,23 +554,25 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
 
         vec = scaleToDist(vec);
 
-        Eigen::Vector3d att_pt = getAttractPt(i, j);
+        if (planner_id_ == "ContactTRRTDuo") {
+          Eigen::Vector3d att_pt = getAttractPt(i, j);
 
-        Eigen::Vector3d att_vec = att_pt - pt_on_rob;
+          Eigen::Vector3d att_vec = att_pt - pt_on_rob;
 
-        if (vec.norm() == 0.0) {
-          att_vec = Eigen::VectorXd::Zero(3);
-        } else {
-          att_vec.normalize();
+          if (vec.norm() == 0.0) {
+            att_vec = Eigen::VectorXd::Zero(3);
+          } else {
+            att_vec.normalize();
+          }
+
+          double dot = att_vec.dot(vec);
+          if (dot < -0.5) {
+            att_vec = Eigen::VectorXd::Zero(3);
+          }
+
+          vec = vec + 0.09 * att_vec;
+          // std::cout << "vec: " << vec.transpose() << std::endl;
         }
-
-        double dot = att_vec.dot(vec);
-        if (dot < -0.5) {
-          att_vec = Eigen::VectorXd::Zero(3);
-        }
-
-        vec = vec + 0.09 * att_vec;
-        // std::cout << "vec: " << vec.transpose() << std::endl;
 
         pt_to_obs(k, 0) = vec[0];
         pt_to_obs(k, 1) = vec[1];
@@ -813,6 +827,7 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
 
 void ContactPlanner::changePlanner(std::string planner_name,
                                    std::string objective_name) {
+  planner_id_ = planner_name;
   ompl::geometric::SimpleSetupPtr simple_setup = context_->getOMPLSimpleSetup();
   ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
 
@@ -1193,9 +1208,9 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
   collision_request.distance = true;
   collision_request.cost = false;
   collision_request.contacts = true;
-  collision_request.max_contacts = 200;
+  collision_request.max_contacts = 20;
   collision_request.max_contacts_per_pair = 1;
-  collision_request.max_cost_sources = 200;
+  collision_request.max_cost_sources = 20;
   collision_request.verbose = false;
 
   moveit::core::RobotState prev_robot_state(
@@ -1220,7 +1235,7 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
 
     if (pt_idx > 0) {
       double dist_travelled = robot_state.distance(prev_robot_state);
-      ROS_INFO_NAMED(LOGNAME, "dist_travelled: %f", dist_travelled);
+      // ROS_INFO_NAMED(LOGNAME, "dist_travelled rad: %f", dist_travelled);
       plan_analysis.joint_path_len += dist_travelled;
       std::vector<std::string> tips;
       joint_model_group_->getEndEffectorTips(tips);
@@ -1246,7 +1261,7 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
     }
 
     double distance = collision_result.distance;
-    ROS_INFO_NAMED(LOGNAME, "distance: %f", distance);
+    // ROS_INFO_NAMED(LOGNAME, "distance: %f", distance);
 
     collision_detection::CollisionResult::ContactMap contact_map =
         collision_result.contacts;
@@ -1278,6 +1293,18 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
     std::set<collision_detection::CostSource> cost_sources =
         collision_result.cost_sources;
   }
+  ROS_INFO_NAMED(LOGNAME, "plan_analysis.total_contact_depth: %f",
+                 plan_analysis.total_contact_depth);
+  ROS_INFO_NAMED(LOGNAME, "plan_analysis.joint_path_len: %f",
+                 plan_analysis.joint_path_len);
+  ROS_INFO_NAMED(LOGNAME, "plan_analysis.ee_path_len: %f",
+                 plan_analysis.ee_path_len);
+  ROS_INFO_NAMED(LOGNAME, "plan_analysis.num_contact_states: %ld",
+                 plan_analysis.num_contact_states);
+  ROS_INFO_NAMED(LOGNAME, "plan_analysis.num_path_states: %ld",
+                 plan_analysis.num_path_states);
+  ROS_INFO_NAMED(LOGNAME, "plan_analysis.total_contact_count: %ld",
+                 plan_analysis.total_contact_count);
 }
 
 bool ContactPlanner::linkNameToIdx(const std::string& link_name,

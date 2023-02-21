@@ -141,7 +141,7 @@ class ContactPlanner {
     @return string of the planner name. refer to ompl_planning.yaml for a full
     list of available planner.
   */
-  std::string getDefaultPlannerId();
+  std::string getPlannerId();
 
   /** \brief Getter for the moveit plannning context.
     @return Planning context.
@@ -184,7 +184,7 @@ class ContactPlanner {
   const std::string group_name_ = "panda_arm";
 
   /** \brief Default planner set to the planning context.*/
-  const std::string default_planner_id_ = "panda_arm[RRT]";
+  std::string planner_id_ = "panda_arm[RRT]";
 
   /** \brief The class that handles point cloud processing of the surrounding
    * environment and transfers this information to the planner.*/

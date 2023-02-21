@@ -65,7 +65,8 @@ class Plotter:
     def plot(self, df: pd.DataFrame) -> None:
         df = df.drop(columns=['total_depth'])
         # sns.lineplot(data=df[['panda_link1','panda_link2','panda_link3','panda_link4','panda_link5','panda_link6','panda_link7','panda_link8']])
-        sns.lineplot(x='state_num', y='value', hue='variable', data=pd.melt(df, ['state_num']))
+        sns.lineplot(x='state_num', y='value', hue='variable',
+                     data=pd.melt(df, ['state_num']))
         plt.show()
 
 
@@ -74,7 +75,7 @@ sns.set_style(style='white')
 
 reader = Reader()
 path = ""
-file_name = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1_Traj.csv"
+file_name = "BITstar_FieldMagnitude_OBST_3_GOAL_1_Traj.csv"
 reader.read(path, file_name)
 
 
