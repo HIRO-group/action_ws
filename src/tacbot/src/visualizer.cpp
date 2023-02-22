@@ -620,7 +620,7 @@ void Visualizer::visualizeTreeStates() {
   trajectory_msgs::JointTrajectory joint_trajectory;
   joint_trajectory.joint_names = names;
 
-  for (std::size_t i = 0; i < num_display_states; i++) {
+  for (std::size_t i = 0; i < num_display_states; i += 50) {
     trajectory_msgs::JointTrajectoryPoint point;
     joint_angles = joint_states[i];
 

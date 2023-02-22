@@ -38,17 +38,17 @@ int main(int argc, char** argv) {
   req.goal_constraints.push_back(goal);
 
   req.group_name = contact_planner->getGroupName();
-  req.allowed_planning_time = 30.0;
+  req.allowed_planning_time = 15.0;
   req.planner_id = contact_planner->getPlannerId();
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;
 
   contact_planner->createPlanningContext(req);
 
-  const std::string PLANNER_NAME = "ContactTRRTDuo";
+  const std::string PLANNER_NAME = "VFRRT";
   const std::string OBJECTIVE_NAME =
-      "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 5;
+      "UpstreamCost";  // FieldMagnitude or UpstreamCost or FieldAlign
+  const std::size_t OBSTACLE_SCENE_OPT = 2;
   const std::size_t GOAL_STATE_OPT = 1;
   contact_planner->setObstacleScene(OBSTACLE_SCENE_OPT);
   contact_planner->setGoalState(GOAL_STATE_OPT);
@@ -73,9 +73,9 @@ int main(int argc, char** argv) {
   ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
   visualizer->visualizeRepulsedState();
 
-  // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
-  // visualizer->visualizeTreeStates();
-  // utilities::promptAnyInput();
+  ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
+  visualizer->visualizeTreeStates();
+  utilities::promptAnyInput();
 
   if (res.error_code_.val == res.error_code_.SUCCESS) {
     ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");

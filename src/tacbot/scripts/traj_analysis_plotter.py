@@ -75,7 +75,7 @@ sns.set_style(style='white')
 
 reader = Reader()
 path = ""
-file_name = "BITstar_FieldMagnitude_OBST_3_GOAL_1_Traj.csv"
+file_name = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1_Traj.csv"
 reader.read(path, file_name)
 
 

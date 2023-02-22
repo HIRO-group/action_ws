@@ -46,8 +46,8 @@ class Cleaner:
     def remove_outliers(self) -> None:
         ousted = self.df.index[(self.df["minDistToGoal"] > 100)]
         self.df.drop(ousted, inplace=True)
-        ousted = self.df.index[(self.df["maxTemp"] < 0)]
-        self.df.drop(ousted, inplace=True)
+        # ousted = self.df.index[(self.df["maxTemp"] < 0)]
+        # self.df.drop(ousted, inplace=True)
         self.df.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.df.dropna(inplace=True)
         print("Outliers removed")
@@ -55,7 +55,7 @@ class Cleaner:
 
 class Plotter:
 
-    fig_size = [20, 15]
+    fig_size = [5, 5]
     y_label = ""
 
     def __init__(self) -> None:
@@ -69,19 +69,23 @@ class Plotter:
         self.ax.cla()
 
     def plot(self, df: pd.DataFrame) -> None:
+        # self.ax.set_ylim(0, 5)
+        sns.lineplot(x="sampleNumber", y="minDistToGoal",
+                     data=df, color="b", lw=4, label="minDistToGoal", linestyle='dashed')
         # ax2 = plt.twinx()
         # sns.lineplot(x="sampleNumber", y="temp",
-        #              data=df, ax=ax2, color="r", lw=5, label="temp")
-        # self.ax.legend(loc=9)
-        # ax2.legend(loc=0)
+        #              data=df, ax=ax2, color="r", lw=4, label="temp")
+        # self.ax.legend(loc='upper left')
+        # ax2.legend(loc='upper right')
         plt.show()
 
 
-sns.set(font_scale=2)
+sns.set(font_scale=1.3)
+sns.set_style("white")
 
 reader = Reader()
 path = ""
-file_name = "contactTRRT.csv"
+file_name = "VFRRT.csv"
 reader.read(path, file_name)
 
 

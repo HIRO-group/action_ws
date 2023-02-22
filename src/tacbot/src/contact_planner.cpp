@@ -50,16 +50,18 @@ void ContactPlanner::setObstacleScene(std::size_t option) {
           std::make_pair(Eigen::Vector3d{0.4, 0.0, 0.6}, 0.1));
       spherical_obstacles_.emplace_back(
           std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
-      // spherical_obstacles_.emplace_back(
-      //     std::make_pair(Eigen::Vector3d{0.15, -0.15, 0.4}, 0.1));
+      spherical_obstacles_.emplace_back(
+          std::make_pair(Eigen::Vector3d{-0.1, -0.1, 0.55}, 0.1));
       break;
     case 4:
+      // spherical_obstacles_.emplace_back(
+      //     std::make_pair(Eigen::Vector3d{0.4, 0.0, 0.6}, 0.1));
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.4, 0.0, 0.6}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.5, -0.2, 0.6}, 0.1));
+      // spherical_obstacles_.emplace_back(
+      //     std::make_pair(Eigen::Vector3d{-0.1, -0.1, 0.6}, 0.1));
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.5, -0.46, 0.5}, 0.1));
-      spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.1, 0.0, 0.2}, 0.1));
+          std::make_pair(Eigen::Vector3d{0.16, -0.35, 0.5}, 0.1));
       break;
     case 5:
       spherical_obstacles_.emplace_back(
@@ -294,7 +296,7 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   // }
 
   double prox_radius = 0.02;
-  if (planner_id_ == "ContactTRRTDuo") {
+  if (planner_id_ == "ContactTRRTDuo" || planner_id_ == "VFRRT") {
     prox_radius = 0.2;
   }
 
@@ -1205,7 +1207,7 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
   plan_analysis.num_path_states = num_pts;
 
   collision_detection::CollisionRequest collision_request;
-  collision_request.distance = true;
+  collision_request.distance = false;
   collision_request.cost = false;
   collision_request.contacts = true;
   collision_request.max_contacts = 20;
@@ -1319,7 +1321,7 @@ bool ContactPlanner::linkNameToIdx(const std::string& link_name,
     return false;
   }
   idx = std::distance(link_names.begin(), it);
-  ROS_INFO_NAMED(LOGNAME, "link_name: %s, idx %ld", link_name.c_str(), idx);
+  // ROS_INFO_NAMED(LOGNAME, "link_name: %s, idx %ld", link_name.c_str(), idx);
   return true;
 }
 
