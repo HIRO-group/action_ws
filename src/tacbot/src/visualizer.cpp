@@ -230,14 +230,14 @@ void Visualizer::visualizeEEPath() {
     marker.pose.orientation.z = 0.0;
     marker.pose.orientation.w = 1.0;
 
-    marker.scale.x = 0.025;
-    marker.scale.y = 0.025;
-    marker.scale.z = 0.025;
+    marker.scale.x = 0.1 * i / num_pts + 0.001;
+    marker.scale.y = 0.1 * i / num_pts + 0.001;
+    marker.scale.z = 0.1 * i / num_pts + 0.001;
 
     marker.color.r = 0.0f;
-    marker.color.g = 0.5f;
-    marker.color.b = 0.5f;
-    marker.color.a = 1.0;
+    marker.color.g = 0.0f;
+    marker.color.b = 1.0f;
+    marker.color.a = 1.0 * i / num_pts + 0.001;
 
     marker.lifetime = ros::Duration();
     marker_array.markers.push_back(marker);
