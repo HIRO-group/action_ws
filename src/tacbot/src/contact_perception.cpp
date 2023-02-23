@@ -23,8 +23,9 @@ void ContactPerception::init() {
   planning_scene_diff_publisher_ =
       nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
-  // cloud_subscriber_ = nh_.subscribe(
-  //     "/oak/points", 1, &ContactPerception::pointCloudCallback, this);
+  // cloud_subscriber_ = nh_.subscribe("/camera/depth_registered/points", 1,
+  //                                   &ContactPerception::pointCloudCallback,
+  //                                   this);  // "/oak/points/"
 
   // addSafetyPerimeter();
 
@@ -357,8 +358,9 @@ void ContactPerception::pointCloudCallback(
 
   tf::StampedTransform transform;
   try {
-    tf_listener_.lookupTransform("world", "oak_rgb_camera_optical_frame",
-                                 ros::Time(0), transform);
+    tf_listener_.lookupTransform(
+        "world", "camera_rgb_optical_frame",  //"oak_rgb_camera_optical_frame",
+        ros::Time(0), transform);
   } catch (tf::TransformException ex) {
     ROS_ERROR("%s", ex.what());
   }

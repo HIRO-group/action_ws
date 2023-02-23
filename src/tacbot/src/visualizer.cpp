@@ -24,6 +24,8 @@ Visualizer::Visualizer() {
       nh_.advertise<visualization_msgs::MarkerArray>("vec_avg_field", 1, true);
   manipulability_pub_ =
       nh_.advertise<visualization_msgs::MarkerArray>("manipulability", 1, true);
+  ee_path_pub_ =
+      nh_.advertise<visualization_msgs::MarkerArray>("ee_path_pub", 1, true);
   rep_state_publisher_ =
       nh_.advertise<moveit_msgs::DisplayTrajectory>("repulsed_state", 1, true);
   tree_states_publisher_ =
@@ -187,6 +189,60 @@ void Visualizer::visualizeAvgRepulseVec(std::size_t state_num) {
     marker_array.markers.push_back(marker);
   }
   arrow_avg_pub_.publish(marker_array);
+}
+
+void Visualizer::visualizeEEPath() {
+  if (contact_planner_->vis_data_.ee_path_pts_.size() <= 0) {
+    ROS_INFO_NAMED(LOGNAME,
+                   "Insufficient data stored to vizualize ee path pts.");
+    return;
+  }
+
+  std::vector<Eigen::Vector3d> ee_path_pts =
+      contact_planner_->vis_data_.ee_path_pts_;
+  std::size_t num_pts = ee_path_pts.size();
+
+  visualization_msgs::MarkerArray marker_array;
+  std::cout << "num_pts ee_path_pts: " << num_pts << std::endl;
+
+  for (std::size_t i = 0; i < num_pts; i++) {
+    // std::cout << "i: " << i << std::endl;
+    Eigen::Vector3d pt = ee_path_pts[i];
+
+    uint32_t shape = visualization_msgs::Marker::SPHERE;
+
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "world";
+    marker.header.stamp = ros::Time::now();
+    // marker.ns = "basic_shapes";
+    marker.id = i;
+    marker.type = shape;
+
+    // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+    marker.action = visualization_msgs::Marker::ADD;
+
+    marker.pose.position.x = pt[0];
+    marker.pose.position.y = pt[1];
+    marker.pose.position.z = pt[2];
+
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    marker.scale.x = 0.025;
+    marker.scale.y = 0.025;
+    marker.scale.z = 0.025;
+
+    marker.color.r = 0.0f;
+    marker.color.g = 0.5f;
+    marker.color.b = 0.5f;
+    marker.color.a = 1.0;
+
+    marker.lifetime = ros::Duration();
+    marker_array.markers.push_back(marker);
+  }
+  ee_path_pub_.publish(marker_array);
 }
 
 void Visualizer::visualizeRepulseVec(std::size_t state_num) {

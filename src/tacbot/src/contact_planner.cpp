@@ -51,7 +51,7 @@ void ContactPlanner::setObstacleScene(std::size_t option) {
       spherical_obstacles_.emplace_back(
           std::make_pair(Eigen::Vector3d{0.5, -0.5, 0.5}, 0.1));
       spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{-0.1, -0.1, 0.55}, 0.1));
+          std::make_pair(Eigen::Vector3d{-0.1, -0.15, 0.6}, 0.1));
       break;
     case 4:
       // spherical_obstacles_.emplace_back(
@@ -1246,6 +1246,8 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
       Eigen::Vector3d tip_pos{tip_tf.translation().x(),
                               tip_tf.translation().y(),
                               tip_tf.translation().z()};
+
+      vis_data_.ee_path_pts_.emplace_back(tip_pos);
       plan_analysis.ee_path_len +=
           utilities::getDistance(tip_pos, prev_tip_pos);
     }

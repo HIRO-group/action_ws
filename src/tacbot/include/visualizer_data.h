@@ -43,6 +43,8 @@ struct VisualizerData {
   std::vector<Eigen::VectorXd> nearrand_origin_at_link_;
   std::vector<Eigen::VectorXd> nearrand_dot_at_link;
 
+  std::vector<Eigen::Vector3d> ee_path_pts_;
+
   /** \brief The number of repulse points at any given time. This number changes
    * during trajectory generation. It is used to resize vectors which store
    * information.*/

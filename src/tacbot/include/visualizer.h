@@ -103,6 +103,8 @@ class Visualizer {
   void visualizeTrajectory(
       const moveit_msgs::MotionPlanResponse& resp_final_traj, std::string name);
 
+  void visualizeEEPath();
+
  private:
   ros::NodeHandle nh_;
   std::size_t dof_ = 7;
@@ -121,6 +123,8 @@ class Visualizer {
   ros::Publisher nearrand_pub_;
 
   ros::Publisher arrow_avg_pub_;
+
+  ros::Publisher ee_path_pub_;
 
   /** \brief Publisher for the manipulability of the robot at each link. */
   ros::Publisher manipulability_pub_;
