@@ -148,12 +148,12 @@ int main(int argc, char** argv) {
   ROS_INFO_NAMED(LOGNAME, "Start!");
 
   const std::size_t NUM_PLANNING_ATTEMPTS = 1;
-  const std::size_t MAX_PLANNING_TIME = 30;
+  const std::size_t MAX_PLANNING_TIME = 60;
 
-  const std::string PLANNER_NAME = "ContactTRRTDuo";
+  const std::string PLANNER_NAME = "RRTstar";  // ContactTRRTDuo
   const std::string OBJECTIVE_NAME =
-      "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 4;
+      "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
+  const std::size_t OBSTACLE_SCENE_OPT = 5;
   const std::size_t GOAL_STATE_OPT = 1;
 
   BenchMarkData benchmark_data;
