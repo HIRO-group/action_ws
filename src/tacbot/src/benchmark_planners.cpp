@@ -1,3 +1,7 @@
+#include <algorithm>
+#include <iomanip>
+#include <sstream>
+
 #include "contact_planner.h"
 #include "utilities.h"
 
@@ -5,8 +9,18 @@ constexpr char LOGNAME[] = "generate_plan";
 
 using namespace tacbot;
 
-void saveTrajData(const BenchMarkData& benchmark_data) {
-  std::fstream file(benchmark_data.file_name + "_Traj.csv",
+std::string getCurrentTimeForFileName() {
+  auto time = std::time(nullptr);
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&time),
+                      "%F_%T");  // ISO 8601 without timezone information.
+  auto s = ss.str();
+  std::replace(s.begin(), s.end(), ':', '-');
+  return s;
+}
+
+void saveTrajData(const BenchMarkData& benchmark_data, std::string date_time) {
+  std::fstream file(benchmark_data.file_name + "_" + date_time + "_Traj.csv",
                     std::ios::out | std::ios::app);
 
   TrajectoryAnalysisData analysis =
@@ -47,8 +61,9 @@ void saveTrajData(const BenchMarkData& benchmark_data) {
   file.close();
 }
 
-void initTrajDataFile(const BenchMarkData& benchmark_data) {
-  std::fstream file(benchmark_data.file_name + "_Traj.csv",
+void initTrajDataFile(const BenchMarkData& benchmark_data,
+                      std::string date_time) {
+  std::fstream file(benchmark_data.file_name + "_" + date_time + "_Traj.csv",
                     std::ios::out | std::ios::trunc);
 
   if (file.is_open()) {
@@ -106,7 +121,6 @@ void saveData(const BenchMarkData& benchmark_data) {
   } else {
     OMPL_ERROR("Unable to open file for writing.");
   }
-  saveTrajData(benchmark_data);
 }
 
 void initDataFile(const BenchMarkData& benchmark_data) {
@@ -136,7 +150,6 @@ void initDataFile(const BenchMarkData& benchmark_data) {
   } else {
     OMPL_ERROR("Unable to open file for writing.");
   }
-  initTrajDataFile(benchmark_data);
 }
 
 int main(int argc, char** argv) {
@@ -147,12 +160,12 @@ int main(int argc, char** argv) {
 
   ROS_INFO_NAMED(LOGNAME, "Start!");
 
-  const std::size_t NUM_PLANNING_ATTEMPTS = 1;
+  const std::size_t NUM_PLANNING_ATTEMPTS = 50;
   const std::size_t MAX_PLANNING_TIME = 60;
 
-  const std::string PLANNER_NAME = "ContactTRRTDuo";  // ContactTRRTDuo
+  const std::string PLANNER_NAME = "RRTstar";  // ContactTRRTDuo
   const std::string OBJECTIVE_NAME =
-      "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
+      "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
   const std::size_t OBSTACLE_SCENE_OPT = 4;
   const std::size_t GOAL_STATE_OPT = 1;
 
@@ -160,12 +173,14 @@ int main(int argc, char** argv) {
   std::string test_name = PLANNER_NAME + "_" + OBJECTIVE_NAME + "_" + "OBST_" +
                           std::to_string(OBSTACLE_SCENE_OPT) + "_" + "GOAL_" +
                           std::to_string(GOAL_STATE_OPT);
-  std::string file_path = "/home/nataliya/action_ws/src/tacbot/scripts/";
+  std::string file_path = "/home/nn/action_ws/src/tacbot/scripts/";
   benchmark_data.file_name = file_path + test_name;
 
-  initDataFile(benchmark_data);
+  // initDataFile(benchmark_data);
 
   for (std::size_t i = 0; i < NUM_PLANNING_ATTEMPTS; i++) {
+    std::string date_time = getCurrentTimeForFileName();
+
     std::shared_ptr<ContactPlanner> contact_planner =
         std::make_shared<ContactPlanner>();
     contact_planner->init();
@@ -203,6 +218,8 @@ int main(int argc, char** argv) {
       benchmark_data.plan_time = res.planning_time_;
       benchmark_data.test_num = i + 1;
       contact_planner->analyzePlanResponse(benchmark_data);
+      initTrajDataFile(benchmark_data, date_time);
+      saveTrajData(benchmark_data, date_time);
     }
     saveData(benchmark_data);
   }

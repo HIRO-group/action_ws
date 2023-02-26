@@ -47,6 +47,32 @@ class Cleaner:
         print("Outliers removed")
 
 
+class Extractor:
+    df = pd.DataFrame()
+
+    def ___init__(self) -> None:
+        pass
+
+    def set_df(self, df: pd.DataFrame) -> None:
+        self.df = df
+
+    def get_df(self) -> pd.DataFrame:
+        return copy.deepcopy(self.df)
+
+    def find_mean(self) -> None:
+        mean_vec = []
+        for column_name in self.df:
+            col_obj = self.df[column_name]
+            print('Column Name : ', column_name)
+            print('Column Mean : ', col_obj.mean()*1000.0)
+            mean_vec.append(col_obj.mean()*1000.0)
+        mean_arr = np.array(mean_vec)
+        np.set_printoptions(precision=1)
+        np.set_printoptions(suppress=True)
+        np.set_printoptions(linewidth=np.inf)
+        print(mean_arr)
+
+
 class Plotter:
 
     fig_size = [3, 5]
@@ -90,13 +116,12 @@ sns.set_style(style='white')
 
 reader = Reader()
 path = ""
-# file_name = "RRTstar_FieldMagnitude_OBST_4_GOAL_1_Traj.csv"
-# file_name = "BITstar_FieldMagnitude_OBST_4_GOAL_1_Traj.csv"
-file_name = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1_Traj.csv"
+#file_name = "RRTstar_FieldMagnitude_OBST_5_GOAL_1_Traj.csv"
+#file_name = "BITstar_FieldMagnitude_OBST_5_GOAL_1_Traj.csv"
+file_name = "ContactTRRTDuo_FieldAlign_OBST_5_GOAL_1_Traj.csv"
 
 reader.read(path, file_name)
 
-plotter = Plotter()
-plotter.plot(reader.df)
-
-plotter.summary(reader.df)
+extractor = Extractor()
+extractor.set_df(reader.df)
+extractor.find_mean()
