@@ -49,7 +49,7 @@ class Cleaner:
 
 class Plotter:
 
-    fig_size = [20, 15]
+    fig_size = [3, 5]
     y_label = ""
 
     def __init__(self) -> None:
@@ -62,22 +62,41 @@ class Plotter:
     def clear_ax(self) -> None:
         self.ax.cla()
 
+    def summary(self, df: pd.DataFrame) -> None:
+        print(df.describe())
+
     def plot(self, df: pd.DataFrame) -> None:
         df = df.drop(columns=['total_depth'])
+        df = df.drop(columns=['panda_link0'])
+        self.ax.set_xlim(0, 800)
+
         # sns.lineplot(data=df[['panda_link1','panda_link2','panda_link3','panda_link4','panda_link5','panda_link6','panda_link7','panda_link8']])
-        sns.lineplot(x='state_num', y='value', hue='variable',
-                     data=pd.melt(df, ['state_num']))
-        plt.show()
+        plt1 = sns.lineplot(x='state_num', y='value', hue='variable', linewidth=4,
+                            data=pd.melt(df, ['state_num']))
+        self.ax.set(xlabel='Sample Number', ylabel='Penetration Depth (m)')
+        self.ax.get_legend().remove()
+        self.fig.set_tight_layout(True)
+        # plt.legend(title='Link', loc='upper right',
+        #            labels=['1', '2', '3', '4', '5', '6', '7', 'EE'])
+        # plt1.set(ylabel=None)
+        # plt1.set(yticklabels=[])
+        # plt.savefig('scene4-rrtstar.png')
+        # plt.show()
 
 
-sns.set(font_scale=2)
+sns.set(font_scale=1.2)
 sns.set_style(style='white')
+# sns.despine()
 
 reader = Reader()
 path = ""
-file_name = "ContactTRRTDuo_FieldAlign_OBST_5_GOAL_1_Traj.csv"
-reader.read(path, file_name)
+# file_name = "RRTstar_FieldMagnitude_OBST_4_GOAL_1_Traj.csv"
+# file_name = "BITstar_FieldMagnitude_OBST_4_GOAL_1_Traj.csv"
+file_name = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1_Traj.csv"
 
+reader.read(path, file_name)
 
 plotter = Plotter()
 plotter.plot(reader.df)
+
+plotter.summary(reader.df)
