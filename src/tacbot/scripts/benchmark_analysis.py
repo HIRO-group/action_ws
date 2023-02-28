@@ -44,6 +44,7 @@ class Extractor:
         return copy.deepcopy(self.df)
 
     def find_mean(self) -> None:
+        self.df.drop(self.df[self.df['success'] == 0].index, inplace=True)
         for column_name in self.df:
             col_obj = self.df[column_name]
             print('Column Name : ', column_name)
@@ -51,10 +52,10 @@ class Extractor:
 
 
 reader = Reader()
-path = ""
-#file_name = "RRTstar_FieldMagnitude_OBST_5_GOAL_1.csv"
-#file_name = "BITstar_FieldMagnitude_OBST_5_GOAL_1.csv"
-file_name = "ContactTRRTDuo_FieldAlign_OBST_5_GOAL_1.csv"
+path = "Scene4-BITstar"  # "Scene4-CAT-RRT"
+#file_name = "RRTstar_FieldMagnitude_OBST_4_GOAL_1.csv"
+file_name = "BITstar_FieldMagnitude_OBST_4_GOAL_1.csv"
+#file_name = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1.csv"
 
 reader.read(path, file_name)
 

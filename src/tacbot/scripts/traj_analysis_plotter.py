@@ -59,18 +59,20 @@ class Extractor:
     def get_df(self) -> pd.DataFrame:
         return copy.deepcopy(self.df)
 
-    def find_mean(self) -> None:
+    def find_mean(self):
         mean_vec = []
+        self.df.drop(self.df[self.df['total_depth'] == 0].index, inplace=True)
         for column_name in self.df:
             col_obj = self.df[column_name]
-            print('Column Name : ', column_name)
-            print('Column Mean : ', col_obj.mean()*1000.0)
+            # print('Column Name : ', column_name)
+            # print('Column Mean : ', col_obj.mean()*1000.0)
             mean_vec.append(col_obj.mean()*1000.0)
         mean_arr = np.array(mean_vec)
         np.set_printoptions(precision=1)
         np.set_printoptions(suppress=True)
         np.set_printoptions(linewidth=np.inf)
         print(mean_arr)
+        return mean_arr
 
 
 class Plotter:
@@ -115,13 +117,36 @@ sns.set_style(style='white')
 # sns.despine()
 
 reader = Reader()
-path = ""
-#file_name = "RRTstar_FieldMagnitude_OBST_5_GOAL_1_Traj.csv"
-#file_name = "BITstar_FieldMagnitude_OBST_5_GOAL_1_Traj.csv"
-file_name = "ContactTRRTDuo_FieldAlign_OBST_5_GOAL_1_Traj.csv"
+directory = "Scene4-CAT-RRT"
 
-reader.read(path, file_name)
+arr = np.zeros(shape=(50, 11))
+i = 0
+for filename in os.listdir(directory):
+    f = os.path.join(directory, filename)
+    # checking if it is a file
 
-extractor = Extractor()
-extractor.set_df(reader.df)
-extractor.find_mean()
+    if os.path.isfile(f) and "Traj" in f:
+        print(f)
+    else:
+        continue
+    reader.read('', f)
+    extractor = Extractor()
+    extractor.set_df(reader.df)
+    mean = extractor.find_mean()
+    arr[i] = mean
+    i = i+1
+
+arr = arr[~np.all(arr == 0, axis=1)]
+final_mean = np.mean(arr, axis=0)
+print("final mean")
+print(final_mean)
+
+#file_name = "RRTstar_FieldMagnitude_OBST_3_GOAL_1_2023-02-26_20-13-15_Traj.csv"
+#file_name = "BITstar_FieldMagnitude_OBST_3_GOAL_1_2023-02-26_20-18-42_Traj.csv"
+# file_name = "ContactTRRTDuo_FieldAlign_OBST_3_GOAL_1_2023-02-26_20-27-28_Traj.csv"
+
+# reader.read(path, file_name)
+
+# extractor = Extractor()
+# extractor.set_df(reader.df)
+# extractor.find_mean()

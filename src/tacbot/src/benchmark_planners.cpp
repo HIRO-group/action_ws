@@ -163,10 +163,10 @@ int main(int argc, char** argv) {
   const std::size_t NUM_PLANNING_ATTEMPTS = 50;
   const std::size_t MAX_PLANNING_TIME = 60;
 
-  const std::string PLANNER_NAME = "RRTstar";  // ContactTRRTDuo
+  const std::string PLANNER_NAME = "BITstar";  // ContactTRRTDuo
   const std::string OBJECTIVE_NAME =
       "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 4;
+  const std::size_t OBSTACLE_SCENE_OPT = 3;
   const std::size_t GOAL_STATE_OPT = 1;
 
   BenchMarkData benchmark_data;

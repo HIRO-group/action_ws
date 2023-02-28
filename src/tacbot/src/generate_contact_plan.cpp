@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
   const std::string PLANNER_NAME = "ContactTRRTDuo";  // ContactTRRTDuo
   const std::string OBJECTIVE_NAME =
       "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 5;
+  const std::size_t OBSTACLE_SCENE_OPT = 3;
   const std::size_t GOAL_STATE_OPT = 1;
   contact_planner->setObstacleScene(OBSTACLE_SCENE_OPT);
   contact_planner->setGoalState(GOAL_STATE_OPT);
