@@ -4,6 +4,9 @@ import copy
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import plotly.express as px
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 
 
 class Reader:
@@ -111,6 +114,27 @@ class Plotter:
         # plt.savefig('scene4-rrtstar.png')
         # plt.show()
 
+    def plot2(self, df1, df2, df3) -> None:
+        df = df.drop(columns=['total_depth'])
+        df = df.drop(columns=['panda_link0'])
+
+        figures = [
+            px.line(df1, x='state_num', y=['panda_link1', 'panda_link2', 'panda_link3',
+                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8']),
+            px.line(df2, x='state_num', y=['panda_link1', 'panda_link2', 'panda_link3',
+                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8'])
+            px.line(df3, x='state_num', y=['panda_link1', 'panda_link2', 'panda_link3',
+                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8'])
+        ]
+
+        fig = make_subplots(rows=1, cols=2)
+
+        for i, figure in enumerate(figures):
+            for trace in range(len(figure["data"])):
+                fig.append_trace(figure["data"][trace], row=1, col=1+i)
+
+        fig.show()
+
 
 sns.set(font_scale=1.2)
 sns.set_style(style='white')
@@ -119,33 +143,37 @@ sns.set_style(style='white')
 reader = Reader()
 directory = "Scene4-CAT-RRT"
 
-arr = np.zeros(shape=(50, 11))
-i = 0
-for filename in os.listdir(directory):
-    f = os.path.join(directory, filename)
-    # checking if it is a file
+# arr = np.zeros(shape=(50, 11))
+# i = 0
+# for filename in os.listdir(directory):
+#     f = os.path.join(directory, filename)
+#     # checking if it is a file
 
-    if os.path.isfile(f) and "Traj" in f:
-        print(f)
-    else:
-        continue
-    reader.read('', f)
-    extractor = Extractor()
-    extractor.set_df(reader.df)
-    mean = extractor.find_mean()
-    arr[i] = mean
-    i = i+1
+#     if os.path.isfile(f) and "Traj" in f:
+#         print(f)
+#     else:
+#         continue
+#     reader.read('', f)
+#     extractor = Extractor()
+#     extractor.set_df(reader.df)
+#     mean = extractor.find_mean()
+#     arr[i] = mean
+#     i = i+1
 
-arr = arr[~np.all(arr == 0, axis=1)]
-final_mean = np.mean(arr, axis=0)
-print("final mean")
-print(final_mean)
+# arr = arr[~np.all(arr == 0, axis=1)]
+# final_mean = np.mean(arr, axis=0)
+# print("final mean")
+# print(final_mean)
 
-#file_name = "RRTstar_FieldMagnitude_OBST_3_GOAL_1_2023-02-26_20-13-15_Traj.csv"
-#file_name = "BITstar_FieldMagnitude_OBST_3_GOAL_1_2023-02-26_20-18-42_Traj.csv"
+
+# file_name = "RRTstar_FieldMagnitude_OBST_3_GOAL_1_2023-02-26_20-13-15_Traj.csv"
+file_name = "BITstar_FieldMagnitude_OBST_4_GOAL_1_Traj.csv"
 # file_name = "ContactTRRTDuo_FieldAlign_OBST_3_GOAL_1_2023-02-26_20-27-28_Traj.csv"
 
-# reader.read(path, file_name)
+reader.read('', file_name)
+plotter = Plotter()
+plotter.plot2(reader.df)
+
 
 # extractor = Extractor()
 # extractor.set_df(reader.df)
