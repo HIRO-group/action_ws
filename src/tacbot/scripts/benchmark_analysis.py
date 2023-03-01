@@ -52,10 +52,10 @@ class Extractor:
 
 
 reader = Reader()
-path = "Scene4-BITstar"  # "Scene4-CAT-RRT"
+path = "Scene4-CAT-RRT"  # Scene4-CAT-RRT"
 #file_name = "RRTstar_FieldMagnitude_OBST_4_GOAL_1.csv"
-file_name = "BITstar_FieldMagnitude_OBST_4_GOAL_1.csv"
-#file_name = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1.csv"
+#file_name = "BITstar_FieldMagnitude_OBST_4_GOAL_1.csv"
+file_name = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1.csv"
 
 reader.read(path, file_name)
 

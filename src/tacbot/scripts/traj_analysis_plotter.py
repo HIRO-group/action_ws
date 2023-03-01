@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import plotly.express as px
 from plotly.subplots import make_subplots
-import plotly.graph_objects as go
+from plotly.graph_objs import *
+from plotly import tools
 
 
 class Reader:
@@ -115,66 +116,102 @@ class Plotter:
         # plt.show()
 
     def plot2(self, df1, df2, df3) -> None:
-        df = df.drop(columns=['total_depth'])
-        df = df.drop(columns=['panda_link0'])
+        # df = df.drop(columns=['total_depth'])
+        # df = df.drop(columns=['panda_link0'])
+
+        # layout = Layout(
+        #     paper_bgcolor='rgba(0,0,0,0)',
+        #     plot_bgcolor='rgba(0,0,0,0)'
+        # )
+
+        fig = tools.make_subplots(
+            rows=1, cols=3, shared_yaxes=True, horizontal_spacing=0.01)
 
         figures = [
             px.line(df1, x='state_num', y=['panda_link1', 'panda_link2', 'panda_link3',
                     'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8']),
             px.line(df2, x='state_num', y=['panda_link1', 'panda_link2', 'panda_link3',
-                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8'])
+                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8']),
             px.line(df3, x='state_num', y=['panda_link1', 'panda_link2', 'panda_link3',
-                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8'])
-        ]
-
-        fig = make_subplots(rows=1, cols=2)
+                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8'])]
 
         for i, figure in enumerate(figures):
             for trace in range(len(figure["data"])):
-                fig.append_trace(figure["data"][trace], row=1, col=1+i)
+                fig.append_trace(figure["data"][trace],
+                                 row=1, col=1+i)
+
+        fig['layout']['xaxis2']['title'] = 'Path Point'
+
+        fig.update_traces(line=dict(width=12))
+
+        fig.update_xaxes(
+            title_standoff=0,
+            range=[0, 700])
+
+        fig.update_yaxes(
+            title_standoff=25)
+
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)',
+                          plot_bgcolor='rgba(0,0,0,0)',
+                          font_family="Courier New",
+                          showlegend=False,
+                          # title_font_color="red",
+                          # legend_title_text='Planner',
+                          xaxis=dict(
+                              tickmode='linear',
+                              tick0=0,
+                              dtick=300,
+                          ),
+                          font=dict(
+                              family="Times New Roman",
+                              size=52),
+                          yaxis_title="Contact Depth (m)"
+                          )
 
         fig.show()
 
 
-sns.set(font_scale=1.2)
-sns.set_style(style='white')
-# sns.despine()
+# sns.set(font_scale=1.2)
+# sns.set_style(style='white')
+# # sns.despine()
 
 reader = Reader()
 directory = "Scene4-CAT-RRT"
 
-# arr = np.zeros(shape=(50, 11))
-# i = 0
-# for filename in os.listdir(directory):
-#     f = os.path.join(directory, filename)
-#     # checking if it is a file
+arr = np.zeros(shape=(100, 11))
+i = 0
+for filename in os.listdir(directory):
+    f = os.path.join(directory, filename)
+    # checking if it is a file
 
-#     if os.path.isfile(f) and "Traj" in f:
-#         print(f)
-#     else:
-#         continue
-#     reader.read('', f)
-#     extractor = Extractor()
-#     extractor.set_df(reader.df)
-#     mean = extractor.find_mean()
-#     arr[i] = mean
-#     i = i+1
+    if os.path.isfile(f) and "Traj" in f:
+        print(f)
+    else:
+        continue
+    reader.read('', f)
+    extractor = Extractor()
+    extractor.set_df(reader.df)
+    mean = extractor.find_mean()
+    arr[i] = mean
+    i = i+1
 
-# arr = arr[~np.all(arr == 0, axis=1)]
-# final_mean = np.mean(arr, axis=0)
-# print("final mean")
-# print(final_mean)
-
-
-# file_name = "RRTstar_FieldMagnitude_OBST_3_GOAL_1_2023-02-26_20-13-15_Traj.csv"
-file_name = "BITstar_FieldMagnitude_OBST_4_GOAL_1_Traj.csv"
-# file_name = "ContactTRRTDuo_FieldAlign_OBST_3_GOAL_1_2023-02-26_20-27-28_Traj.csv"
-
-reader.read('', file_name)
-plotter = Plotter()
-plotter.plot2(reader.df)
+arr = arr[~np.all(arr == 0, axis=1)]
+final_mean = np.mean(arr, axis=0)
+print("final mean")
+print(final_mean)
 
 
-# extractor = Extractor()
-# extractor.set_df(reader.df)
-# extractor.find_mean()
+# file_name1 = "RRTstar_FieldMagnitude_OBST_4_GOAL_1_2023-02-26_12-01-20_Traj.csv"
+# file_name2 = "BITstar_FieldMagnitude_OBST_4_GOAL_1_2023-03-01_08-07-52_Traj.csv"
+# file_name3 = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1_2023-02-28_08-47-47_Traj.csv"
+
+# reader1 = Reader()
+# reader2 = Reader()
+# reader3 = Reader()
+
+# reader1.read('plotting', file_name1)
+# reader2.read('plotting', file_name2)
+# reader3.read('plotting', file_name3)
+
+# plotter = Plotter()
+# plotter.plot2(reader1.df, reader2.df, reader3.df)
