@@ -128,12 +128,25 @@ class Plotter:
             rows=1, cols=3, shared_yaxes=True, horizontal_spacing=0.01)
 
         figures = [
-            px.line(df1, x='state_num', y=['panda_link1', 'panda_link2', 'panda_link3',
-                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8']),
-            px.line(df2, x='state_num', y=['panda_link1', 'panda_link2', 'panda_link3',
-                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8']),
-            px.line(df3, x='state_num', y=['panda_link1', 'panda_link2', 'panda_link3',
-                    'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_link8'])]
+            px.line(df1, x='state_num', y=['1', '2', '3',
+                    '4', '5', '6', '7', '8'],
+
+                                        color_discrete_sequence=[
+                "red", "brown", "#34cdf9", "#636EFA", "#f56b00", "grey", "mediumorchid", "#34ff34"]
+            )
+            # ,
+            # px.line(df2, x='state_num', y=['1', '2', '3',
+            #         '4', '5', '6', '7', '8'],
+            #         color_discrete_sequence=[
+            #     "red", "brown", "#34cdf9", "#636EFA", "#f56b00", "grey", "mediumorchid", "#34ff34"]
+            # ),
+            # px.line(df3, x='state_num', y=['1', '2', '3',
+            #         '4', '5', '6', '7', '8'],
+            #         color_discrete_sequence=[
+            #     "red", "brown", "#34cdf9", "#636EFA", "#f56b00", "grey", "mediumorchid", "#34ff34"]
+            # )
+
+        ]
 
         for i, figure in enumerate(figures):
             for trace in range(len(figure["data"])):
@@ -146,27 +159,46 @@ class Plotter:
 
         fig.update_xaxes(
             title_standoff=0,
-            range=[0, 700])
+            range=[0, 600])
 
         fig.update_yaxes(
-            title_standoff=25)
+            range=[0, 0.13],
+            title_standoff=0)
 
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)',
-                          plot_bgcolor='rgba(0,0,0,0)',
-                          font_family="Courier New",
-                          showlegend=False,
-                          # title_font_color="red",
-                          # legend_title_text='Planner',
-                          xaxis=dict(
-                              tickmode='linear',
-                              tick0=0,
-                              dtick=300,
-                          ),
-                          font=dict(
-                              family="Times New Roman",
-                              size=52),
-                          yaxis_title="Contact Depth (m)"
-                          )
+        fig.update_xaxes(showline=True, linewidth=5, linecolor='black')
+        fig.update_yaxes(showline=True, linewidth=5, linecolor='black')
+
+        fig.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font_family="Courier New",
+            legend_title="Link",
+            font_color="black",
+            legend=dict(
+                orientation="h"),
+            # showlegend=False,
+            # title_font_color="red",
+            # legend_title_text='Planner',
+            xaxis=dict(
+                tickmode='linear',
+                tick0=100,
+                dtick=200,
+            ),
+            xaxis2=dict(
+                tickmode='linear',
+                tick0=100,
+                dtick=200,
+            ),
+            xaxis3=dict(
+                tickmode='linear',
+                tick0=100,
+                dtick=200,
+            ),
+            font=dict(
+                family="Times New Roman",
+                size=80),
+            yaxis_title="Contact Depth (m)"
+        )
 
         fig.show()
 
@@ -175,43 +207,43 @@ class Plotter:
 # sns.set_style(style='white')
 # # sns.despine()
 
-reader = Reader()
-directory = "Scene4-CAT-RRT"
+# reader = Reader()
+# directory = "Scene4-CAT-RRT"
 
-arr = np.zeros(shape=(100, 11))
-i = 0
-for filename in os.listdir(directory):
-    f = os.path.join(directory, filename)
-    # checking if it is a file
+# arr = np.zeros(shape=(100, 11))
+# i = 0
+# for filename in os.listdir(directory):
+#     f = os.path.join(directory, filename)
+#     # checking if it is a file
 
-    if os.path.isfile(f) and "Traj" in f:
-        print(f)
-    else:
-        continue
-    reader.read('', f)
-    extractor = Extractor()
-    extractor.set_df(reader.df)
-    mean = extractor.find_mean()
-    arr[i] = mean
-    i = i+1
+#     if os.path.isfile(f) and "Traj" in f:
+#         print(f)
+#     else:
+#         continue
+#     reader.read('', f)
+#     extractor = Extractor()
+#     extractor.set_df(reader.df)
+#     mean = extractor.find_mean()
+#     arr[i] = mean
+#     i = i+1
 
-arr = arr[~np.all(arr == 0, axis=1)]
-final_mean = np.mean(arr, axis=0)
-print("final mean")
-print(final_mean)
+# arr = arr[~np.all(arr == 0, axis=1)]
+# final_mean = np.mean(arr, axis=0)
+# print("final mean")
+# print(final_mean)
 
 
-# file_name1 = "RRTstar_FieldMagnitude_OBST_4_GOAL_1_2023-02-26_12-01-20_Traj.csv"
-# file_name2 = "BITstar_FieldMagnitude_OBST_4_GOAL_1_2023-03-01_08-07-52_Traj.csv"
-# file_name3 = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1_2023-02-28_08-47-47_Traj.csv"
+file_name1 = "RRTstar_FieldMagnitude_OBST_4_GOAL_1_Traj.csv"
+file_name2 = "BITstar_FieldMagnitude_OBST_4_GOAL_1_Traj.csv"
+file_name3 = "ContactTRRTDuo_FieldAlign_OBST_4_GOAL_1_Traj.csv"
 
-# reader1 = Reader()
-# reader2 = Reader()
-# reader3 = Reader()
+reader1 = Reader()
+reader2 = Reader()
+reader3 = Reader()
 
-# reader1.read('plotting', file_name1)
-# reader2.read('plotting', file_name2)
-# reader3.read('plotting', file_name3)
+reader1.read('', file_name1)
+reader2.read('', file_name2)
+reader3.read('', file_name3)
 
-# plotter = Plotter()
-# plotter.plot2(reader1.df, reader2.df, reader3.df)
+plotter = Plotter()
+plotter.plot2(reader1.df, reader2.df, reader3.df)

@@ -20,7 +20,7 @@ std::string getCurrentTimeForFileName() {
 }
 
 void saveTrajData(const BenchMarkData& benchmark_data, std::string date_time) {
-  std::fstream file(benchmark_data.file_name + "_" + date_time + "_Traj.csv",
+  std::fstream file(benchmark_data.file_name + "_Traj.csv",
                     std::ios::out | std::ios::app);
 
   TrajectoryAnalysisData analysis =
@@ -63,7 +63,7 @@ void saveTrajData(const BenchMarkData& benchmark_data, std::string date_time) {
 
 void initTrajDataFile(const BenchMarkData& benchmark_data,
                       std::string date_time) {
-  std::fstream file(benchmark_data.file_name + "_" + date_time + "_Traj.csv",
+  std::fstream file(benchmark_data.file_name + "_Traj.csv",
                     std::ios::out | std::ios::trunc);
 
   if (file.is_open()) {
@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
 
   ROS_INFO_NAMED(LOGNAME, "Start!");
 
-  const std::size_t NUM_PLANNING_ATTEMPTS = 50;
+  const std::size_t NUM_PLANNING_ATTEMPTS = 1;
   const std::size_t MAX_PLANNING_TIME = 60;
 
   const std::string PLANNER_NAME = "ContactTRRTDuo";  // ContactTRRTDuo
@@ -173,10 +173,10 @@ int main(int argc, char** argv) {
   std::string test_name = PLANNER_NAME + "_" + OBJECTIVE_NAME + "_" + "OBST_" +
                           std::to_string(OBSTACLE_SCENE_OPT) + "_" + "GOAL_" +
                           std::to_string(GOAL_STATE_OPT);
-  std::string file_path = "/home/nn/action_ws/src/tacbot/scripts/";
+  std::string file_path = "/home/nataliya/action_ws/src/tacbot/scripts/";
   benchmark_data.file_name = file_path + test_name;
 
-  // initDataFile(benchmark_data);
+  initDataFile(benchmark_data);
 
   for (std::size_t i = 0; i < NUM_PLANNING_ATTEMPTS; i++) {
     std::string date_time = getCurrentTimeForFileName();
