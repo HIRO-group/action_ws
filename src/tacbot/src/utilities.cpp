@@ -201,5 +201,27 @@ std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose) {
   return os;
 }
 
+moveit_msgs::Constraints createPoseGoal() {
+  geometry_msgs::PoseStamped pose;
+  pose.header.frame_id = "panda_link0";
+  pose.pose.position.x = 0.5;
+  pose.pose.position.y = 0.0;
+  pose.pose.position.z = 0.75;
+  pose.pose.orientation.w = 1.0;
+  pose.pose.orientation.x = 0.0;
+  pose.pose.orientation.y = 0.0;
+  pose.pose.orientation.z = 0.0;
+
+  // A tolerance of 0.01 m is specified in position
+  // and 0.01 radians in orientation
+  std::vector<double> tolerance_pose(3, 0.01);
+  std::vector<double> tolerance_angle(3, 0.01);
+
+  moveit_msgs::Constraints pose_goal =
+      kinematic_constraints::constructGoalConstraints(
+          "panda_link8", pose, tolerance_pose, tolerance_angle);
+  return pose_goal;
+}
+
 }  // namespace utilities
 }  // namespace tacbot

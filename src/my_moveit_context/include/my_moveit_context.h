@@ -9,7 +9,6 @@
 #include <moveit_msgs/MotionPlanRequest.h>
 #include <ros/ros.h>
 
-namespace my_moveit_context {
 class MyMoveitContext {
  public:
   void createPlanningContext(const moveit_msgs::MotionPlanRequest& req);
@@ -40,7 +39,5 @@ class MyMoveitContext {
       const planning_interface::PlannerConfigurationMap& pconfig_map,
       const std::string& planner_id);
 };
-
-}  // namespace my_moveit_context
 
 #endif

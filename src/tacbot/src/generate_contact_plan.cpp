@@ -1,4 +1,3 @@
-#include "contact_controller.h"
 #include "contact_perception.h"
 #include "contact_planner.h"
 #include "panda_interface.h"
@@ -42,7 +41,7 @@ int main(int argc, char** argv) {
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;
 
-  contact_planner->createPlanningContext(req);
+  // contact_planner->createPlanningContext(req);
 
   const std::string PLANNER_NAME = "ContactTRRTDuo";  // ContactTRRTDuo
   const std::string OBJECTIVE_NAME =

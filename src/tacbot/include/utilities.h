@@ -1,6 +1,7 @@
 #ifndef TACBOT_UTILITIES_H
 #define TACBOT_UTILITIES_H
 
+#include <moveit/kinematic_constraints/utils.h>
 #include <moveit/ompl_interface/ompl_interface.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <ompl/base/spaces/RealVectorStateSpace.h>
@@ -128,6 +129,14 @@ std::vector<std::size_t> find(const Eigen::MatrixXd& needle,
   @return Output stream with the pose printed.
 */
 std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose);
+
+/** \brief Creates a sample end-effector goal state, in cartesian space, for
+   the robot to reach. Generally used to test the planner without having to
+   look at the member variables of the Constraints message.
+    @return moveit_msgs::Constraints The goal state and restrictions as
+   specified by the moveit message.
+*/
+moveit_msgs::Constraints createPoseGoal();
 
 }  // namespace utilities
 }  // namespace tacbot

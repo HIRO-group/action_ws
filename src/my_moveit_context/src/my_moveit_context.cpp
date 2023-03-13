@@ -1,8 +1,6 @@
-#include "context.h"
+#include "my_moveit_context.h"
 
 constexpr char LOGNAME[] = "my_moveit_context";
-
-namespace my_moveit_context {
 
 void MyMoveitContext::createPlanningContext(
     const moveit_msgs::MotionPlanRequest& req) {
@@ -132,5 +130,3 @@ MyMoveitContext::getPlannerConfigSettings(
   }
   return pc->second;
 }
-
-}  // namespace my_moveit_context

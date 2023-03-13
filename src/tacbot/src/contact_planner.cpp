@@ -37,12 +37,10 @@ void ContactPlanner::setObstacleScene(std::size_t option) {
   ROS_INFO_NAMED(LOGNAME, "Obstacle scene option selected: %ld", option);
   switch (option) {
     case 1:
-      // free start state, free goal state, single obstacle
       spherical_obstacles_.emplace_back(
           std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.6}, 0.1));
       break;
     case 2:
-      // free start state, goal state in contact
       spherical_obstacles_.emplace_back(
           std::make_pair(Eigen::Vector3d{0.45, -0.4, 0.6}, 0.1));
       break;
@@ -57,17 +55,10 @@ void ContactPlanner::setObstacleScene(std::size_t option) {
     case 4:
       spherical_obstacles_.emplace_back(
           std::make_pair(Eigen::Vector3d{0.40, 0.0, 0.6}, 0.1));
-      // spherical_obstacles_.emplace_back(
-      //     std::make_pair(Eigen::Vector3d{0.1, 0.0, 0.5}, 0.08));
-      // spherical_obstacles_.emplace_back(
-      //     std::make_pair(Eigen::Vector3d{-0.4, 0.0, 0.5}, 0.08));
       spherical_obstacles_.emplace_back(
           std::make_pair(Eigen::Vector3d{-0.2, 0.0, 0.5}, 0.1));
       spherical_obstacles_.emplace_back(
           std::make_pair(Eigen::Vector3d{0.15, 0.2, 0.7}, 0.1));
-      break;
-    case 6:
-      addLineObstacle();
       break;
     default:
       ROS_ERROR_NAMED(LOGNAME,
@@ -91,15 +82,6 @@ void ContactPlanner::addSphericalObstacle(const Eigen::Vector3d& center,
       double z = radius * cos(theta) + center[2];
       sim_obstacle_pos_.emplace_back(Eigen::Vector3d{x, y, z});
     }
-  }
-}
-
-void ContactPlanner::addLineObstacle() {
-  const Eigen::Vector3d start{0.5, 1.0, 0.6};
-  const double inc = 0.05;
-  for (std::size_t i = 0; i < 40; i++) {
-    sim_obstacle_pos_.emplace_back(
-        Eigen::Vector3d{start[0], start[1] + -1.0 * i * inc, start[2]});
   }
 }
 
@@ -127,135 +109,7 @@ void ContactPlanner::setCurToStartState(
   req.start_state.joint_state.effort = start_joint_values;
 }
 
-std::unique_ptr<ompl_interface::OMPLInterface> ContactPlanner::getOMPLInterface(
-    const moveit::core::RobotModelConstPtr& model, const ros::NodeHandle& nh) {
-  std::unique_ptr<ompl_interface::OMPLInterface> ompl_interface =
-      std::make_unique<ompl_interface::OMPLInterface>(model, nh);
-  return ompl_interface;
-}
-
-void ContactPlanner::setPlanningContextParams(
-    ompl_interface::ModelBasedPlanningContextPtr& context) {
-  unsigned int max_goal_samples_ = 10;
-  unsigned int max_state_sampling_attempts_ = 4;
-  unsigned int max_goal_sampling_attempts_ = 1000;
-  unsigned int max_planning_threads_ = 4;
-  double max_solution_segment_length_ = 0.0;
-  unsigned int minimum_waypoint_count_ = 30;
-  double goal_threshold_ = 0.1;
-  bool simplify_solution_ = false;
-  bool interpolate_ = true;
-  bool hybridize_ = false;
-
-  context->setMaximumPlanningThreads(max_planning_threads_);
-  context->setMaximumGoalSamples(max_goal_samples_);
-  context->setMaximumStateSamplingAttempts(max_state_sampling_attempts_);
-  context->setMaximumGoalSamplingAttempts(max_goal_sampling_attempts_);
-  context->setMaximumSolutionSegmentLength(max_solution_segment_length_);
-  context->setMinimumWaypointCount(minimum_waypoint_count_);
-  context->setGoalThreshold(goal_threshold_);
-  context->simplifySolutions(simplify_solution_);
-  context->setInterpolation(interpolate_);
-  context->setHybridize(hybridize_);
-}
-
-planning_interface::PlannerConfigurationSettings
-ContactPlanner::getPlannerConfigSettings(
-    const planning_interface::PlannerConfigurationMap& pconfig_map,
-    const std::string& planner_id) {
-  auto pc = pconfig_map.end();
-  pc = pconfig_map.find(planner_id);
-  if (pc == pconfig_map.end()) {
-    ROS_ERROR_NAMED(LOGNAME,
-                    "Cannot find planning configuration for planner %s ",
-                    planner_id.c_str());
-    return planning_interface::PlannerConfigurationSettings();
-  } else {
-    ROS_INFO_NAMED(LOGNAME, "Found planning configuration for planner %s.",
-                   planner_id.c_str());
-  }
-  return pc->second;
-}
-
 std::string ContactPlanner::getPlannerId() { return planner_id_; }
-
-void ContactPlanner::createPlanningContext(
-    const moveit_msgs::MotionPlanRequest& req) {
-  planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
-
-  ompl_interface::ModelBasedStateSpaceSpecification space_spec(robot_model_,
-                                                               group_name_);
-  ompl_interface::ModelBasedStateSpacePtr state_space =
-      std::make_shared<ompl_interface::JointModelStateSpace>(space_spec);
-  state_space->computeLocations();
-
-  std::unique_ptr<ompl_interface::OMPLInterface> ompl_interface =
-      getOMPLInterface(robot_model_, nh_);
-
-  planning_interface::PlannerConfigurationMap pconfig_map =
-      ompl_interface->getPlannerConfigurations();
-
-  planning_interface::PlannerConfigurationSettings pconfig_settings =
-      getPlannerConfigSettings(pconfig_map, planner_id_);
-
-  ompl_interface::PlanningContextManager planning_context_manager =
-      ompl_interface->getPlanningContextManager();
-
-  ompl_interface::ModelBasedPlanningContextSpecification context_spec;
-  context_spec.config_ = pconfig_settings.config;
-  context_spec.planner_selector_ =
-      planning_context_manager.getPlannerSelector();
-  context_spec.constraint_sampler_manager_ =
-      std::make_shared<constraint_samplers::ConstraintSamplerManager>();
-  context_spec.state_space_ = state_space;
-
-  ompl::geometric::SimpleSetupPtr ompl_simple_setup =
-      std::make_shared<ompl::geometric::SimpleSetup>(state_space);
-  context_spec.ompl_simple_setup_ = ompl_simple_setup;
-
-  context_ = std::make_shared<ompl_interface::ModelBasedPlanningContext>(
-      group_name_, context_spec);
-
-  setPlanningContextParams(context_);
-
-  moveit::core::RobotStatePtr start_state =
-      lscene->getCurrentStateUpdated(req.start_state);
-
-  context_->setPlanningScene(lscene);
-  context_->setMotionPlanRequest(req);
-  context_->setCompleteInitialState(*start_state);
-
-  context_->setPlanningVolume(req.workspace_parameters);
-  moveit_msgs::MoveItErrorCodes error_code;
-  if (!context_->setPathConstraints(req.path_constraints, &error_code)) {
-    ROS_ERROR_NAMED(LOGNAME, "context_->setPathConstraints() error: %d",
-                    error_code.val);
-    context_ = ompl_interface::ModelBasedPlanningContextPtr();
-  }
-
-  if (!context_->setGoalConstraints(req.goal_constraints, req.path_constraints,
-                                    &error_code)) {
-    ROS_ERROR_NAMED(LOGNAME, "context_->setGoalConstraints() error %d",
-                    error_code.val);
-    context_ = ompl_interface::ModelBasedPlanningContextPtr();
-  }
-
-  bool use_constraints_approximation = true;
-  try {
-    context_->configure(nh_, use_constraints_approximation);
-    ROS_INFO_NAMED(LOGNAME, "%s: New planning context_ is set.",
-                   context_->getName().c_str());
-    error_code.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
-  } catch (ompl::Exception& ex) {
-    ROS_ERROR_NAMED(LOGNAME, "OMPL encountered an error: %s", ex.what());
-    context_.reset();
-  }
-}
-
-ompl_interface::ModelBasedPlanningContextPtr
-ContactPlanner::getPlanningContext() {
-  return context_;
-}
 
 moveit_msgs::Constraints ContactPlanner::createJointGoal() {
   moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
@@ -961,28 +815,6 @@ bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
   return is_solved;
 }
 
-moveit_msgs::Constraints ContactPlanner::createPoseGoal() {
-  geometry_msgs::PoseStamped pose;
-  pose.header.frame_id = "panda_link0";
-  pose.pose.position.x = 0.5;
-  pose.pose.position.y = 0.0;
-  pose.pose.position.z = 0.75;
-  pose.pose.orientation.w = 1.0;
-  pose.pose.orientation.x = 0.0;
-  pose.pose.orientation.y = 0.0;
-  pose.pose.orientation.z = 0.0;
-
-  // A tolerance of 0.01 m is specified in position
-  // and 0.01 radians in orientation
-  std::vector<double> tolerance_pose(3, 0.01);
-  std::vector<double> tolerance_angle(3, 0.01);
-
-  moveit_msgs::Constraints pose_goal =
-      kinematic_constraints::constructGoalConstraints(
-          "panda_link8", pose, tolerance_pose, tolerance_angle);
-  return pose_goal;
-}
-
 void ContactPlanner::init() {
   robot_model_loader_ = std::make_shared<robot_model_loader::RobotModelLoader>(
       "robot_description");
@@ -996,9 +828,6 @@ void ContactPlanner::init() {
 
   ROS_INFO_NAMED(LOGNAME, "startSceneMonitor");
   psm_->startSceneMonitor();
-
-  ROS_INFO_NAMED(LOGNAME, "startWorldGeometryMonitor");
-  psm_->startWorldGeometryMonitor();
 
   ROS_INFO_NAMED(LOGNAME, "startStateMonitor");
   psm_->startStateMonitor();
@@ -1036,102 +865,8 @@ void ContactPlanner::init() {
   robot_state_ = std::make_shared<moveit::core::RobotState>(*robot_state);
 
   contact_perception_->init();
-  trajectory_pub_ = nh_.advertise<trajectory_msgs::JointTrajectory>(
-      "/joint_position_controller/contact_trajectory", 1);
-
-  execution_monitor_sub_ =
-      nh_.subscribe("/joint_position_controller/trajectory_monitor", 1,
-                    &ContactPlanner::executionMonitorCallback, this);
 
   extractPtsFromGoalState();
-}
-
-void ContactPlanner::executionMonitorCallback(const TrajExecutionMonitor& msg) {
-  monitor_mtx_.lock();
-  monitor_msg_ = msg;
-  monitor_mtx_.unlock();
-}
-
-void ContactPlanner::monitorExecution() {
-  moveit_msgs::MotionPlanResponse msg;
-  plan_response_.getMessage(msg);
-  std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
-  ROS_INFO_NAMED(LOGNAME, "Monitoring trajectory with num pts: %ld", num_pts);
-  ros::Rate rate(30);  // hz
-  int is_valid = 1;
-  while (ros::ok() && monitor_msg_.pt_idx <= num_pts && is_valid != -1) {
-    monitor_mtx_.lock();
-    ROS_INFO_NAMED(LOGNAME, "monitor_msg_.pt_idx %d", monitor_msg_.pt_idx);
-    is_valid = monitor_msg_.is_valid;
-    ROS_INFO_NAMED(LOGNAME, "is_valid %d", is_valid);
-    if (is_valid == -1) {
-      ROS_ERROR_NAMED(LOGNAME, "Execution failure on trajectory point %d",
-                      monitor_msg_.pt_idx);
-      execution_monitor_sub_.shutdown();
-    }
-    monitor_mtx_.unlock();
-
-    ros::spinOnce();
-    rate.sleep();
-  }
-
-  ROS_INFO_NAMED(LOGNAME, "Finished trajectory execution monitoring.");
-  updateObstacles();
-}
-
-void ContactPlanner::updateObstacles() {
-  if (monitor_msg_.is_valid != -1) {
-    ROS_INFO_NAMED(LOGNAME,
-                   "Trajectory execution was valid. Nothing to update.");
-  }
-
-  std::size_t error_link_num = 0;
-  const double tau_thresh = 50.0;
-
-  for (std::size_t i = 0; i < monitor_msg_.franka_state.q.size(); i++) {
-    double tau_J = monitor_msg_.franka_state.tau_J[i];
-    if (std::abs(tau_J) > tau_thresh) {
-      error_link_num = i;
-      break;
-    }
-  }
-
-  moveit_msgs::MotionPlanResponse msg;
-  plan_response_.getMessage(msg);
-
-  trajectory_msgs::JointTrajectoryPoint point =
-      msg.trajectory.joint_trajectory.points[monitor_msg_.pt_idx];
-  std::vector<double> joint_angles(dof_, 0.0);
-  for (std::size_t i = 0; i < dof_; i++) {
-    joint_angles[i] = point.positions[i];
-  }
-
-  moveit::core::RobotStatePtr robot_state =
-      std::make_shared<moveit::core::RobotState>(*robot_state_);
-  robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
-
-  std::vector<std::vector<Eigen::Vector3d>> rob_pts;
-  std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
-
-  std::vector<Eigen::Vector3d> link_pts = rob_pts[error_link_num];
-  std::size_t num_link_pts = link_pts.size();
-
-  for (std::size_t i = 0; i < num_link_pts; i++) {
-    sim_obstacle_pos_.emplace_back(link_pts[i]);
-  }
-
-  ROS_INFO_NAMED(LOGNAME,
-                 "Finished updating obstacle positions based on trajectory "
-                 "execution.");
-}
-
-void ContactPlanner::executeTrajectory() {
-  moveit_msgs::MotionPlanResponse msg;
-  plan_response_.getMessage(msg);
-  std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
-  ROS_INFO_NAMED(LOGNAME, "Executing trajectory with num pts: %ld", num_pts);
-
-  trajectory_pub_.publish(msg.trajectory.joint_trajectory);
 }
 
 std::string ContactPlanner::getGroupName() { return group_name_; }
@@ -1177,12 +912,6 @@ void ContactPlanner::convertTraj(
     double time_diff = time_b - time_a;
 
     ROS_INFO_NAMED(LOGNAME, "time_diff: %f", time_diff);
-
-    // std::size_t time_pts = std::ceil(time_diff * 100);
-
-    // for (std::size_t time_pt = 0; time_pt < time_pts; time_pt++) {
-    //   joint_velocities.emplace_back(joint_velocity_pt);
-    // }
   }
 }
 
@@ -1334,46 +1063,6 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
         depth_per_link);
     std::set<collision_detection::CostSource> cost_sources =
         collision_result.cost_sources;
-
-    // // DISTANCE
-    // collision_detection::DistanceResult distance_result;
-    // collision_env->distanceRobot(distance_request, distance_result,
-    //                              robot_state);
-    // collision_detection::DistanceResultsData min_distance_data =
-    //     distance_result.minimum_distance;
-    // collision_detection::DistanceMap distance_map =
-    // distance_result.distances;
-
-    // auto distances1 =
-    //     distance_result.distances[std::pair<std::string, std::string>(
-    //         "panda_link5", "sphere_0")];
-
-    // for (auto dist_result : distances1) {
-    //   std::cout << "panda_link5 dist_result.distance: " <<
-    //   dist_result.distance
-    //             << std::endl;
-    // }
-
-    // auto distances2 =
-    //     distance_result.distances[std::pair<std::string, std::string>(
-    //         "panda_link6", "sphere_0")];
-
-    // for (auto dist_result : distances2) {
-    //   std::cout << "panda_link6 dist_result.distance: " <<
-    //   dist_result.distance
-    //             << std::endl;
-    // }
-
-    // if (min_distance_data.distance > 1000.0) {
-    //   continue;
-    // }
-
-    // ROS_INFO_NAMED(LOGNAME, "min_distance_data.distance: %f",
-    //                min_distance_data.distance);
-    // ROS_INFO_NAMED(LOGNAME, "min_distance_data.link_names[0]: %s",
-    //                min_distance_data.link_names[0].c_str());
-    // ROS_INFO_NAMED(LOGNAME, "min_distance_data.link_names[1]: %s",
-    //                min_distance_data.link_names[1].c_str());
   }
 
   ROS_INFO_NAMED(LOGNAME, "plan_analysis.total_contact_depth: %f",

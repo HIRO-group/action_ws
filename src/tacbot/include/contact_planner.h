@@ -81,12 +81,13 @@ class ContactPlanner {
   */
   void setCurToStartState(planning_interface::MotionPlanRequest& req);
 
-  /** \brief Create the moveit-based planning context given the specifications
-     of the input request. This request specifies things like the planner name,
-     the maximum planning time, certain limits, etc.
-      @param req The motion planning request.
-  */
-  void createPlanningContext(const moveit_msgs::MotionPlanRequest& req);
+  // /** \brief Create the moveit-based planning context given the
+  // specifications
+  //    of the input request. This request specifies things like the planner
+  //    name, the maximum planning time, certain limits, etc.
+  //     @param req The motion planning request.
+  // */
+  // void createPlanningContext(const moveit_msgs::MotionPlanRequest& req);
 
   /** \brief Changes the planner from the default one that is native to the
      moveit environment, such as RRT, to one that has been specifically created
@@ -104,14 +105,6 @@ class ContactPlanner {
      successfully accomplished.
   */
   bool generatePlan(planning_interface::MotionPlanResponse& res);
-
-  /** \brief Creates a sample end-effector goal state, in cartesian space, for
-     the robot to reach. Generally used to test the planner without having to
-     look at the member variables of the Constraints message.
-      @return moveit_msgs::Constraints The goal state and restrictions as
-     specified by the moveit message.
-  */
-  moveit_msgs::Constraints createPoseGoal();
 
   /** \brief Create a sample joint goal state, in joint space, for the robot to
     reach.
@@ -147,18 +140,6 @@ class ContactPlanner {
     @return Planning context.
   */
   ompl_interface::ModelBasedPlanningContextPtr getPlanningContext();
-
-  /** \brief Publishes the generated trajectory over a ros topic. This
-   * trajectory will get read by the controller to try and execute it.
-   */
-  void executeTrajectory();
-
-  /** \brief As the trajectory is executed, the controlled publishes to a topic
-   * which keeps track of which point on the trajectory gets executed, whether
-   * or not there are errors, and what's the current robot state.
-   * TrajExecutionMonitor.msg has been created for this purpose.
-   */
-  void monitorExecution();
 
   /** \brief Obtain the obstacles in the robot's surroundings. These could be
     simulated obstacles or obstacles from the ContactPerception class.
@@ -206,23 +187,6 @@ class ContactPlanner {
    * incremented.*/
   std::size_t sample_state_count_ = 0;
 
-  /** \brief Publishes the generated trajectory. The controller subscribes to
-   * this topic.*/
-  ros::Publisher trajectory_pub_;
-
-  /** \brief The planner subsribes to this topic to monitor whether there are
-   * any error during execution. If there are, then the planner needs to update
-   * its scene information.*/
-  ros::Subscriber execution_monitor_sub_;
-
-  /** \brief Mutex for the monitor_msg_.*/
-  std::mutex monitor_mtx_;
-
-  /** \brief Each time the executionMonitorCallback gets called, it writes to
-   * this member. The planner monitors this variable after execution, which is
-   * why we use a mutex for this member.*/
-  tacbot::TrajExecutionMonitor monitor_msg_;
-
   /** \brief Whether or not to use simulated obstacles or the ContactPerception
    * class to fill obstacles into the robot's planning scene.*/
   const bool use_sim_obstacles_ = true;
@@ -262,34 +226,6 @@ class ContactPlanner {
   ompl::base::OptimizationObjectivePtr optimization_objective_;
 
   std::vector<std::pair<Eigen::Vector3d, double>> spherical_obstacles_;
-
-  /** \brief Get the ompl interface for the robot. The interface is part of the
-    moveit infrastructure.
-    @param model The robot model
-    @param nh The ros nodehandle
-    @return OMPLInterface moveit class
-  */
-  std::unique_ptr<ompl_interface::OMPLInterface> getOMPLInterface(
-      const moveit::core::RobotModelConstPtr& model, const ros::NodeHandle& nh);
-
-  /** \brief Set the paramters of the planning context. The parameters include
-    things like whether or not to smooth the trajectory, the goal threshold, max
-    goal samples, etc.
-    @param context The planning context.
-  */
-  void setPlanningContextParams(
-      ompl_interface::ModelBasedPlanningContextPtr& context);
-
-  /** \brief Getter for the planner config parameters. We
-    extract these parameters from the pconfig_map argument if they exist.
-    @param pconfig_map The pconfig map.
-    @param planner_id The planner name for which to read the parameters. For
-    example, RRT.
-    @return PlannerConfigurationSettings The planner settings.
- */
-  planning_interface::PlannerConfigurationSettings getPlannerConfigSettings(
-      const planning_interface::PlannerConfigurationMap& pconfig_map,
-      const std::string& planner_id);
 
   /** \brief Generate a vector within a vector field of obstacles based on the
     robot state. Obstacles will generate a repulsive field and if the robot
@@ -366,19 +302,7 @@ class ContactPlanner {
   std::vector<Eigen::Vector3d> getLinkToObsVec(
       const std::vector<std::vector<Eigen::Vector3d>>& rob_pts);
 
-  /** \brief Callback function for the topic to which the controller advertises
-    its execution state.
-    @param msg The ros msg.
-  */
-  void executionMonitorCallback(const tacbot::TrajExecutionMonitor& msg);
-
-  /** \brief If the trajectory execution was not successful then update the
-   * environment. This function add new obstacles to the environment at the
-   * point where execution has been stopped. */
-  void updateObstacles();
-
   void addSphericalObstacle(const Eigen::Vector3d& center, double radius);
-  void addLineObstacle();
 
   bool linkNameToIdx(const std::string& link_name, std::size_t& idx);
 };
