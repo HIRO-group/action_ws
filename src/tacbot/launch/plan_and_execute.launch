@@ -18,7 +18,6 @@
   </include>
 
   <arg name="planning_plugin" value="ompl_interface/OMPLPlanner" />
-  <arg name="planning_adapters" default="default_planner_request_adapters/AddTimeParameterization"/>
 
   <param name="planning_plugin" value="$(arg planning_plugin)" />
   <param name="request_adapters" value="$(arg planning_adapters)" />
@@ -27,7 +26,7 @@
   <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
   <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
 
-  <node name="benchmark_planners" pkg="tacbot" type="benchmark_planners" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
+  <node name="plan_and_execute" pkg="tacbot" type="plan_and_execute" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
   </node>
 
 </launch>

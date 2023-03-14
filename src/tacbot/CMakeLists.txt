@@ -197,7 +197,6 @@ add_library(common STATIC src/common.cpp)
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(generate_contact_plan src/generate_contact_plan.cpp src/utilities.cpp)
 add_executable(publish_pc_bag src/publish_pc_bag.cpp)
 add_executable(broadcast_tf src/broadcast_tf.cpp)
 add_executable(plan_and_execute src/plan_and_execute.cpp src/utilities.cpp)
@@ -226,17 +225,10 @@ target_link_libraries(panda_interface PUBLIC ${catkin_LIBRARIES} ${Franka_LIBRAR
 target_link_libraries(publish_pc_bag ${catkin_LIBRARIES})
 target_link_libraries(broadcast_tf ${catkin_LIBRARIES})
 
-target_link_libraries(generate_contact_plan
-  ${catkin_LIBRARIES}
-  contact_planning
-  contact_perception
-  visualizer
-  panda_interface
-)
-
 target_link_libraries(plan_and_execute
   ${catkin_LIBRARIES}
   contact_planning
+  visualizer
 )
 
 #############
@@ -269,7 +261,6 @@ RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 
 install(
 TARGETS
-  generate_contact_plan
   publish_pc_bag
   broadcast_tf
   plan_and_execute

@@ -47,7 +47,6 @@
 #include "contact_perception.h"
 #include "manipulability_measures.h"
 #include "utilities.h"
-#include "visualizer.h"
 #include "visualizer_data.h"
 
 namespace tacbot {
@@ -149,6 +148,8 @@ class ContactPlanner {
     return psm_;
   }
 
+  std::shared_ptr<VisualizerData> getVisualizerData() { return vis_data_; }
+
   moveit::core::RobotModelPtr getRobotModel() { return robot_model_; }
 
   /** \brief Obtain the obstacles in the robot's surroundings. These could be
@@ -166,8 +167,6 @@ class ContactPlanner {
   void convertTraj(std::vector<std::array<double, 7>>& joint_waypoints,
                    std::vector<std::array<double, 7>>& joint_velocities);
 
-  moveit_msgs::MotionPlanResponse fast_plan_response_;
-
  private:
   ros::NodeHandle nh_;
 
@@ -182,11 +181,7 @@ class ContactPlanner {
   std::shared_ptr<ContactPerception> contact_perception_;
 
   /** \brief The class that's used to save information for visualization.*/
-  VisualizerData vis_data_;
-
-  /** \brief Class that uses the vis_data_ class to visualize data that's saved
-   * there.*/
-  friend class Visualizer;
+  std::shared_ptr<VisualizerData> vis_data_;
 
   /** \brief Number of degrees of freedom of the panda robot.*/
   const std::size_t dof_ = 7;

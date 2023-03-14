@@ -1,6 +1,7 @@
 #include "contact_planner.h"
 #include "my_moveit_context.h"
 #include "utilities.h"
+#include "visualizer.h"
 
 constexpr char LOGNAME[] = "generate_plan";
 
@@ -17,6 +18,9 @@ int main(int argc, char** argv) {
   std::shared_ptr<ContactPlanner> contact_planner =
       std::make_shared<ContactPlanner>();
   contact_planner->init();
+
+  std::shared_ptr<Visualizer> visualizer =
+      std::make_shared<Visualizer>(contact_planner->getVisualizerData());
 
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;

@@ -282,21 +282,21 @@ std::vector<Eigen::Vector3d> ContactPlanner::getObstacles(
     const Eigen::Vector3d& pt_on_rob) {
   std::vector<Eigen::Vector3d> obstacles;
   if (use_sim_obstacles_) {
-    vis_data_.saveObstaclePos(sim_obstacle_pos_, sample_state_count_);
+    vis_data_->saveObstaclePos(sim_obstacle_pos_, sample_state_count_);
     return sim_obstacle_pos_;
   }
 
   bool status = contact_perception_->extractNearPts(pt_on_rob, obstacles);
   if (status) {
-    vis_data_.saveObstaclePos(obstacles, sample_state_count_);
+    vis_data_->saveObstaclePos(obstacles, sample_state_count_);
     return obstacles;
   }
 
   // Store an empty obstacle vector when no obstacles have been found in
   // proximity. This ensures that the size of the stored obstacles in an array
   // are equal to the number of states that we considered.
-  vis_data_.saveObstaclePos(std::vector<Eigen::Vector3d>{},
-                            sample_state_count_);
+  vis_data_->saveObstaclePos(std::vector<Eigen::Vector3d>{},
+                             sample_state_count_);
 
   // This yields a zero repulsion vector and will mean no repulsion will be
   // applied by the vectors filed.
@@ -335,8 +335,8 @@ Eigen::VectorXd ContactPlanner::getRobtPtsVecDiffAvg(
       // std::cout << "sample_state_count_: " << sample_state_count_ <<
       // std::endl;
 
-      vis_data_.saveNearRandVec(near_pt_on_rob, nearrand_diff, pt_num,
-                                sample_state_count_);
+      vis_data_->saveNearRandVec(near_pt_on_rob, nearrand_diff, pt_num,
+                                 sample_state_count_);
 
       pt_num++;
     }
@@ -355,7 +355,7 @@ Eigen::VectorXd ContactPlanner::getRobtPtsVecDiffAvg(
 
     mean_per_link[i] = dot;
   }
-  vis_data_.saveNearRandDot(mean_per_link);
+  vis_data_->saveNearRandDot(mean_per_link);
   return mean_per_link;
 }
 
@@ -440,8 +440,8 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
       // std::cout << "stop_crit: " << stop_crit << std::endl;
       // std::cout << "pt_on_rob: " << pt_on_rob.transpose() << std::endl;
 
-      vis_data_.saveOriginVec(pt_on_rob, pt_to_obs_av, pt_num,
-                              sample_state_count_);
+      vis_data_->saveOriginVec(pt_on_rob, pt_to_obs_av, pt_num,
+                               sample_state_count_);
       pt_num++;
     }
     // std::cout << "pts_link_vec.rows(): " << pts_link_vec.rows() << std::endl;
@@ -454,7 +454,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
 
     link_to_obs_vec[i] = link_to_obs_avg;
   }
-  vis_data_.saveAvgRepulseVec(link_to_obs_vec);
+  vis_data_->saveAvgRepulseVec(link_to_obs_vec);
 
   return link_to_obs_vec;
 }
@@ -471,7 +471,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldTaskSpace(
 
   std::vector<std::vector<Eigen::Vector3d>> rob_pts;
   std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
-  vis_data_.setTotalNumRepulsePts(num_pts);
+  vis_data_->setTotalNumRepulsePts(num_pts);
   std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(rob_pts);
   Eigen::VectorXd field_out = Eigen::VectorXd::Zero(dof_);
   for (std::size_t i = 0; i < dof_; i++) {
@@ -496,7 +496,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldCartesian(
   std::vector<std::vector<Eigen::Vector3d>> near_rob_pts;
   std::size_t num_pts = getPtsOnRobotSurface(robot_state1, near_rob_pts);
 
-  vis_data_.setTotalNumRepulsePts(num_pts);
+  vis_data_->setTotalNumRepulsePts(num_pts);
   // std::cout << "num pts from near state: " << num_pts << std::endl;
   std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(near_rob_pts);
   // std::cout << "link_to_obs_vec.size(): " << link_to_obs_vec.size()
@@ -516,7 +516,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldCartesian(
   Eigen::VectorXd vfield =
       getRobtPtsVecDiffAvg(near_rob_pts, rand_rob_pts, link_to_obs_vec);
 
-  vis_data_.saveRepulseAngles(joint_angles1, joint_angles2);
+  vis_data_->saveRepulseAngles(joint_angles1, joint_angles2);
   sample_state_count_++;
   return vfield;
 }
@@ -535,7 +535,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
   std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
   // std::cout << "getPtsOnRobotSurface num_pts: " << num_pts << std::endl;
 
-  vis_data_.setTotalNumRepulsePts(num_pts);
+  vis_data_->setTotalNumRepulsePts(num_pts);
   std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(rob_pts);
 
   Eigen::MatrixXd jacobian = robot_state->getJacobian(joint_model_group_);
@@ -620,7 +620,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldConfigSpace(
   // d_q_out.normalize();
 
   // manipulability_.emplace_back(manip_per_joint);
-  vis_data_.saveRepulseAngles(joint_angles, d_q_out);
+  vis_data_->saveRepulseAngles(joint_angles, d_q_out);
   sample_state_count_++;
   // std::cout << "d_q_out.norm():\n " << d_q_out.norm() << std::endl;
   // std::cout << "d_q_out:\n " << d_q_out.transpose() << std::endl;
@@ -768,10 +768,8 @@ bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
   }
 
   if (is_solved && res.trajectory_) {
-    res.getMessage(fast_plan_response_);
-
     trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
-        0.05, 0.01, 0.01);  // 0.001 for real execution
+        0.05, 0.001, 0.01);  // 0.001 for real execution
 
     moveit::core::RobotStatePtr first_prt =
         res.trajectory_->getFirstWayPointPtr();
@@ -855,6 +853,9 @@ void ContactPlanner::init() {
   contact_perception_->init();
 
   extractPtsFromGoalState();
+
+  std::shared_ptr<VisualizerData> vis_data_ =
+      std::make_shared<VisualizerData>();
 }
 
 std::string ContactPlanner::getGroupName() { return group_name_; }
@@ -949,7 +950,7 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
         robot_state.getGlobalLinkTransform("panda_link8");
     Eigen::Vector3d tip_pos{tip_tf.translation().x(), tip_tf.translation().y(),
                             tip_tf.translation().z()};
-    vis_data_.ee_path_pts_.emplace_back(tip_pos);
+    vis_data_->ee_path_pts_.emplace_back(tip_pos);
 
     if (pt_idx > 0) {
       double dist_travelled = robot_state.distance(prev_robot_state);

@@ -2,11 +2,8 @@
 #define TACBOT_VISUALIZER_H
 
 // ROS
-#include <moveit/planning_interface/planning_interface.h>
 #include <ros/ros.h>
 
-#include "contact_planner.h"
-#include "manipulability_measures.h"
 #include "utilities.h"
 #include "visualizer_data.h"
 
@@ -24,30 +21,13 @@ class Visualizer {
  public:
   /** \brief Constructor, initializes the publishers.
    */
-  Visualizer();
-
-  /** \brief Setter for the contact planner class. This planner will be used
-     retrieve visualizer data and other data elements used to publish data for
-     rviz.
-      @param contact_planner The contact planner class.
-  */
-  void setContactPlanner(
-      const std::shared_ptr<ContactPlanner>& contact_planner);
-
-  /** \brief Visualize a manipulability vector.
-      @param state_num The index of the vector within an array that will be
-     visualized. The index refers to a robot state from which the information
-     was derived in real time during the contact planning phase.
-  */
-  void visualizeManipVec(std::size_t state_num);
+  Visualizer(const std::shared_ptr<VisualizerData>& vis_data);
 
   /** \brief Visualize a repulsive vector which is applied by the obstacles to
      the robot.
       @param state_num The index number of the vector within an array.
   */
   void visualizeRepulseVec(std::size_t state_num);
-
-  void visualizeAvgRepulseVec(std::size_t state_num);
 
   void visualizeNearRandVec(std::size_t state_num);
 
@@ -67,41 +47,21 @@ class Visualizer {
    * visualize everything that has to do with the repulsion mechanism of the
    * contact planner.
    */
-  void visualizeRepulsedState();
-
-  // /** \brief Visualize all the robot joint states that are sampled by a
-  // planner.
-  //  * Depending on the number of states, this visualization can quickly
-  //  overwhelm
-  //  * rviz and should be used sparingly.
-  //  */
-  // void visualizeTreeStates();
+  void visualizeRepulsedState(const std::vector<std::string>& names);
 
   /** \brief Visualize the goal state to which the planner wants the robot to go
      to. This should be the final state in the robot's trajectory.
   */
-  void visualizeGoalState();
-
-  /** \brief Visualize the robot's trajectory.
-      @param res The motion plan response holding the trajectory points.
-      @param name The name of the trajectory, this will be the drop-down name in
-     rviz that you can click on to see this trajectory.
-  */
-  void visualizeTrajectory(const planning_interface::MotionPlanResponse& res,
-                           std::string name);
+  void visualizeGoalState(const std::vector<std::string>& names,
+                          const std::vector<double>& joint_goal_pos);
 
   /** \brief Visualize two robot states.
       @param joint_angles1 The robot's joint angles in the first state.
       @param joint_angles1 The robot's joint angles in the second state.
   */
-  void visualizeTwoStates(std::vector<double> joint_angles1,
+  void visualizeTwoStates(const std::vector<std::string>& names,
+                          std::vector<double> joint_angles1,
                           std::vector<double> joint_angles2);
-
-  // /** \brief Visualize vertices consecutively for all robot states and
-  // display
-  //    their cost.
-  // */
-  // void visualizeVertices();
 
   void visualizeTrajectory(
       const moveit_msgs::MotionPlanResponse& resp_final_traj, std::string name);
@@ -125,18 +85,10 @@ class Visualizer {
 
   ros::Publisher nearrand_pub_;
 
-  ros::Publisher arrow_avg_pub_;
-
   ros::Publisher ee_path_pub_;
-
-  /** \brief Publisher for the manipulability of the robot at each link. */
-  ros::Publisher manipulability_pub_;
 
   /** \brief Publisher for the repulsed robot states. */
   ros::Publisher rep_state_publisher_;
-
-  /** \brief Publisher for all the robot states sampled by the planner. */
-  ros::Publisher tree_states_publisher_;
 
   /** \brief Publisher for the final goal state of the robot's trajectory. */
   ros::Publisher goal_state_publisher_;
@@ -153,9 +105,7 @@ class Visualizer {
    * specific vector within an array. */
   std::size_t viz_state_idx_ = 0;
 
-  // /** \brief The contact planner from which the VisualizerData will be
-  //  * extracted.*/
-  // std::shared_ptr<ContactPlanner> contact_planner_;
+  std::shared_ptr<VisualizerData> vis_data_;
 };
 }  // namespace tacbot
 

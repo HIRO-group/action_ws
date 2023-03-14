@@ -53,9 +53,9 @@ int main(int argc, char** argv) {
 
   // Eigen::Vector3d origin(0, 0, 0);
   // visualizer->visualizeObstacleMarker(contact_planner->getObstacles(origin));
-  visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
-  visualizer->setContactPlanner(contact_planner);
-  visualizer->visualizeGoalState();
+  // visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
+  // visualizer->setContactPlanner(contact_planner);
+  // visualizer->visualizeGoalState();
 
   contact_planner->changePlanner(PLANNER_NAME, OBJECTIVE_NAME);
   contact_planner->generatePlan(res);
@@ -68,24 +68,24 @@ int main(int argc, char** argv) {
   BenchMarkData benchmark_data;
   contact_planner->analyzePlanResponse(benchmark_data);
 
-  ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
-  visualizer->visualizeRepulsedState();
+  // ROS_INFO_NAMED(LOGNAME, "Visualizing repulsed states.");
+  // visualizer->visualizeRepulsedState();
 
   // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
   // visualizer->visualizeTreeStates();
   // utilities::promptAnyInput();
 
-  if (res.error_code_.val == res.error_code_.SUCCESS) {
-    ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
-    std::cout << "num pts: "
-              << contact_planner->fast_plan_response_.trajectory
-                     .joint_trajectory.points.size()
-              << std::endl;
-    visualizer->visualizeTrajectory(contact_planner->fast_plan_response_,
-                                    "planned_path");
-    visualizer->visualizeEEPath();
-    utilities::promptAnyInput();
-  }
+  // if (res.error_code_.val == res.error_code_.SUCCESS) {
+  //   ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
+  //   std::cout << "num pts: "
+  //             << contact_planner->fast_plan_response_.trajectory
+  //                    .joint_trajectory.points.size()
+  //             << std::endl;
+  //   visualizer->visualizeTrajectory(contact_planner->fast_plan_response_,
+  //                                   "planned_path");
+  //   visualizer->visualizeEEPath();
+  //   utilities::promptAnyInput();
+  // }
 
   // if (res.error_code_.val == res.error_code_.SUCCESS) {
   //   ROS_INFO_NAMED(LOGNAME, "Checking for collisions on path.");
