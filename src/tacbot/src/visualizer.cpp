@@ -360,8 +360,6 @@ void Visualizer::visualizeGoalState(const std::vector<std::string>& names,
   moveit_msgs::MotionPlanResponse response;
 
   sensor_msgs::JointState joint_start_state;
-  // std::vector<std::string> names =
-  //     contact_planner_->joint_model_group_->getActiveJointModelNames();
 
   std::size_t num_joints = names.size();
   std::vector<double> joint_angles = joint_goal_pos;

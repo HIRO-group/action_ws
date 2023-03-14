@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
   std::shared_ptr<ContactPlanner> contact_planner =
       std::make_shared<ContactPlanner>();
   contact_planner->init();
-  // utilities::promptAnyInput();
+  // utilities::promptUserInput();
 
   std::shared_ptr<Visualizer> visualizer = std::make_shared<Visualizer>();
 
@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
   // correct
   // Eigen::Vector3d vec(0, 0, 0);
   // visualizer->visualizeObstacleMarker(contact_planner->getObstacles(vec));
-  // utilities::promptAnyInput();
+  // utilities::promptUserInput();
 
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
 
   // ROS_INFO_NAMED(LOGNAME, "Visualizing all states in the tree.");
   // visualizer->visualizeTreeStates();
-  // utilities::promptAnyInput();
+  // utilities::promptUserInput();
 
   // if (res.error_code_.val == res.error_code_.SUCCESS) {
   //   ROS_INFO_NAMED(LOGNAME, "Visualizing trajectory.");
@@ -84,13 +84,13 @@ int main(int argc, char** argv) {
   //   visualizer->visualizeTrajectory(contact_planner->fast_plan_response_,
   //                                   "planned_path");
   //   visualizer->visualizeEEPath();
-  //   utilities::promptAnyInput();
+  //   utilities::promptUserInput();
   // }
 
   // if (res.error_code_.val == res.error_code_.SUCCESS) {
   //   ROS_INFO_NAMED(LOGNAME, "Checking for collisions on path.");
   //   contact_planner->runCollisionDetection();
-  //   utilities::promptAnyInput();
+  //   utilities::promptUserInput();
   // }
 
   // if (res.error_code_.val == res.error_code_.SUCCESS) {
@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
   //   contact_planner->monitorExecution();
   //   visualizer->visualizeObstacleMarker(contact_planner->getSimObstaclePos());
 
-  //   utilities::promptAnyInput();
+  //   utilities::promptUserInput();
   // }
 
   return 0;

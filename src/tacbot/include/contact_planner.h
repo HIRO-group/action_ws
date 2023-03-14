@@ -79,14 +79,6 @@ class ContactPlanner {
   */
   void setCurToStartState(planning_interface::MotionPlanRequest& req);
 
-  // /** \brief Create the moveit-based planning context given the
-  // specifications
-  //    of the input request. This request specifies things like the planner
-  //    name, the maximum planning time, certain limits, etc.
-  //     @param req The motion planning request.
-  // */
-  // void createPlanningContext(const moveit_msgs::MotionPlanRequest& req);
-
   /** \brief Changes the planner from the default one that is native to the
      moveit environment, such as RRT, to one that has been specifically created
      for the contact motion planning library, such as ContactTRRT.
@@ -125,15 +117,6 @@ class ContactPlanner {
   */
   std::vector<Eigen::Vector3d> getSimObstaclePos();
 
-  /** \brief Get the planner that is set into the context at class
-    initialization. This will be RRT or some other default class that is native
-    to the moveit envrionment. This class will be used for planner generation
-    unless changePlanner is called.
-    @return string of the planner name. refer to ompl_planning.yaml for a full
-    list of available planner.
-  */
-  std::string getPlannerId();
-
   /** \brief Getter for the moveit plannning context.
     @return Planning context.
   */
@@ -147,6 +130,12 @@ class ContactPlanner {
   planning_scene_monitor::PlanningSceneMonitorPtr getPlanningSceneMonitor() {
     return psm_;
   }
+
+  std::vector<std::string> getJointNames() {
+    return joint_model_group_->getActiveJointModelNames();
+  }
+
+  std::vector<double> getJointGoalPos() { return joint_goal_pos_; }
 
   std::shared_ptr<VisualizerData> getVisualizerData() { return vis_data_; }
 

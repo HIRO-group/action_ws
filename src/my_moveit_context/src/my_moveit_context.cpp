@@ -135,3 +135,5 @@ MyMoveitContext::getPlannerConfigSettings(
   }
   return pc->second;
 }
+
+std::string MyMoveitContext::getPlannerId() { return planner_id_; }

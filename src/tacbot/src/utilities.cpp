@@ -6,10 +6,17 @@ constexpr char LOGNAME[] = "utilites";
 
 namespace tacbot {
 namespace utilities {
-void promptAnyInput() {
+bool promptUserInput() {
+  // std::cin.clear();
+  // std::cin.ignore(100, '\n');
+  std::cout << "Press any key to continue or q to quit ... " << std::endl;
   std::string user_input = " ";
-  std::cout << "Press any key to continue..." << std::endl;
   std::cin >> user_input;
+  if (user_input == "q") {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 void pseudoInverse(const Eigen::MatrixXd& M_, Eigen::MatrixXd& M_pinv_,

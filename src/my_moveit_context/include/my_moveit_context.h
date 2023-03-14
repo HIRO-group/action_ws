@@ -18,6 +18,15 @@ class MyMoveitContext {
 
   ompl_interface::ModelBasedPlanningContextPtr getPlanningContext();
 
+  /** \brief Get the planner that is set into the context at class
+    initialization. This will be RRT or some other default class that is native
+    to the moveit envrionment. This class will be used for planner generation
+    unless changePlanner is called.
+    @return string of the planner name. refer to ompl_planning.yaml for a full
+    list of available planner.
+  */
+  std::string getPlannerId();
+
  private:
   ros::NodeHandle nh_;
 

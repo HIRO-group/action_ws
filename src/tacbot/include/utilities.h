@@ -45,8 +45,9 @@ namespace utilities {
 */
 
 /** \brief Waits for the user to press a key + Enter to continue the process.
+ * @return Whether the use wants to continue (true) or quit (false).
  */
-void promptAnyInput();
+bool promptUserInput();
 
 /** \brief Calculate the pseudo inverse of a matrix. Taken from the franka_ros
   package.

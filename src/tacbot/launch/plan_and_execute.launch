@@ -13,11 +13,21 @@
 
   <env name="ROSCONSOLE_CONFIG_FILE" value="$(find tacbot)/config/rosconsole.conf"/>
 
+  <!-- Broadcast static tf for world cand camera frame-->
+  <node pkg="tacbot" type="broadcast_tf" name="broadcast_tf" output="screen"/>
+
+  <!-- Play the rosbag that contains the pointcloud data -->
+  <!-- <node pkg="tacbot" type="publish_pc_bag" name="publish_pc_bag" output="screen"/> -->
+
+  <!-- Params for 3D sensors config -->
+  <!-- <rosparam command="load" file="$(find tacbot)/config/sensors_3d.yaml" /> -->
+
   <include file="$(find panda_moveit_config)/launch/planning_context.launch">
     <arg name="load_robot_description" value="true"/>
   </include>
 
   <arg name="planning_plugin" value="ompl_interface/OMPLPlanner" />
+  <arg name="planning_adapters" default="default_planner_request_adapters/AddTimeParameterization"/>
 
   <param name="planning_plugin" value="$(arg planning_plugin)" />
   <param name="request_adapters" value="$(arg planning_adapters)" />

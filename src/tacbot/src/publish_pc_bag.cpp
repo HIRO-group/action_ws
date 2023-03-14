@@ -11,17 +11,17 @@ int main(int argc, char** argv) {
   ros::AsyncSpinner spinner(1);
   spinner.start();
 
-  ros::Publisher point_cloud_publisher = nh.advertise<sensor_msgs::PointCloud2>(
-      "/camera/depth_registered/points", 2, true);
+  ros::Publisher point_cloud_publisher =
+      nh.advertise<sensor_msgs::PointCloud2>("/cloud", 100, true);
 
   // Variable holding the rosbag containing point cloud data.
   rosbag::Bag bagfile;
   std::string path = ros::package::getPath("tacbot");
-  path += "/bags/example.bag";
+  path += "/bags/reprocessed_best.bag";
   bagfile.open(path, rosbag::bagmode::Read);
 
   std::vector<std::string> topics;
-  topics.push_back("/camera/depth_registered/points");
+  topics.push_back("/cloud");
 
   // Iterator for topics in bag.
   rosbag::View bag(bagfile, rosbag::TopicQuery(topics));

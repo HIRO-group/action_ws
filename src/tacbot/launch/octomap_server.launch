@@ -9,10 +9,10 @@
 
     <!-- maximum range to integrate (speedup!) -->
     <param name="sensor_model/max_range" value="5.0"/>
-    <param name="base_frame_id " value="camera_rgb_optical_frame" type="str"/>
+    <param name="base_frame_id " value="odom" type="str"/>
 
     <!-- data source to integrate (PointCloud2) -->
-    <remap from="cloud_in" to="/camera/depth_registered/points"/>
+    <remap from="cloud_in" to="/cloud"/>
 
   </node>
 

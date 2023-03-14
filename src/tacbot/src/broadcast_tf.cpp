@@ -10,7 +10,7 @@ geometry_msgs::TransformStamped createCamTf() {
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "panda_link0";
   transformStamped.child_frame_id =
-      "camera_rgb_optical_frame";  // oak_undist_rgb_cam_frame
+      "odom";  // oak_undist_rgb_cam_frame, camera_rgb_optical_frame
   transformStamped.transform.translation.x = -0.3;
   transformStamped.transform.translation.y = -0.20;
   transformStamped.transform.translation.z = 0.6;
@@ -29,7 +29,7 @@ geometry_msgs::TransformStamped createCamTf() {
   // transformStamped.transform.rotation.y = -0.438683;
   // transformStamped.transform.rotation.z = 0.133163;
   // transformStamped.transform.rotation.w = -0.379578;
-  return transformStamped;
+  // return transformStamped;
 }
 
 geometry_msgs::TransformStamped createWorldTf() {

@@ -18,7 +18,7 @@ const std::vector<double> joint_goal_pos_ = {-1.0, 0.7, 0.7, -1.0,
                                              -0.7, 2.0, 0.0};
 const std::string group_name_ = "panda_arm";
 
-void promptAnyInput() {
+void promptUserInput() {
   std::string user_input = " ";
   std::cout << "Press any key to continue..." << std::endl;
   std::cin >> user_input;
@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
 
   // insert code here
 
-  promptAnyInput();
+  promptUserInput();
 
   std::cout << "Finished!" << std::endl;
 

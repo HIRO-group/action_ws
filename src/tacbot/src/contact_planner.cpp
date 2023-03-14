@@ -106,8 +106,6 @@ void ContactPlanner::setCurToStartState(
   req.start_state.joint_state.effort = start_joint_values;
 }
 
-std::string ContactPlanner::getPlannerId() { return planner_id_; }
-
 moveit_msgs::Constraints ContactPlanner::createJointGoal() {
   moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
       planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
@@ -769,7 +767,7 @@ bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
 
   if (is_solved && res.trajectory_) {
     trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
-        0.05, 0.001, 0.01);  // 0.001 for real execution
+        0.05, 0.1, 0.01);  // 0.001 for real execution
 
     moveit::core::RobotStatePtr first_prt =
         res.trajectory_->getFirstWayPointPtr();

@@ -50,20 +50,13 @@ catkin build
 ## Refactoring todo list
 
 ### Part 1
-- Create MyMoveitConext library
-- Integrate this library into contact planning
-- Make this package a separate github repository
-- Make the package a submodule of action_ws
-
-### Part 2
-- Remove dependency of the visualization from contact planning
-- Repeat as above, make a separate package and submodule
-
-### Part 3
 - Create YAML file for planning, execution, and perception parameters
 
-### Part 4
+### Part 2
 - Refactor robot execution to a different class
 
-### Part 5
+### Part 3
 - Refactor scripts
+
+### Part 4
+- perception refactor
