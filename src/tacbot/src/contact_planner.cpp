@@ -1,11 +1,8 @@
 #include "contact_planner.h"
 
-#include <franka_msgs/FrankaState.h>
 #include <math.h>
 #include <moveit/collision_detection_bullet/collision_detector_allocator_bullet.h>
 #include <moveit/collision_detection_fcl/collision_common.h>
-#include <moveit/trajectory_processing/iterative_spline_parameterization.h>
-#include <moveit/trajectory_processing/iterative_time_parameterization.h>
 #include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
 
 #include <chrono>
@@ -715,18 +712,10 @@ void ContactPlanner::changePlanner(std::string planner_name,
             si, vFieldFunc);
   } else {
     ROS_ERROR_NAMED(LOGNAME, "Invalid optimization objective.");
-    ROS_INFO_NAMED(LOGNAME,
-                   "Default: Using UpstreamCost optimization objective.");
-    vFieldFunc = std::bind(&ContactPlanner::obstacleFieldConfigSpace, this,
-                           std::placeholders::_1);
-    optimization_objective_ =
-        std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
-            si, vFieldFunc);
   }
 
   optimization_objective_->setCostToGoHeuristic(
       &ompl::base::goalRegionCostToGo);
-
   simple_setup->setOptimizationObjective(optimization_objective_);
 
   ompl::base::PlannerPtr planner;
@@ -762,6 +751,8 @@ void ContactPlanner::changePlanner(std::string planner_name,
     planner = std::make_shared<ompl::geometric::VFRRT>(
         simple_setup->getSpaceInformation(), vFieldFunc, exploration,
         initial_lambda, update_freq);
+  } else {
+    ROS_ERROR_NAMED(LOGNAME, "Invalid planner.");
   }
 
   simple_setup->setPlanner(planner);
@@ -778,10 +769,7 @@ bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
 
   if (is_solved && res.trajectory_) {
     res.getMessage(fast_plan_response_);
-    // trajectory_processing::IterativeParabolicTimeParameterization
-    // time_param_(
-    //     100, 10.0);
-    // trajectory_processing::IterativeSplineParameterization time_param_(true);
+
     trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
         0.05, 0.01, 0.01);  // 0.001 for real execution
 
@@ -874,46 +862,6 @@ std::string ContactPlanner::getGroupName() { return group_name_; }
 std::vector<Eigen::Vector3d> ContactPlanner::getSimObstaclePos() {
   return sim_obstacle_pos_;
 };
-
-void ContactPlanner::convertTraj(
-    std::vector<std::array<double, 7>>& joint_waypoints,
-    std::vector<std::array<double, 7>>& joint_velocities) {
-  moveit_msgs::MotionPlanResponse msg;
-  plan_response_.getMessage(msg);
-  std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
-
-  for (std::size_t pt_idx = 1; pt_idx < num_pts; pt_idx++) {
-    ROS_INFO_NAMED(LOGNAME, "Converting trajectory point number: %ld", pt_idx);
-    trajectory_msgs::JointTrajectoryPoint point =
-        msg.trajectory.joint_trajectory.points[pt_idx];
-    std::array<double, 7> joint_angles;
-    std::array<double, 7> joint_velocity_pt;
-
-    for (std::size_t jnt_idx = 0; jnt_idx < dof_; jnt_idx++) {
-      joint_angles[jnt_idx] = point.positions[jnt_idx];
-      joint_velocity_pt[jnt_idx] = point.velocities[jnt_idx];
-      ROS_INFO_NAMED(LOGNAME, "Velocity: %f", point.velocities[jnt_idx]);
-    }
-    joint_waypoints.emplace_back(joint_angles);
-    joint_velocities.emplace_back(joint_velocity_pt);
-
-    ROS_INFO_NAMED(LOGNAME, "time_from_start: %f",
-                   point.time_from_start.toSec());
-
-    trajectory_msgs::JointTrajectoryPoint point_a =
-        msg.trajectory.joint_trajectory.points[pt_idx - 1];
-
-    trajectory_msgs::JointTrajectoryPoint point_b =
-        msg.trajectory.joint_trajectory.points[pt_idx];
-
-    double time_a = point_a.time_from_start.toSec();
-    double time_b = point_b.time_from_start.toSec();
-
-    double time_diff = time_b - time_a;
-
-    ROS_INFO_NAMED(LOGNAME, "time_diff: %f", time_diff);
-  }
-}
 
 void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
   for (auto sphere : spherical_obstacles_) {

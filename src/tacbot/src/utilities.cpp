@@ -223,5 +223,43 @@ moveit_msgs::Constraints createPoseGoal() {
   return pose_goal;
 }
 
+void toControlTrajectory(const moveit_msgs::MotionPlanResponse& msg,
+                         std::vector<std::array<double, 7>>& joint_waypoints,
+                         std::vector<std::array<double, 7>>& joint_velocities) {
+  std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
+
+  for (std::size_t pt_idx = 1; pt_idx < num_pts; pt_idx++) {
+    ROS_INFO_NAMED(LOGNAME, "Converting trajectory point number: %ld", pt_idx);
+    trajectory_msgs::JointTrajectoryPoint point =
+        msg.trajectory.joint_trajectory.points[pt_idx];
+    std::array<double, 7> joint_angles;
+    std::array<double, 7> joint_velocity_pt;
+
+    for (std::size_t jnt_idx = 0; jnt_idx < 7; jnt_idx++) {
+      joint_angles[jnt_idx] = point.positions[jnt_idx];
+      joint_velocity_pt[jnt_idx] = point.velocities[jnt_idx];
+      ROS_INFO_NAMED(LOGNAME, "Velocity: %f", point.velocities[jnt_idx]);
+    }
+    joint_waypoints.emplace_back(joint_angles);
+    joint_velocities.emplace_back(joint_velocity_pt);
+
+    ROS_INFO_NAMED(LOGNAME, "time_from_start: %f",
+                   point.time_from_start.toSec());
+
+    trajectory_msgs::JointTrajectoryPoint point_a =
+        msg.trajectory.joint_trajectory.points[pt_idx - 1];
+
+    trajectory_msgs::JointTrajectoryPoint point_b =
+        msg.trajectory.joint_trajectory.points[pt_idx];
+
+    double time_a = point_a.time_from_start.toSec();
+    double time_b = point_b.time_from_start.toSec();
+
+    double time_diff = time_b - time_a;
+
+    ROS_INFO_NAMED(LOGNAME, "time_diff: %f", time_diff);
+  }
+}
+
 }  // namespace utilities
 }  // namespace tacbot

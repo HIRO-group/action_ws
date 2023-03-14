@@ -34,7 +34,7 @@ ruckig::Ruckig<5> ruckig_5(0.001);
 ruckig::Ruckig<6> ruckig_6(0.001);
 ruckig::Ruckig<7> ruckig_7(0.001);
 
-void PandaInterface::initRobot() {
+void PandaInterface::init() {
   std::cout << "Initializing Controller!" << std::endl;
   robot_ = std::make_shared<franka::Robot>(franka_address_);
   robot_->setCollisionBehavior({{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},

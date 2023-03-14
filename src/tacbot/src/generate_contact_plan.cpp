@@ -105,31 +105,17 @@ int main(int argc, char** argv) {
   return 0;
 
   PandaInterface panda_interface;
-  panda_interface.initRobot();
+  panda_interface.init();
   panda_interface.move_to_default_pose(panda_interface.robot_.get());
-  franka::RobotState start_state = panda_interface.robot_.get()->readOnce();
-  std::array<double, 16> position_d_s(start_state.O_T_EE);
-  // Eigen::Quaterniond orientation_d(robot_state.rotation());
 
+  moveit_msgs::MotionPlanResponse traj_msg;
+  res.getMessage(traj_msg);
   std::vector<std::array<double, 7>> joint_waypoints;
   std::vector<std::array<double, 7>> joint_velocities;
-  contact_planner->convertTraj(joint_waypoints, joint_velocities);
+  utilities::toControlTrajectory(traj_msg, joint_waypoints, joint_velocities);
 
-  // panda_interface.follow_joint_waypoints(panda_interface.robot_.get(),
-  //                                        joint_waypoints, 0.3);
   panda_interface.follow_joint_velocities(panda_interface.robot_.get(),
                                           joint_velocities);
-
-  franka::RobotState robot_state = panda_interface.robot_.get()->readOnce();
-  Eigen::Affine3d initial_transform(
-      Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
-  std::array<double, 7> robot_q = robot_state.q;
-  Eigen::Vector3d position_d(initial_transform.translation());
-  Eigen::Quaterniond orientation_d(initial_transform.rotation());
-  std::cout << "joint positions\n" << std::endl;
-  for (int i = 0; i < 7; i++) {
-    std::cout << robot_q[i] << std::endl;
-  }
 
   std::cout << "Finished!" << std::endl;
 

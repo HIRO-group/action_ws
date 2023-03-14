@@ -11,7 +11,11 @@
 
 class MyMoveitContext {
  public:
+  MyMoveitContext(const planning_scene_monitor::PlanningSceneMonitorPtr& psm,
+                  const moveit::core::RobotModelPtr& robot_model);
+
   void createPlanningContext(const moveit_msgs::MotionPlanRequest& req);
+
   ompl_interface::ModelBasedPlanningContextPtr getPlanningContext();
 
  private:
@@ -21,7 +25,7 @@ class MyMoveitContext {
   const std::string group_name_ = "panda_arm";
 
   /** \brief Default planner set to the planning context.*/
-  std::string planner_id_ = "panda_arm[RRT]";
+  std::string planner_id_ = "panda_arm[RRTConnect]";
 
   planning_scene_monitor::PlanningSceneMonitorPtr psm_;
 

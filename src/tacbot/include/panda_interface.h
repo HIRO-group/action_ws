@@ -41,7 +41,7 @@ class PandaInterface {
   std::shared_ptr<franka::Model> robot_model_;
   std::string franka_address_ = "192.168.0.2";
 
-  void initRobot();
+  void init();
 
   std::array<double, 7> fk(std::array<double, 7> q);
   successJointAngles ik(std::array<double, 7> ee_pose, KDL::Tree tree);

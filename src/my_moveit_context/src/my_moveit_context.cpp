@@ -2,6 +2,11 @@
 
 constexpr char LOGNAME[] = "my_moveit_context";
 
+MyMoveitContext::MyMoveitContext(
+    const planning_scene_monitor::PlanningSceneMonitorPtr& psm,
+    const moveit::core::RobotModelPtr& robot_model)
+    : psm_(psm), robot_model_(robot_model) {}
+
 void MyMoveitContext::createPlanningContext(
     const moveit_msgs::MotionPlanRequest& req) {
   planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
@@ -88,8 +93,8 @@ void MyMoveitContext::setPlanningContextParams(
   unsigned int max_planning_threads_ = 4;
   double max_solution_segment_length_ = 0.0;
   unsigned int minimum_waypoint_count_ = 30;
-  double goal_threshold_ = 0.1;
-  bool simplify_solution_ = false;
+  double goal_threshold_ = 0.01;
+  bool simplify_solution_ = true;
   bool interpolate_ = true;
   bool hybridize_ = false;
 

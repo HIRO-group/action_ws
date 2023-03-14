@@ -69,11 +69,13 @@ class Visualizer {
    */
   void visualizeRepulsedState();
 
-  /** \brief Visualize all the robot joint states that are sampled by a planner.
-   * Depending on the number of states, this visualization can quickly overwhelm
-   * rviz and should be used sparingly.
-   */
-  void visualizeTreeStates();
+  // /** \brief Visualize all the robot joint states that are sampled by a
+  // planner.
+  //  * Depending on the number of states, this visualization can quickly
+  //  overwhelm
+  //  * rviz and should be used sparingly.
+  //  */
+  // void visualizeTreeStates();
 
   /** \brief Visualize the goal state to which the planner wants the robot to go
      to. This should be the final state in the robot's trajectory.
@@ -95,10 +97,11 @@ class Visualizer {
   void visualizeTwoStates(std::vector<double> joint_angles1,
                           std::vector<double> joint_angles2);
 
-  /** \brief Visualize vertices consecutively for all robot states and display
-     their cost.
-  */
-  void visualizeVertices();
+  // /** \brief Visualize vertices consecutively for all robot states and
+  // display
+  //    their cost.
+  // */
+  // void visualizeVertices();
 
   void visualizeTrajectory(
       const moveit_msgs::MotionPlanResponse& resp_final_traj, std::string name);
@@ -150,9 +153,9 @@ class Visualizer {
    * specific vector within an array. */
   std::size_t viz_state_idx_ = 0;
 
-  /** \brief The contact planner from which the VisualizerData will be
-   * extracted.*/
-  std::shared_ptr<ContactPlanner> contact_planner_;
+  // /** \brief The contact planner from which the VisualizerData will be
+  //  * extracted.*/
+  // std::shared_ptr<ContactPlanner> contact_planner_;
 };
 }  // namespace tacbot
 

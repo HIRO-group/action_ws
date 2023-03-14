@@ -46,7 +46,6 @@
 // Local libraries, helper functions, and utilities
 #include "contact_perception.h"
 #include "manipulability_measures.h"
-#include "tacbot/TrajExecutionMonitor.h"
 #include "utilities.h"
 #include "visualizer.h"
 #include "visualizer_data.h"
@@ -141,6 +140,17 @@ class ContactPlanner {
   */
   ompl_interface::ModelBasedPlanningContextPtr getPlanningContext();
 
+  void setPlanningContext(
+      const ompl_interface::ModelBasedPlanningContextPtr& context) {
+    context_ = context;
+  }
+
+  planning_scene_monitor::PlanningSceneMonitorPtr getPlanningSceneMonitor() {
+    return psm_;
+  }
+
+  moveit::core::RobotModelPtr getRobotModel() { return robot_model_; }
+
   /** \brief Obtain the obstacles in the robot's surroundings. These could be
     simulated obstacles or obstacles from the ContactPerception class.
     @param pt_on_rob If we are not using simulated obstacles then this point is
@@ -200,6 +210,7 @@ class ContactPlanner {
   std::vector<double> joint_goal_pos_;
   std::vector<std::vector<Eigen::Vector3d>> goal_rob_pts_;
   void extractPtsFromGoalState();
+
   Eigen::Vector3d getAttractPt(std::size_t link_num, std::size_t pt_num);
 
   Eigen::VectorXd getRobtPtsVecDiffAvg(

@@ -14,8 +14,6 @@ int main(int argc, char** argv) {
 
   ROS_DEBUG_NAMED(LOGNAME, "Start!");
 
-  MyMoveitContext context;
-
   std::shared_ptr<ContactPlanner> contact_planner =
       std::make_shared<ContactPlanner>();
   contact_planner->init();
@@ -32,6 +30,12 @@ int main(int argc, char** argv) {
   req.planner_id = contact_planner->getPlannerId();
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;
+
+  std::shared_ptr<MyMoveitContext> context = std::make_shared<MyMoveitContext>(
+      contact_planner->getPlanningSceneMonitor(),
+      contact_planner->getRobotModel());
+  context->createPlanningContext(req);
+  contact_planner->setPlanningContext(context->getPlanningContext());
 
   contact_planner->generatePlan(res);
 

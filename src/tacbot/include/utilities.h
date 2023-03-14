@@ -138,6 +138,10 @@ std::ostream& operator<<(std::ostream& os, const geometry_msgs::Pose& pose);
 */
 moveit_msgs::Constraints createPoseGoal();
 
+void toControlTrajectory(const moveit_msgs::MotionPlanResponse& msg,
+                         std::vector<std::array<double, 7>>& joint_waypoints,
+                         std::vector<std::array<double, 7>>& joint_velocities);
+
 }  // namespace utilities
 }  // namespace tacbot
 #endif
