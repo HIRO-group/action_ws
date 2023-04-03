@@ -36,8 +36,8 @@ geometry_msgs::TransformStamped createWorldTf() {
   geometry_msgs::TransformStamped transformStamped;
 
   transformStamped.header.stamp = ros::Time::now();
-  transformStamped.header.frame_id = "world";
-  transformStamped.child_frame_id = "panda_link0";
+  transformStamped.header.frame_id = "panda_link0";
+  transformStamped.child_frame_id = "world";
   transformStamped.transform.translation.x = 0.0;
   transformStamped.transform.translation.y = 0.0;
   transformStamped.transform.translation.z = 0.0;

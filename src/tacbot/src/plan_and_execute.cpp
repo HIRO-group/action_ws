@@ -1,6 +1,7 @@
 #include "contact_planner.h"
 #include "my_moveit_context.h"
 #include "panda_interface.h"
+#include "perception_planner.h"
 #include "utilities.h"
 #include "visualizer.h"
 
@@ -14,40 +15,49 @@ int main(int argc, char** argv) {
   spinner.start();
   ros::NodeHandle node_handle;
 
-  ROS_DEBUG_NAMED(LOGNAME, "Start!");
+  ROS_INFO_NAMED(LOGNAME, "Start!");
 
-  std::shared_ptr<ContactPlanner> contact_planner =
-      std::make_shared<ContactPlanner>();
-  contact_planner->init();
+  std::shared_ptr<PerceptionPlanner> planner =
+      std::make_shared<PerceptionPlanner>();
+  planner->init();
 
+  ROS_INFO_NAMED(LOGNAME, "planner->getVisualizerData()");
   std::shared_ptr<Visualizer> visualizer =
-      std::make_shared<Visualizer>(contact_planner->getVisualizerData());
+      std::make_shared<Visualizer>(planner->getVisualizerData());
 
+  ROS_INFO_NAMED(LOGNAME, "MyMoveitContext()");
   std::shared_ptr<MyMoveitContext> context = std::make_shared<MyMoveitContext>(
-      contact_planner->getPlanningSceneMonitor(),
-      contact_planner->getRobotModel());
+      planner->getPlanningSceneMonitor(), planner->getRobotModel());
 
+  ROS_INFO_NAMED(LOGNAME, "setCurToStartState");
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
-  contact_planner->setCurToStartState(req);
+  planner->setCurToStartState(req);
 
-  moveit_msgs::Constraints goal = contact_planner->createJointGoal();
+  ROS_INFO_NAMED(LOGNAME, "createJointGoal");
+  moveit_msgs::Constraints goal = planner->createJointGoal();
   req.goal_constraints.push_back(goal);
 
-  visualizer->visualizeGoalState(contact_planner->getJointNames(),
-                                 contact_planner->getJointGoalPos());
+  utilities::promptUserInput();
 
-  req.group_name = contact_planner->getGroupName();
+  ROS_INFO_NAMED(LOGNAME, "visualizeGoalState");
+  visualizer->visualizeGoalState(planner->getJointNames(),
+                                 planner->getJointGoalPos());
+
+  req.group_name = planner->getGroupName();
   req.allowed_planning_time = 30.0;
   req.planner_id = context->getPlannerId();
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;
 
+  ROS_INFO_NAMED(LOGNAME, "createPlanningContext");
   context->createPlanningContext(req);
 
-  contact_planner->setPlanningContext(context->getPlanningContext());
+  ROS_INFO_NAMED(LOGNAME, "setPlanningContext");
+  planner->setPlanningContext(context->getPlanningContext());
 
-  contact_planner->generatePlan(res);
+  ROS_INFO_NAMED(LOGNAME, "generatePlan");
+  planner->generatePlan(res);
 
   if (res.error_code_.val != res.error_code_.SUCCESS) {
     ROS_ERROR("Could not compute plan successfully. Error code: %d",

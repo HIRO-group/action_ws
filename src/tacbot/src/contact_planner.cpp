@@ -678,9 +678,6 @@ void ContactPlanner::changePlanner(std::string planner_name,
   ompl::geometric::PathSimplifierPtr simplifier =
       simple_setup->getPathSimplifier();
 
-  simplifier->setSimplificationType(
-      ompl::geometric::SimplificationType::SMOOTH_COST);
-
   std::function<Eigen::VectorXd(const ompl::base::State*)> vFieldFunc;
 
   std::function<Eigen::VectorXd(const ompl::base::State*,
@@ -821,7 +818,7 @@ void ContactPlanner::init() {
                                       DEFAULT_COLLISION_OBJECT_TOPIC,
                                   planning_scene_monitor::PlanningSceneMonitor::
                                       DEFAULT_PLANNING_SCENE_WORLD_TOPIC,
-                                  false /* skip octomap monitor */);
+                                  true /* skip octomap monitor */);
 
   ROS_INFO_NAMED(LOGNAME, "startPublishingPlanningScene");
   psm_->startPublishingPlanningScene(

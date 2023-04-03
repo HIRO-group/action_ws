@@ -14,13 +14,13 @@
   <env name="ROSCONSOLE_CONFIG_FILE" value="$(find tacbot)/config/rosconsole.conf"/>
 
   <!-- Broadcast static tf for world cand camera frame-->
-  <node pkg="tacbot" type="broadcast_tf" name="broadcast_tf" output="screen"/>
+  <!-- <node pkg="tacbot" type="broadcast_tf" name="broadcast_tf" output="screen"/> -->
 
   <!-- Play the rosbag that contains the pointcloud data -->
   <!-- <node pkg="tacbot" type="publish_pc_bag" name="publish_pc_bag" output="screen"/> -->
 
-  <!-- Params for 3D sensors config -->
-  <!-- <rosparam command="load" file="$(find tacbot)/config/sensors_3d.yaml" /> -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="odom_world_tf" args="1 1 1 0 0 0 world odom" />
+
 
   <include file="$(find panda_moveit_config)/launch/planning_context.launch">
     <arg name="load_robot_description" value="true"/>
@@ -37,6 +37,15 @@
   <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
 
   <node name="plan_and_execute" pkg="tacbot" type="plan_and_execute" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
+    <!-- Params for 3D sensors config -->
+    <rosparam command="load" file="$(find tacbot)/config/sensors_3d.yaml" />
+    <!-- Params for the octomap monitor -->
+    <param name="robot_description_planning/shape_transform_cache_lookup_wait_time" value="5.0" />
+    <param name="octomap_frame" type="string" value="odom" />
+    <param name="max_range" type="double" value="5.0" />
+    <param name="octomap_resolution" type="double" value="0.025" />
+
+
   </node>
 
 </launch>
