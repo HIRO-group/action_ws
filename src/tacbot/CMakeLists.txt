@@ -183,10 +183,11 @@ include_directories(SYSTEM PUBLIC
 )
 
 ## Declare a C++ library
-add_library(perception_planning SHARED src/perception_planner.cpp src/utilities.cpp src/visualizer_data.cpp)
-add_library(contact_planning SHARED src/contact_planner.cpp src/utilities.cpp src/visualizer_data.cpp)
-add_library(contact_perception SHARED src/contact_perception.cpp src/utilities.cpp)
-add_library(visualizer SHARED src/visualizer.cpp src/utilities.cpp src/visualizer_data.cpp)
+add_library(base_planning SHARED src/base_planner.cpp)
+add_library(perception_planning SHARED src/perception_planner.cpp)
+add_library(contact_planning SHARED src/contact_planner.cpp)
+add_library(contact_perception SHARED src/contact_perception.cpp)
+add_library(visualizer SHARED src/visualizer.cpp)
 add_library(panda_interface SHARED src/panda_interface.cpp)
 add_library(common STATIC src/common.cpp)
 
@@ -217,10 +218,11 @@ target_link_libraries(visualizer PUBLIC ${catkin_LIBRARIES})
 target_link_libraries(contact_perception PUBLIC
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
-)
-target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES} contact_perception visualizer)
+  )
 
-target_link_libraries(perception_planning PUBLIC ${catkin_LIBRARIES} contact_perception visualizer)
+target_link_libraries(base_planning PUBLIC ${catkin_LIBRARIES} visualizer)
+target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES} base_planning contact_perception visualizer)
+target_link_libraries(perception_planning PUBLIC ${catkin_LIBRARIES} base_planning contact_perception visualizer)
 
 
 target_link_libraries(common PUBLIC  ${catkin_LIBRARIES} ${Franka_LIBRARIES})
@@ -232,6 +234,7 @@ target_link_libraries(broadcast_tf ${catkin_LIBRARIES})
 
 target_link_libraries(plan_and_execute
   ${catkin_LIBRARIES}
+  base_planning
   contact_planning
   perception_planning
   visualizer
@@ -256,6 +259,7 @@ target_link_libraries(plan_and_execute
 
 install(
 TARGETS
+  base_planning
   contact_planning
   perception_planning
   contact_perception

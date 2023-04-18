@@ -1,3 +1,4 @@
+#include "base_planner.h"
 #include "contact_planner.h"
 #include "my_moveit_context.h"
 #include "panda_interface.h"
@@ -17,8 +18,7 @@ int main(int argc, char** argv) {
 
   ROS_INFO_NAMED(LOGNAME, "Start!");
 
-  std::shared_ptr<PerceptionPlanner> planner =
-      std::make_shared<PerceptionPlanner>();
+  std::shared_ptr<BasePlanner> planner = std::make_shared<PerceptionPlanner>();
   planner->init();
 
   ROS_INFO_NAMED(LOGNAME, "planner->getVisualizerData()");

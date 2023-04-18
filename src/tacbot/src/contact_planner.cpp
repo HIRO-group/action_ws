@@ -12,10 +12,13 @@ constexpr char LOGNAME[] = "contact_planner";
 
 namespace tacbot {
 
-ContactPlanner::ContactPlanner() {
+ContactPlanner::ContactPlanner() : BasePlanner() {
   setObstacleScene(1);
   setGoalState(1);
   contact_perception_ = std::make_shared<ContactPerception>();
+  ROS_INFO_NAMED(LOGNAME, "contact_perception_->init()");
+  contact_perception_->init();
+  extractPtsFromGoalState();
 }
 
 void ContactPlanner::setGoalState(std::size_t option) {
@@ -80,42 +83,6 @@ void ContactPlanner::addSphericalObstacle(const Eigen::Vector3d& center,
       sim_obstacle_pos_.emplace_back(Eigen::Vector3d{x, y, z});
     }
   }
-}
-
-void ContactPlanner::setCurToStartState(
-    planning_interface::MotionPlanRequest& req) {
-  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
-      planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
-  robot_state->setToDefaultValues(joint_model_group_, "ready");
-  psm_->updateSceneWithCurrentState();
-
-  req.start_state.joint_state.header.stamp = ros::Time::now();
-  req.start_state.joint_state.name = joint_model_group_->getVariableNames();
-
-  std::vector<double> start_joint_values;
-  robot_state->copyJointGroupPositions(joint_model_group_, start_joint_values);
-  req.start_state.joint_state.position = start_joint_values;
-
-  start_joint_values.clear();
-  robot_state->copyJointGroupVelocities(joint_model_group_, start_joint_values);
-  req.start_state.joint_state.velocity = start_joint_values;
-
-  start_joint_values.clear();
-  robot_state->copyJointGroupAccelerations(joint_model_group_,
-                                           start_joint_values);
-  req.start_state.joint_state.effort = start_joint_values;
-}
-
-moveit_msgs::Constraints ContactPlanner::createJointGoal() {
-  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
-      planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
-  moveit::core::RobotState goal_state(*robot_state);
-  goal_state.setJointGroupPositions(joint_model_group_, joint_goal_pos_);
-  double tolerance = 0.001;
-  moveit_msgs::Constraints joint_goal =
-      kinematic_constraints::constructGoalConstraints(
-          goal_state, joint_model_group_, tolerance);
-  return joint_goal;
 }
 
 Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
@@ -669,9 +636,8 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
   return total_vec;
 }
 
-void ContactPlanner::changePlanner(std::string planner_name,
-                                   std::string objective_name) {
-  planner_id_ = planner_name;
+void ContactPlanner::changePlanner() {
+  planner_id_ = planner_name_;
   ompl::geometric::SimpleSetupPtr simple_setup = context_->getOMPLSimpleSetup();
   ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
 
@@ -684,21 +650,21 @@ void ContactPlanner::changePlanner(std::string planner_name,
                                 const ompl::base::State*)>
       vFieldFuncDuo;
 
-  if (objective_name == "UpstreamCost") {
+  if (objective_name_ == "UpstreamCost") {
     ROS_INFO_NAMED(LOGNAME, "Using UpstreamCost optimization objective.");
     vFieldFunc = std::bind(&ContactPlanner::obstacleFieldConfigSpace, this,
                            std::placeholders::_1);
     optimization_objective_ =
         std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
             si, vFieldFunc);
-  } else if (objective_name == "FieldMagnitude") {
+  } else if (objective_name_ == "FieldMagnitude") {
     ROS_INFO_NAMED(LOGNAME, "Using FieldMagnitude optimization objective.");
     vFieldFunc = std::bind(&ContactPlanner::obstacleFieldTaskSpace, this,
                            std::placeholders::_1);
     optimization_objective_ =
         std::make_shared<ompl::base::VFMagnitudeOptimizationObjective>(
             si, vFieldFunc);
-  } else if (objective_name == "FieldAlign") {
+  } else if (objective_name_ == "FieldAlign") {
     ROS_INFO_NAMED(LOGNAME, "Using FieldAlign optimization objective.");
     vFieldFuncDuo = std::bind(&ContactPlanner::obstacleFieldCartesian, this,
                               std::placeholders::_1, std::placeholders::_2);
@@ -714,31 +680,31 @@ void ContactPlanner::changePlanner(std::string planner_name,
   simple_setup->setOptimizationObjective(optimization_objective_);
 
   ompl::base::PlannerPtr planner;
-  if (planner_name == "ClassicTRRT") {
+  if (planner_name_ == "ClassicTRRT") {
     ROS_INFO_NAMED(LOGNAME, "Using planner: ClassicTRRT.");
     planner = std::make_shared<ompl::geometric::ClassicTRRT>(
         simple_setup->getSpaceInformation());
-  } else if (planner_name == "ContactTRRT") {
+  } else if (planner_name_ == "ContactTRRT") {
     ROS_INFO_NAMED(LOGNAME, "Using planner: ContactTRRT.");
     planner = std::make_shared<ompl::geometric::ContactTRRT>(
         simple_setup->getSpaceInformation(), vFieldFunc);
-  } else if (planner_name == "ContactTRRTDuo") {
+  } else if (planner_name_ == "ContactTRRTDuo") {
     ROS_INFO_NAMED(LOGNAME, "Using planner: ContactTRRTDuo.");
     planner = std::make_shared<ompl::geometric::ContactTRRT>(
         simple_setup->getSpaceInformation(), vFieldFuncDuo);
-  } else if (planner_name == "BITstar") {
+  } else if (planner_name_ == "BITstar") {
     ROS_INFO_NAMED(LOGNAME, "Using planner: BITstar.");
     planner = std::make_shared<ompl::geometric::BITstar>(
         simple_setup->getSpaceInformation());
-  } else if (planner_name == "RRTstar") {
+  } else if (planner_name_ == "RRTstar") {
     ROS_INFO_NAMED(LOGNAME, "Using planner: RRTstar.");
     planner = std::make_shared<ompl::geometric::RRTstar>(
         simple_setup->getSpaceInformation());
-  } else if (planner_name == "FMT") {
+  } else if (planner_name_ == "FMT") {
     ROS_INFO_NAMED(LOGNAME, "Using planner: FMT.");
     planner = std::make_shared<ompl::geometric::FMT>(
         simple_setup->getSpaceInformation());
-  } else if (planner_name == "VFRRT") {
+  } else if (planner_name_ == "VFRRT") {
     ROS_INFO_NAMED(LOGNAME, "Using planner: VFRRT.");
     double exploration = 0.7;
     double initial_lambda = 1.0;
@@ -752,108 +718,6 @@ void ContactPlanner::changePlanner(std::string planner_name,
 
   simple_setup->setPlanner(planner);
 }
-
-bool ContactPlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
-  res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
-  bool is_solved = context_->solve(res);
-  if (is_solved) {
-    std::size_t state_count = res.trajectory_->getWayPointCount();
-    ROS_INFO_NAMED(LOGNAME, "Motion planner reported a solution path with %ld",
-                   state_count);
-  }
-
-  if (is_solved && res.trajectory_) {
-    trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
-        0.05, 0.1, 0.01);  // 0.001 for real execution
-
-    moveit::core::RobotStatePtr first_prt =
-        res.trajectory_->getFirstWayPointPtr();
-    moveit::core::RobotStatePtr last_prt =
-        res.trajectory_->getLastWayPointPtr();
-    first_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
-    last_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
-
-    ROS_INFO_NAMED(LOGNAME, "Computing time parameterization.");
-    planning_interface::MotionPlanRequest req =
-        context_->getMotionPlanRequest();
-    ROS_INFO_NAMED(LOGNAME, "req.max_velocity_scaling_factor %f",
-                   req.max_velocity_scaling_factor);
-    ROS_INFO_NAMED(LOGNAME, "req.max_acceleration_scaling_factor %f",
-                   req.max_acceleration_scaling_factor);
-    if (!time_param_.computeTimeStamps(*res.trajectory_,
-                                       req.max_velocity_scaling_factor,
-                                       req.max_acceleration_scaling_factor)) {
-      ROS_ERROR_NAMED(LOGNAME,
-                      "Time parametrization for the solution path failed.");
-      is_solved = false;
-    } else {
-      ROS_INFO_NAMED(LOGNAME, "Time parameterization success.");
-      plan_response_ = res;
-    }
-  }
-
-  ROS_INFO_NAMED(LOGNAME, "Is plan generated? %d", is_solved);
-  return is_solved;
-}
-
-void ContactPlanner::init() {
-  robot_model_loader_ = std::make_shared<robot_model_loader::RobotModelLoader>(
-      "robot_description");
-
-  robot_model_ = robot_model_loader_->getModel();
-
-  psm_ = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
-      robot_model_loader_);
-
-  psm_->publishDebugInformation(true);
-
-  ROS_INFO_NAMED(LOGNAME, "startSceneMonitor");
-  psm_->startSceneMonitor();
-
-  ROS_INFO_NAMED(LOGNAME, "startStateMonitor");
-  psm_->startStateMonitor();
-
-  ROS_INFO_NAMED(LOGNAME, "startWorldGeometryMonitor");
-  psm_->startWorldGeometryMonitor(planning_scene_monitor::PlanningSceneMonitor::
-                                      DEFAULT_COLLISION_OBJECT_TOPIC,
-                                  planning_scene_monitor::PlanningSceneMonitor::
-                                      DEFAULT_PLANNING_SCENE_WORLD_TOPIC,
-                                  true /* skip octomap monitor */);
-
-  ROS_INFO_NAMED(LOGNAME, "startPublishingPlanningScene");
-  psm_->startPublishingPlanningScene(
-      planning_scene_monitor::PlanningSceneMonitor::UPDATE_SCENE);
-
-  ROS_INFO_NAMED(LOGNAME, "providePlanningSceneService");
-  psm_->providePlanningSceneService();
-
-  kinematics_metrics_ = std::make_shared<kinematics_metrics::KinematicsMetrics>(
-      planning_scene_monitor::LockedPlanningSceneRO(psm_)->getRobotModel());
-
-  planning_scene_monitor::CurrentStateMonitorPtr csm = psm_->getStateMonitor();
-  csm->enableCopyDynamics(true);
-
-  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
-      planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
-
-  joint_model_group_ = robot_model_->getJointModelGroup(group_name_);
-
-  robot_state->setToDefaultValues(joint_model_group_, "ready");
-  psm_->updateSceneWithCurrentState();
-
-  // ROS_INFO_NAMED(LOGNAME, "Robot State Positions");
-  // robot_state->printStatePositions();
-  robot_state_ = std::make_shared<moveit::core::RobotState>(*robot_state);
-
-  contact_perception_->init();
-
-  extractPtsFromGoalState();
-
-  std::shared_ptr<VisualizerData> vis_data_ =
-      std::make_shared<VisualizerData>();
-}
-
-std::string ContactPlanner::getGroupName() { return group_name_; }
 
 std::vector<Eigen::Vector3d> ContactPlanner::getSimObstaclePos() {
   return sim_obstacle_pos_;
