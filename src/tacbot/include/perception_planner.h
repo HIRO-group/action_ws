@@ -10,6 +10,12 @@ class PerceptionPlanner : public BasePlanner {
  public:
   PerceptionPlanner();
 
+  /** \brief Changes the planner from the default one that is native to the
+     moveit environment, such as RRT, to one that has been specifically selected
+     for this perception planning class.
+  */
+  void changePlanner() override;
+
  protected:
   /** \brief The class that handles point cloud processing of the surrounding
    * environment and transfers this information to the planner.*/
