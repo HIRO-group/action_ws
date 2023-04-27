@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
   ROS_INFO_NAMED(LOGNAME, "Start!");
 
   std::shared_ptr<BasePlanner> planner = std::make_shared<PerceptionPlanner>();
+  ROS_INFO_NAMED(LOGNAME, "planner->init()");
   planner->init();
 
   ROS_INFO_NAMED(LOGNAME, "planner->getVisualizerData()");
@@ -55,6 +56,9 @@ int main(int argc, char** argv) {
 
   ROS_INFO_NAMED(LOGNAME, "setPlanningContext");
   planner->setPlanningContext(context->getPlanningContext());
+
+  ROS_INFO_NAMED(LOGNAME, "planner->changePlanner()");
+  planner->changePlanner();
 
   ROS_INFO_NAMED(LOGNAME, "generatePlan");
   planner->generatePlan(res);
