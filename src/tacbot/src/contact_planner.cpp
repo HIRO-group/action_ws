@@ -18,7 +18,6 @@ ContactPlanner::ContactPlanner() : BasePlanner() {
   contact_perception_ = std::make_shared<ContactPerception>();
   ROS_INFO_NAMED(LOGNAME, "contact_perception_->init()");
   contact_perception_->init();
-  extractPtsFromGoalState();
 }
 
 void ContactPlanner::setGoalState(std::size_t option) {
@@ -327,7 +326,7 @@ Eigen::VectorXd ContactPlanner::getRobtPtsVecDiffAvg(
 std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
     const std::vector<std::vector<Eigen::Vector3d>>& rob_pts) {
   std::size_t num_links = rob_pts.size();
-  // std::cout << "num_links: " << num_links << std::endl;
+  std::cout << "num_links: " << num_links << std::endl;
 
   std::vector<Eigen::Vector3d> link_to_obs_vec(num_links,
                                                Eigen::Vector3d::Zero(3));
@@ -337,8 +336,8 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
   for (std::size_t i = 0; i < num_links; i++) {
     std::vector<Eigen::Vector3d> pts_on_link = rob_pts[i];
     std::size_t num_pts_on_link = pts_on_link.size();
-    // std::cout << "link_num: " << i << std::endl;
-    // std::cout << "num_pts_on_link: " << num_pts_on_link << std::endl;
+    std::cout << "link_num: " << i << std::endl;
+    std::cout << "num_pts_on_link: " << num_pts_on_link << std::endl;
 
     Eigen::MatrixXd pts_link_vec = Eigen::MatrixXd::Zero(num_pts_on_link, 3);
 
@@ -401,9 +400,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
       pts_link_vec(j, 1) = pt_to_obs_av[1];
       pts_link_vec(j, 2) = pt_to_obs_av[2];
 
-      // std::cout << "link1_idx: " << link1_idx << std::endl;
-      // std::cout << "stop_crit: " << stop_crit << std::endl;
-      // std::cout << "pt_on_rob: " << pt_on_rob.transpose() << std::endl;
+      std::cout << "saveOriginVec: " << std::endl;
 
       vis_data_->saveOriginVec(pt_on_rob, pt_to_obs_av, pt_num,
                                sample_state_count_);
@@ -428,6 +425,7 @@ Eigen::VectorXd ContactPlanner::obstacleFieldTaskSpace(
     const ompl::base::State* base_state) {
   const ompl::base::RealVectorStateSpace::StateType& vec_state =
       *base_state->as<ompl::base::RealVectorStateSpace::StateType>();
+  ROS_INFO_NAMED(LOGNAME, "joint_angles");
   std::vector<double> joint_angles = utilities::toStlVec(vec_state, dof_);
 
   moveit::core::RobotStatePtr robot_state =
@@ -435,8 +433,14 @@ Eigen::VectorXd ContactPlanner::obstacleFieldTaskSpace(
   robot_state->setJointGroupPositions(joint_model_group_, joint_angles);
 
   std::vector<std::vector<Eigen::Vector3d>> rob_pts;
+
+  ROS_INFO_NAMED(LOGNAME, "getPtsOnRobotSurface");
   std::size_t num_pts = getPtsOnRobotSurface(robot_state, rob_pts);
-  vis_data_->setTotalNumRepulsePts(num_pts);
+
+  // ROS_INFO_NAMED(LOGNAME, "setTotalNumRepulsePts %ld", num_pts);
+  // vis_data_->setTotalNumRepulsePts(num_pts);
+
+  ROS_INFO_NAMED(LOGNAME, "getLinkToObsVec");
   std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(rob_pts);
   Eigen::VectorXd field_out = Eigen::VectorXd::Zero(dof_);
   for (std::size_t i = 0; i < dof_; i++) {
@@ -446,6 +450,8 @@ Eigen::VectorXd ContactPlanner::obstacleFieldTaskSpace(
       // std::cout << "field_out[i]: " << field_out[i] << std::endl;
     }
   }
+  ROS_INFO_NAMED(LOGNAME, "field_out");
+
   return field_out;
 }
 
@@ -901,6 +907,11 @@ bool ContactPlanner::linkNameToIdx(const std::string& link_name,
   idx = std::distance(link_names.begin(), it);
   ROS_INFO_NAMED(LOGNAME, "link_name: %s, idx %ld", link_name.c_str(), idx);
   return true;
+}
+
+void ContactPlanner::init() {
+  BasePlanner::init();
+  extractPtsFromGoalState();
 }
 
 }  // namespace tacbot

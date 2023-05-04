@@ -147,7 +147,7 @@ set_upstream_branches(){
 
 pull_origin(){
   git submodule foreach -q --recursive 'git pull'
-  cd src/pick_and_place/
+  cd src/tacbot/
   git pull
   cd ../../
 }

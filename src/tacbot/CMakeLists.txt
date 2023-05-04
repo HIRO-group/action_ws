@@ -185,9 +185,9 @@ include_directories(SYSTEM PUBLIC
 ## Declare a C++ library
 add_library(base_planning SHARED src/base_planner.cpp)
 add_library(perception_planning SHARED src/perception_planner.cpp)
-add_library(contact_planning SHARED src/contact_planner.cpp)
+add_library(contact_planning SHARED src/contact_planner.cpp src/visualizer_data.cpp)
 add_library(contact_perception SHARED src/contact_perception.cpp)
-add_library(visualizer SHARED src/visualizer.cpp)
+add_library(visualizer SHARED src/visualizer.cpp src/visualizer_data.cpp)
 add_library(panda_interface SHARED src/panda_interface.cpp)
 add_library(common STATIC src/common.cpp)
 
@@ -202,6 +202,7 @@ add_library(common STATIC src/common.cpp)
 add_executable(publish_pc_bag src/publish_pc_bag.cpp)
 add_executable(broadcast_tf src/broadcast_tf.cpp)
 add_executable(plan_and_execute src/plan_and_execute.cpp src/utilities.cpp)
+add_executable(generate_contact_plan src/generate_contact_plan.cpp src/utilities.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -221,7 +222,7 @@ target_link_libraries(contact_perception PUBLIC
   )
 
 target_link_libraries(base_planning PUBLIC ${catkin_LIBRARIES} visualizer)
-target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES} base_planning contact_perception visualizer)
+target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES} base_planning contact_perception)
 target_link_libraries(perception_planning PUBLIC ${catkin_LIBRARIES} base_planning contact_perception visualizer)
 
 
@@ -235,8 +236,13 @@ target_link_libraries(broadcast_tf ${catkin_LIBRARIES})
 target_link_libraries(plan_and_execute
   ${catkin_LIBRARIES}
   base_planning
-  contact_planning
   perception_planning
+  visualizer
+)
+
+target_link_libraries(generate_contact_plan
+  ${catkin_LIBRARIES}
+  contact_planning
   visualizer
 )
 
@@ -275,6 +281,7 @@ TARGETS
   publish_pc_bag
   broadcast_tf
   plan_and_execute
+  generate_contact_plan
 RUNTIME DESTINATION
   ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

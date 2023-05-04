@@ -130,7 +130,7 @@ void BasePlanner::init() {
                                       DEFAULT_COLLISION_OBJECT_TOPIC,
                                   planning_scene_monitor::PlanningSceneMonitor::
                                       DEFAULT_PLANNING_SCENE_WORLD_TOPIC,
-                                  true /* skip octomap monitor */);
+                                  false /* skip octomap monitor */);
 
   ROS_INFO_NAMED(LOGNAME, "startPublishingPlanningScene");
   psm_->startPublishingPlanningScene(
