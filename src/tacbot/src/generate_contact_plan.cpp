@@ -49,10 +49,10 @@ int main(int argc, char** argv) {
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;
 
-  const std::string PLANNER_NAME = "BITstar";  // ContactTRRTDuo
+  const std::string PLANNER_NAME = "RRTstar";  // ContactTRRTDuo
   const std::string OBJECTIVE_NAME =
       "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 4;
+  const std::size_t OBSTACLE_SCENE_OPT = 1;
   const std::size_t GOAL_STATE_OPT = 1;
 
   planner->setPlannerName(PLANNER_NAME);
@@ -65,6 +65,8 @@ int main(int argc, char** argv) {
 
   ROS_INFO_NAMED(LOGNAME, "visualizeObstacleMarker");
   visualizer->visualizeObstacleMarker(planner->getSimObstaclePos());
+
+  utilities::promptUserInput();
 
   ROS_INFO_NAMED(LOGNAME, "createPlanningContext");
   context->createPlanningContext(req);

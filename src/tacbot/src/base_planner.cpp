@@ -161,8 +161,7 @@ void BasePlanner::init() {
   robot_state_ = std::make_shared<moveit::core::RobotState>(*robot_state);
 
   ROS_INFO_NAMED(LOGNAME, "vis_data_");
-  std::shared_ptr<VisualizerData> vis_data_ =
-      std::make_shared<VisualizerData>();
+  vis_data_ = std::make_shared<VisualizerData>();
   ROS_INFO_NAMED(LOGNAME, "init done");
 }
 

@@ -7,7 +7,7 @@ constexpr char LOGNAME[] = "utilites";
 namespace tacbot {
 namespace utilities {
 bool promptUserInput() {
-  // std::cin.clear();
+  std::cin.clear();
   // std::cin.ignore(100, '\n');
   std::cout << "Press any key to continue or q to quit ... " << std::endl;
   std::string user_input = " ";

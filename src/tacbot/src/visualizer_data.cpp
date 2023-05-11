@@ -71,6 +71,9 @@ void VisualizerData::saveObstaclePos(
     const std::vector<Eigen::Vector3d>& obstacle_pos,
     std::size_t sample_state_count) {
   std::size_t num_saved = sample_obstacle_pos_.size();
+  std::cout << "num_saved: " << num_saved << std::endl;
+  std::cout << "sample_state_count: " << sample_state_count << std::endl;
+  std::cout << "obstacle_pos.size(): " << obstacle_pos.size() << std::endl;
 
   if (num_saved == sample_state_count) {
     sample_obstacle_pos_.emplace_back(obstacle_pos);

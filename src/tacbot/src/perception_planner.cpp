@@ -14,6 +14,18 @@ PerceptionPlanner::PerceptionPlanner() : BasePlanner() {
 }
 
 void PerceptionPlanner::changePlanner() {
+  const std::string active_col_det =
+      planning_scene_monitor::LockedPlanningSceneRO(psm_)
+          ->getActiveCollisionDetectorName();
+  ROS_INFO_NAMED(LOGNAME, "active_col_det: %s", active_col_det.c_str());
+
+  std::vector<std::string> col_det_names;
+  planning_scene_monitor::LockedPlanningSceneRO(psm_)
+      ->getCollisionDetectorNames(col_det_names);
+  for (auto name : col_det_names) {
+    std::cout << "active col det name: " << name << std::endl;
+  }
+
   ROS_INFO_NAMED(LOGNAME, "context_->getOMPLSimpleSetup()");
   ompl::geometric::SimpleSetupPtr simple_setup = context_->getOMPLSimpleSetup();
   ROS_INFO_NAMED(LOGNAME, "simple_setup->getSpaceInformation()");
