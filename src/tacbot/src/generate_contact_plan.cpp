@@ -44,15 +44,15 @@ int main(int argc, char** argv) {
                                  planner->getJointGoalPos());
 
   req.group_name = planner->getGroupName();
-  req.allowed_planning_time = 30.0;
+  req.allowed_planning_time = 60.0;
   req.planner_id = context->getPlannerId();
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;
 
-  const std::string PLANNER_NAME = "RRTstar";  // ContactTRRTDuo
+  const std::string PLANNER_NAME = "ContactTRRTDuo";  // ContactTRRTDuo, RRTstar
   const std::string OBJECTIVE_NAME =
-      "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
-  const std::size_t OBSTACLE_SCENE_OPT = 1;
+      "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
+  const std::size_t OBSTACLE_SCENE_OPT = 3;
   const std::size_t GOAL_STATE_OPT = 1;
 
   planner->setPlannerName(PLANNER_NAME);
