@@ -108,11 +108,11 @@ class ContactPlanner : public BasePlanner {
     objective_name_ = objective_name;
   }
 
- private:
   /** \brief The class that handles point cloud processing of the surrounding
    * environment and transfers this information to the planner.*/
   std::shared_ptr<ContactPerception> contact_perception_;
 
+ private:
   std::string planner_name_ = "ContactTRRTDuo";
   std::string objective_name_ = "FieldAlign";
 
@@ -124,7 +124,7 @@ class ContactPlanner : public BasePlanner {
 
   /** \brief Whether or not to use simulated obstacles or the ContactPerception
    * class to fill obstacles into the robot's planning scene.*/
-  const bool use_sim_obstacles_ = true;
+  const bool use_sim_obstacles_ = false;
 
   /** \brief The posisitoins of the simulated obstacles. It's a vector of the
    * x,y,z positions of the obstacles in cartesian space.*/

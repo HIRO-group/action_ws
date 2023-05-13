@@ -39,7 +39,7 @@ class PandaInterface {
  public:
   std::shared_ptr<franka::Robot> robot_;
   std::shared_ptr<franka::Model> robot_model_;
-  std::string franka_address_ = "192.168.0.2";
+  std::string franka_address_ = "192.168.0.3";
 
   void init();
 

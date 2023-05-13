@@ -46,6 +46,8 @@
   <param name="request_adapters" value="$(arg planning_adapters)" />
   <param name="start_state_max_bounds_error" value="0.1" />
   <param name="jiggle_fraction" value="0.05" />
+  <param name="demo_planner" value="contact" />
+
   <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
   <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
 

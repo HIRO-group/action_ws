@@ -16,8 +16,6 @@ ContactPlanner::ContactPlanner() : BasePlanner() {
   setObstacleScene(1);
   setGoalState(1);
   contact_perception_ = std::make_shared<ContactPerception>();
-  ROS_INFO_NAMED(LOGNAME, "contact_perception_->init()");
-  contact_perception_->init();
 }
 
 void ContactPlanner::setGoalState(std::size_t option) {

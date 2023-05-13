@@ -244,6 +244,7 @@ target_link_libraries(generate_contact_plan
   ${catkin_LIBRARIES}
   contact_planning
   visualizer
+  panda_interface
 )
 
 #############
