@@ -175,7 +175,9 @@ installer(){
 }
 
 builder(){
-  catkin build -DCMAKE_BUILD_TYPE=Release -DFranka_DIR:PATH=$(pwd)/src/libfranka/build
+  # catkin build -DCMAKE_BUILD_TYPE=Release -DFranka_DIR:PATH=$(pwd)/src/libfranka/build
+  catkin build -DCMAKE_BUILD_TYPE=Release -DFranka_DIR:PATH=/home/umbreon/libfranka/build
+
 }
 
 helper()
