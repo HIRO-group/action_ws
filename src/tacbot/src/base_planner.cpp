@@ -73,7 +73,7 @@ bool BasePlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
 
   if (is_solved && res.trajectory_) {
     trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
-        0.05, 0.1, 0.01);  // 0.001 for real execution
+        0.05, 0.001, 0.01);  // 0.001 for real execution
 
     moveit::core::RobotStatePtr first_prt =
         res.trajectory_->getFirstWayPointPtr();

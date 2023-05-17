@@ -20,14 +20,16 @@ ContactPerception::ContactPerception()
     : point_cloud_(new pcl::PointCloud<pcl::PointXYZ>) {}
 
 void ContactPerception::init() {
+  ROS_INFO_NAMED(LOGNAME, "Initializing contact perception.");
+
   planning_scene_diff_publisher_ =
       nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
-  // cloud_subscriber_ = nh_.subscribe("/camera/depth_registered/points", 1,
-  //                                   &ContactPerception::pointCloudCallback,
-  //                                   this);  // "/oak/points/"
+  cloud_subscriber_ =
+      nh_.subscribe("/oak/points/", 1, &ContactPerception::pointCloudCallback,
+                    this);  // "/oak/points/"
 
-  // addSafetyPerimeter();
+  addSafetyPerimeter();
 
   // addCylinder();
 
@@ -35,7 +37,7 @@ void ContactPerception::init() {
 
   // this keeps callback through the duration of the class not just once, not
   // sure why
-  // ros::spinOnce();
+  ros::spinOnce();
 }
 
 void ContactPerception::addSafetyPerimeter() {
@@ -310,6 +312,12 @@ bool ContactPerception::extractNearPts(const Eigen::Vector3d& search_origin,
   auto start = high_resolution_clock::now();
 
   pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+
+  if (point_cloud_->size() < 1) {
+    std::cout << "No points found in the plc." << std::endl;
+    return false;
+  }
+
   kdtree.setInputCloud(point_cloud_);
   pcl::PointXYZ search_point;
   search_point.x = search_origin[0];
@@ -323,7 +331,7 @@ bool ContactPerception::extractNearPts(const Eigen::Vector3d& search_origin,
 
   if (kdtree.radiusSearch(search_point, PROXIMITY_RADIUS, pt_idx_search_rad,
                           pt_rad_sq_dist) <= 0) {
-    // std::cout << "No points found." << std::endl;
+    // std::cout << "No near points found." << std::endl;
     return false;
   }
 
@@ -359,7 +367,8 @@ void ContactPerception::pointCloudCallback(
   tf::StampedTransform transform;
   try {
     tf_listener_.lookupTransform(
-        "world", "camera_rgb_optical_frame",  //"oak_rgb_camera_optical_frame",
+        "world",
+        "oak_rgb_camera_optical_frame",  //"oak_rgb_camera_optical_frame",
         ros::Time(0), transform);
   } catch (tf::TransformException ex) {
     ROS_ERROR("%s", ex.what());
