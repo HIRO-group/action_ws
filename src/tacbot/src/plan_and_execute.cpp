@@ -1,24 +1,24 @@
 #include "base_planner.h"
-#include "contact_planner.h"
 #include "my_moveit_context.h"
 #include "panda_interface.h"
 #include "perception_planner.h"
 #include "utilities.h"
 #include "visualizer.h"
 
-constexpr char LOGNAME[] = "generate_plan";
+constexpr char LOGNAME[] = "plan_and_execute";
 
 using namespace tacbot;
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "generate_contact_plan");
+  ros::init(argc, argv, "plan_and_execute");
   ros::AsyncSpinner spinner(1);
   spinner.start();
   ros::NodeHandle node_handle;
 
   ROS_INFO_NAMED(LOGNAME, "Start!");
 
-  std::shared_ptr<BasePlanner> planner = std::make_shared<PerceptionPlanner>();
+  std::shared_ptr<PerceptionPlanner> planner =
+      std::make_shared<PerceptionPlanner>();
   ROS_INFO_NAMED(LOGNAME, "planner->init()");
   planner->init();
 
@@ -39,14 +39,19 @@ int main(int argc, char** argv) {
   moveit_msgs::Constraints goal = planner->createJointGoal();
   req.goal_constraints.push_back(goal);
 
-  utilities::promptUserInput();
-
   ROS_INFO_NAMED(LOGNAME, "visualizeGoalState");
   visualizer->visualizeGoalState(planner->getJointNames(),
                                  planner->getJointGoalPos());
 
+  ROS_INFO_NAMED(LOGNAME, "visualizeObstacleMarker");
+  visualizer->visualizeObstacleMarker(planner->getObstaclePos());
+
+  bool status = utilities::promptUserInput();
+  if (!status) {
+    return 0;
+  }
   req.group_name = planner->getGroupName();
-  req.allowed_planning_time = 30.0;
+  req.allowed_planning_time = 10.0;
   req.planner_id = context->getPlannerId();
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;

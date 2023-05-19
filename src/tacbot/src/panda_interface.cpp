@@ -625,23 +625,25 @@ void PandaInterface::move_failure(
         std::array<std::array<double, 7>, NUM_STEPS>(),
         std::array<std::array<double, 7>, NUM_STEPS>(),
         std::array<double, NUM_STEPS>(), std::array<double, 2>(), 0);
-  } catch (const franka::ControlException &err) {
-    std::cout << "Control Exception" << std::endl;
-    robot->automaticErrorRecovery();
-    *trajectory_data = std::make_tuple(
-        std::array<std::array<double, 7>, NUM_STEPS>(),
-        std::array<std::array<double, 7>, NUM_STEPS>(),
-        std::array<std::array<double, 7>, NUM_STEPS>(),
-        std::array<double, NUM_STEPS>(), std::array<double, 2>(), 0);
-  } catch (const franka::Exception &er) {
-    std::cout << er.what() << std::endl;
-    robot->automaticErrorRecovery();
-    *trajectory_data = std::make_tuple(
-        std::array<std::array<double, 7>, NUM_STEPS>(),
-        std::array<std::array<double, 7>, NUM_STEPS>(),
-        std::array<std::array<double, 7>, NUM_STEPS>(),
-        std::array<double, NUM_STEPS>(), std::array<double, 2>(), 0);
   }
+  // catch (const franka::ControlException &err) {
+  //   std::cout << "Control Exception" << std::endl;
+  //   robot->automaticErrorRecovery();
+  //   *trajectory_data = std::make_tuple(
+  //       std::array<std::array<double, 7>, NUM_STEPS>(),
+  //       std::array<std::array<double, 7>, NUM_STEPS>(),
+  //       std::array<std::array<double, 7>, NUM_STEPS>(),
+  //       std::array<double, NUM_STEPS>(), std::array<double, 2>(), 0);
+  // }
+  // catch (const franka::Exception &er) {
+  //   std::cout << er.what() << std::endl;
+  //   robot->automaticErrorRecovery();
+  //   *trajectory_data = std::make_tuple(
+  //       std::array<std::array<double, 7>, NUM_STEPS>(),
+  //       std::array<std::array<double, 7>, NUM_STEPS>(),
+  //       std::array<std::array<double, 7>, NUM_STEPS>(),
+  //       std::array<double, NUM_STEPS>(), std::array<double, 2>(), 0);
+  // }
 }
 
 bool PandaInterface::edges_to_npy(

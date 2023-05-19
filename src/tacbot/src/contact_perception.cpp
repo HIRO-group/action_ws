@@ -25,9 +25,8 @@ void ContactPerception::init() {
   planning_scene_diff_publisher_ =
       nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
-  cloud_subscriber_ =
-      nh_.subscribe("/oak/points/", 1, &ContactPerception::pointCloudCallback,
-                    this);  // "/oak/points/"
+  cloud_subscriber_ = nh_.subscribe(
+      "/oak/points/", 1, &ContactPerception::pointCloudCallback, this);
 
   addSafetyPerimeter();
 
@@ -152,7 +151,9 @@ void ContactPerception::addSphere(const Eigen::Vector3d& center,
                                   double radius) {
   moveit_msgs::CollisionObject collision_object;
   collision_object.header.frame_id = "panda_link0";
-  collision_object.id = "sphere_" + std::to_string(obst_num_);
+  std::string object_name = "sphere_" + std::to_string(obst_num_);
+  sphere_names_.emplace_back(object_name);
+  collision_object.id = object_name;
   obst_num_++;
   collision_object.operation = collision_object.ADD;
 
@@ -364,30 +365,28 @@ void ContactPerception::pointCloudCallback(
   pcl::fromROSMsg(*input, *cloud);
   // std::cout << "raw cloud.size(): " << cloud->size() << std::endl;
 
-  tf::StampedTransform transform;
-  try {
-    tf_listener_.lookupTransform(
-        "world",
-        "oak_rgb_camera_optical_frame",  //"oak_rgb_camera_optical_frame",
-        ros::Time(0), transform);
-  } catch (tf::TransformException ex) {
-    ROS_ERROR("%s", ex.what());
-  }
-
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_transformed(
-      new pcl::PointCloud<pcl::PointXYZ>);
-  pcl_ros::transformPointCloud(*cloud, *cloud_transformed, transform);
-
   // Create the filtering object
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(
       new pcl::PointCloud<pcl::PointXYZ>);
   pcl::VoxelGrid<pcl::PointXYZ> sor;
-  sor.setInputCloud(cloud_transformed);
+  sor.setInputCloud(cloud);
   sor.setLeafSize(0.05f, 0.05f, 0.05f);
   sor.filter(*cloud_filtered);
   // std::cout << "filtered cloud.size(): " << cloud_filtered->size() <<
   // std::endl;
-  point_cloud_ = std::move(cloud_filtered);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_transformed(
+      new pcl::PointCloud<pcl::PointXYZ>);
+
+  tf::StampedTransform transform;
+  try {
+    tf_listener_.lookupTransform("world", "oak_rgb_camera_optical_frame",
+                                 ros::Time(0), transform);
+  } catch (tf::TransformException ex) {
+    ROS_ERROR("%s", ex.what());
+  }
+
+  pcl_ros::transformPointCloud(*cloud_filtered, *cloud_transformed, transform);
+  point_cloud_ = std::move(cloud_transformed);
 }
 
 }  // namespace tacbot

@@ -49,7 +49,7 @@ class BasePlanner {
 
   /** \brief Initialize the planning scene, monitoring, publishers and
    * subscribers.*/
-  void init();
+  virtual void init();
 
   /** \brief Set the start state in the request message to the current state of
     the robot.
@@ -71,7 +71,7 @@ class BasePlanner {
       @return bool Whether or not the plan and time parameterization have been
      successfully accomplished.
   */
-  bool generatePlan(planning_interface::MotionPlanResponse& res);
+  virtual bool generatePlan(planning_interface::MotionPlanResponse& res);
 
   /** \brief Create a sample joint goal state, in joint space, for the robot to
     reach.

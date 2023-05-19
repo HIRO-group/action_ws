@@ -58,6 +58,8 @@ class ContactPerception {
    */
   void addFrontWall();
 
+  std::vector<std::string> getSphereNames() { return sphere_names_; }
+
  private:
   ros::NodeHandle nh_;
 
@@ -75,6 +77,8 @@ class ContactPerception {
   pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_;
 
   std::size_t obst_num_ = 0;
+
+  std::vector<std::string> sphere_names_;
 
   /** \brief Add a set of static obstacle around the robot. These obstacles
    * include any walls, tables, or beams that the robot should not approach
