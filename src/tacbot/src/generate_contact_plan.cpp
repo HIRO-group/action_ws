@@ -56,14 +56,14 @@ int main(int argc, char* argv[]) {
   std::string OBJECTIVE_NAME =
       "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
 
-  std::string s;
-  if (node_handle.getParam("demo_planner", s)) {
-    ROS_INFO("Got param: %s", s.c_str());
+  std::string planner_param;
+  if (node_handle.getParam("demo_planner", planner_param)) {
+    ROS_INFO("Got param: %s", planner_param.c_str());
   } else {
     ROS_ERROR("Failed to get param 'demo_planner'");
   }
 
-  if (s == "contact") {
+  if (planner_param == "contact") {
     PLANNER_NAME = "ContactTRRTDuo";  // ContactTRRTDuo, RRTstar
     OBJECTIVE_NAME =
         "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
@@ -86,9 +86,10 @@ int main(int argc, char* argv[]) {
   }
 
   ROS_INFO_NAMED(LOGNAME, "visualizeObstacleMarker");
-  // visualizer->visualizeObstacleMarker(planner->getSimObstaclePos());
-  Eigen::Vector3d start{0, 0, 0};
-  visualizer->visualizeObstacleMarker(planner->getObstacles(start));
+  visualizer->visualizeObstacleMarker(planner->getSimObstaclePos());
+
+  // Eigen::Vector3d start{0, 0, 0};
+  // visualizer->visualizeObstacleMarker(planner->getObstacles(start));
 
   status = utilities::promptUserInput();
   if (!status) {
@@ -122,7 +123,7 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  bool execute_trajectory = false;
+  bool execute_trajectory = true;
   if (execute_trajectory == true) {
     PandaInterface panda_interface;
     panda_interface.init();

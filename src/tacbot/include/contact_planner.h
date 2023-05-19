@@ -124,7 +124,7 @@ class ContactPlanner : public BasePlanner {
 
   /** \brief Whether or not to use simulated obstacles or the ContactPerception
    * class to fill obstacles into the robot's planning scene.*/
-  const bool use_sim_obstacles_ = false;
+  const bool use_sim_obstacles_ = true;
 
   /** \brief The posisitoins of the simulated obstacles. It's a vector of the
    * x,y,z positions of the obstacles in cartesian space.*/
