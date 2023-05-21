@@ -34,6 +34,8 @@ class PerceptionPlanner : public BasePlanner {
 
   bool generatePlan(planning_interface::MotionPlanResponse& res) override;
 
+  moveit_msgs::MotionPlanResponse raw_plan_resp_;
+
  protected:
   /** \brief The posisitoins of the simulated obstacles. It's a vector of the
    * x,y,z positions of the obstacles in cartesian space.*/

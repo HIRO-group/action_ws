@@ -63,8 +63,8 @@ class Visualizer {
                           std::vector<double> joint_angles1,
                           std::vector<double> joint_angles2);
 
-  void visualizeTrajectory(
-      const moveit_msgs::MotionPlanResponse& resp_final_traj, std::string name);
+  void visualizeTrajectory(const moveit_msgs::MotionPlanResponse& traj,
+                           std::string name);
 
   void visualizeEEPath();
 

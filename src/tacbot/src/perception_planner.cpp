@@ -6,6 +6,7 @@
 #include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 
 #include "ompl/geometric/planners/informedtrees/BITstar.h"
+#include "ompl/geometric/planners/rrt/RRTstar.h"
 
 using namespace std::chrono;
 constexpr char LOGNAME[] = "perception_planner";
@@ -92,7 +93,7 @@ void PerceptionPlanner::changePlanner() {
   //  planner = std::make_shared<ompl::multilevel::QRRTStar>(si);
 
   ROS_INFO_NAMED(LOGNAME, "BITstar planner");
-  planner = std::make_shared<ompl::geometric::ABITstar>(si);
+  planner = std::make_shared<ompl::geometric::RRTstar>(si);
 
   std::function<double(const ompl::base::State*)> optFunc;
 
@@ -110,7 +111,7 @@ void PerceptionPlanner::changePlanner() {
 
 double PerceptionPlanner::overlapMagnitude(
     const ompl::base::State* base_state) {
-  ROS_INFO_NAMED(LOGNAME, "overlapMagnitude");
+  // ROS_INFO_NAMED(LOGNAME, "overlapMagnitude");
   sphericalCollisionPermission(false);
 
   const ompl::base::RealVectorStateSpace::StateType& vec_state =
@@ -119,9 +120,9 @@ double PerceptionPlanner::overlapMagnitude(
   moveit::core::RobotState robot_state(*robot_state_);
   robot_state.setJointGroupPositions(joint_model_group_, joint_angles);
 
+  double contact_depth = getContactDepth(robot_state);
   sphericalCollisionPermission(true);
-
-  return getContactDepth(robot_state);
+  return contact_depth;
 }
 
 void PerceptionPlanner::sphericalCollisionPermission(bool is_allowed) {
@@ -205,11 +206,15 @@ bool PerceptionPlanner::generatePlan(
   res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
   bool is_solved = context_->solve(res);
 
-  sphericalCollisionPermission(false);
-  planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
-  context_->setPlanningScene(lscene);
-  double timeout = 10;
-  context_->simplifySolution(timeout);
+  // res.getMessage(raw_plan_resp_);
+  // sphericalCollisionPermission(false);
+  // planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
+  // context_->setPlanningScene(lscene);
+  // double timeout = 10;
+  // context_->simplifySolution(timeout);
+
+  // remove the already queried status from here when doing path simplification
+  // moveit_planners/ompl/ompl_interface/src/detail/state_validity_checker.cpp
 
   if (is_solved) {
     std::size_t state_count = res.trajectory_->getWayPointCount();
