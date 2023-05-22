@@ -40,7 +40,7 @@ class Visualizer {
       @param obstacle_pos The vecetor of obstacle positions in cartesian space.
   */
   void visualizeObstacleMarker(
-      const std::vector<Eigen::Vector3d>& obstacle_pos);
+      const std::vector<tacbot::ObstacleGroup>& obstacle_pos);
 
   /** \brief Visualize the robot joint start state, it's joint position when the
    * repulsed vectors are pplied, the vectors and their origins. Basically,

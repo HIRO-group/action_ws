@@ -728,13 +728,28 @@ void ContactPlanner::changePlanner() {
   simple_setup->setPlanner(planner);
 }
 
-std::vector<Eigen::Vector3d> ContactPlanner::getSimObstaclePos() {
-  return sim_obstacle_pos_;
+std::vector<tacbot::ObstacleGroup> ContactPlanner::getSimObstaclePos() {
+  std::vector<tacbot::ObstacleGroup> obstacles;
+
+  tacbot::ObstacleGroup spheres;
+  spheres.name = "all_spheres";
+  std::vector<PointObstacle> point_obstacles;
+  for (auto pos : sim_obstacle_pos_) {
+    tacbot::PointObstacle pt;
+    pt.pos = pos;
+    point_obstacles.emplace_back(pt);
+  }
+  return obstacles;
 };
 
 void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
-  for (auto sphere : spherical_obstacles_) {
-    contact_perception_->addSphere(sphere.first, sphere.second);
+  for (std::size_t i = 0; spherical_obstacles_.size(); i++) {
+    auto sphere = spherical_obstacles_[i];
+    tacbot::ObstacleGroup obstacle;
+    obstacle.center = sphere.first;
+    obstacle.radius = sphere.second;
+    obstacle.name = "sphere_" + std::to_string(i);
+    contact_perception_->addSphere(obstacle);
   }
 
   PlanAnalysisData& plan_analysis = benchmark_data.plan_analysis;

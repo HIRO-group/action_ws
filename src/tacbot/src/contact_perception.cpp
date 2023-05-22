@@ -147,20 +147,17 @@ void ContactPerception::addCylinder() {
   addCollisionObjects(collision_objects, object_colors);
 }
 
-void ContactPerception::addSphere(const Eigen::Vector3d& center,
-                                  double radius) {
+void ContactPerception::addSphere(const tacbot::ObstacleGroup& obstacle) {
   moveit_msgs::CollisionObject collision_object;
   collision_object.header.frame_id = "panda_link0";
-  std::string object_name = "sphere_" + std::to_string(obst_num_);
-  sphere_names_.emplace_back(object_name);
-  collision_object.id = object_name;
+  collision_object.id = obstacle.name;
   obst_num_++;
   collision_object.operation = collision_object.ADD;
 
   shape_msgs::SolidPrimitive primitive;
   primitive.type = primitive.SPHERE;
   primitive.dimensions.resize(3);
-  primitive.dimensions[primitive.SPHERE_RADIUS] = radius;
+  primitive.dimensions[primitive.SPHERE_RADIUS] = obstacle.radius;
 
   geometry_msgs::Pose pose;
   pose.orientation.w = 1.0;
@@ -168,9 +165,9 @@ void ContactPerception::addSphere(const Eigen::Vector3d& center,
   pose.orientation.y = 0.0;
   pose.orientation.z = 0.0;
 
-  pose.position.x = center[0];
-  pose.position.y = center[1];
-  pose.position.z = center[2];
+  pose.position.x = obstacle.center[0];
+  pose.position.y = obstacle.center[1];
+  pose.position.z = obstacle.center[2];
 
   collision_object.primitives.push_back(primitive);
   collision_object.primitive_poses.push_back(pose);

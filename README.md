@@ -59,4 +59,4 @@ catkin build
 - Add a setting to allow or disallow cached queries for collision here: moveit_planners/ompl/ompl_interface/src/detail/state_validity_checker.cpp
 - The above can be done with a setting in the parent class of validity checking and then changing that setting through the SimpleSetup which lives in the context (model based planning context)
 - Extract rawTrajectoryPtr and add it to the visualization
--
+- multilevel::QRRTStar is not working

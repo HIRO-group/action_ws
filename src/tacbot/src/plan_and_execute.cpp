@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
                                  planner->getJointGoalPos());
 
   ROS_INFO_NAMED(LOGNAME, "visualizeObstacleMarker");
-  visualizer->visualizeObstacleMarker(planner->getObstaclePos());
+  visualizer->visualizeObstacleMarker(planner->getObstacles());
 
   bool status = utilities::promptUserInput();
   if (!status) {
@@ -77,8 +77,6 @@ int main(int argc, char** argv) {
   moveit_msgs::MotionPlanResponse msg;
   res.getMessage(msg);
   visualizer->visualizeTrajectory(msg, "planned_path");
-
-  visualizer->visualizeTrajectory(planner->raw_plan_resp_, "raw_path");
 
   utilities::promptUserInput();
 

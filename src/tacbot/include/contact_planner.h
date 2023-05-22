@@ -86,7 +86,7 @@ class ContactPlanner : public BasePlanner {
     @return std::vector<Eigen::Vector3d> of the positions (x,y,z) of the
     obstacles.
   */
-  std::vector<Eigen::Vector3d> getSimObstaclePos();
+  std::vector<tacbot::ObstacleGroup> getSimObstaclePos();
 
   /** \brief Obtain the obstacles in the robot's surroundings. These could be
     simulated obstacles or obstacles from the ContactPerception class.

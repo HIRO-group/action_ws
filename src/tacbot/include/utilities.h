@@ -38,6 +38,20 @@ struct BenchMarkData {
   PlanAnalysisData plan_analysis;
 };
 
+struct PointObstacle {
+  PointObstacle() : pos(Eigen::Vector3d{0, 0, 0}) {}
+  Eigen::Vector3d pos;
+};
+
+struct ObstacleGroup {
+  ObstacleGroup() : center(Eigen::Vector3d{0, 0, 0}) {}
+  std::string name = "";
+  std::vector<tacbot::PointObstacle> point_obstacles;
+  Eigen::Vector3d center;  // optional for simulated obstacles
+  double radius = 0.0;     // optinal simulated spherical obstacles
+  double cost = 0.0;       //
+};
+
 namespace utilities {
 /** \brief
   @param
@@ -88,7 +102,8 @@ double getDistance(Eigen::Vector3d p1, Eigen::Vector3d p2);
 
 /** \brief Print the information stores in the planner configuration. Used to
   see whether or not data has been read from a yaml file.
-  @param planner_config_map Data structure which stores planner configurations.
+  @param planner_config_map Data structure which stores planner
+  configurations.
 */
 void printPlannerConfigMap(
     const planning_interface::PlannerConfigurationMap& planner_config_map);
@@ -115,8 +130,8 @@ void printStateSpace(
 void interpolate(Eigen::MatrixXd& mat);
 
 /** \brief Find the rows of one matrix in another matrix. Assumes that at one
-  point haystack was created from needle and now we need to understand where the
-  original points are.
+  point haystack was created from needle and now we need to understand where
+  the original points are.
   @param needle The rows which need to be found.
   @param haystack The rows in which we want to find an equivalent.
   @return The indexes in haystack where we find equivalent needle rows.

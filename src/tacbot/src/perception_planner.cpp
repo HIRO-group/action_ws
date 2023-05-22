@@ -24,7 +24,7 @@ void PerceptionPlanner::init() {
   contact_perception_->init();
   setCollisionChecker("Bullet");
   setGoalState(1);
-  setObstacleScene(1);
+  setObstacleScene(2);
   sphericalCollisionPermission(true);
 }
 
@@ -39,16 +39,38 @@ void PerceptionPlanner::setGoalState(std::size_t option) {
 }
 
 void PerceptionPlanner::setObstacleScene(std::size_t option) {
-  spherical_obstacles_.clear();
-  sim_obstacle_pos_.clear();
+  obstacles_.clear();
   ROS_INFO_NAMED(LOGNAME, "Obstacle scene option selected: %ld", option);
   switch (option) {
-    case 1:
-      spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.5, 0.0, 0.6}, 0.05));
-      spherical_obstacles_.emplace_back(
-          std::make_pair(Eigen::Vector3d{0.45, -0.4, 0.6}, 0.1));
+    case 1: {
+      tacbot::ObstacleGroup sphere_1;
+      sphere_1.name = "sphere_1";
+      sphere_1.radius = 0.1;
+      sphere_1.center = Eigen::Vector3d{0.5, 0.0, 0.6};
+      obstacles_.emplace_back(sphere_1);
+
+      tacbot::ObstacleGroup sphere_2;
+      sphere_2.name = "sphere_2";
+      sphere_2.radius = 0.1;
+      sphere_2.center = Eigen::Vector3d{0.45, -0.4, 0.6};
+      obstacles_.emplace_back(sphere_2);
       break;
+    }
+    case 2: {
+      tacbot::ObstacleGroup sphere_1;
+      sphere_1.name = "sphere_1";
+      sphere_1.radius = 0.1;
+      sphere_1.center = Eigen::Vector3d{0.45, -0.2, 0.6};
+      obstacles_.emplace_back(sphere_1);
+
+      tacbot::ObstacleGroup sphere_2;
+      sphere_2.name = "sphere_2";
+      sphere_2.radius = 0.1;
+      sphere_2.center = Eigen::Vector3d{0.45, -0.4, 0.6};
+      obstacles_.emplace_back(sphere_2);
+
+      break;
+    }
     default:
       ROS_ERROR_NAMED(LOGNAME,
                       "Selected obstacle scene option is out of bounds: %ld",
@@ -56,24 +78,22 @@ void PerceptionPlanner::setObstacleScene(std::size_t option) {
       break;
   }
 
-  for (auto obstacle : spherical_obstacles_) {
-    addSphericalObstacle(obstacle.first, obstacle.second);
-  }
-
-  for (auto sphere : spherical_obstacles_) {
-    contact_perception_->addSphere(sphere.first, sphere.second);
+  for (auto& obstacle : obstacles_) {
+    addPointObstacles(obstacle);
+    contact_perception_->addSphere(obstacle);
   }
 }
 
-void PerceptionPlanner::addSphericalObstacle(const Eigen::Vector3d& center,
-                                             double radius) {
+void PerceptionPlanner::addPointObstacles(tacbot::ObstacleGroup& obstacle) {
   const double inc = 0.4;
   for (double theta = 0; theta < 2 * M_PI; theta += inc) {
     for (double phi = 0; phi < 2 * M_PI; phi += inc) {
-      double x = radius * cos(phi) * sin(theta) + center[0];
-      double y = radius * sin(phi) * sin(theta) + center[1];
-      double z = radius * cos(theta) + center[2];
-      sim_obstacle_pos_.emplace_back(Eigen::Vector3d{x, y, z});
+      double x = obstacle.radius * cos(phi) * sin(theta) + obstacle.center[0];
+      double y = obstacle.radius * sin(phi) * sin(theta) + obstacle.center[1];
+      double z = obstacle.radius * cos(theta) + obstacle.center[2];
+      tacbot::PointObstacle pt_obs;
+      pt_obs.pos = Eigen::Vector3d{x, y, z};
+      obstacle.point_obstacles.emplace_back(pt_obs);
     }
   }
 }
@@ -133,7 +153,10 @@ void PerceptionPlanner::sphericalCollisionPermission(bool is_allowed) {
           ->getAllowedCollisionMatrixNonConst();
   // acm.print(std::cout);
 
-  std::vector<std::string> sphere_names = contact_perception_->getSphereNames();
+  std::vector<std::string> sphere_names;
+  for (auto obstacle : obstacles_) {
+    sphere_names.emplace_back(obstacle.name);
+  }
 
   for (auto name : sphere_names) {
     acm.setEntry(name, is_allowed);
@@ -164,7 +187,7 @@ double PerceptionPlanner::getContactDepth(
   collision_request.cost = false;
   collision_request.contacts = true;
   collision_request.max_contacts = 20;
-  collision_request.max_contacts_per_pair = 1;
+  collision_request.max_contacts_per_pair = 2;
   collision_request.max_cost_sources = 20;
   collision_request.verbose = false;
 
@@ -186,13 +209,19 @@ double PerceptionPlanner::getContactDepth(
 
   for (auto contact : contact_map) {
     std::size_t num_subcontacts = contact.second.size();
-    // ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
+    ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
     for (std::size_t subc_idx = 0; subc_idx < num_subcontacts; subc_idx++) {
       collision_detection::Contact subcontact = contact.second[subc_idx];
-      // ROS_INFO_NAMED(LOGNAME, "Body 1: %s", subcontact.body_name_1.c_str());
-      // ROS_INFO_NAMED(LOGNAME, "Body 2: %s", subcontact.body_name_2.c_str());
-      // ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
-      total_depth += std::abs(subcontact.depth);
+      ROS_INFO_NAMED(LOGNAME, "Body 1: %s", subcontact.body_name_1.c_str());
+      ROS_INFO_NAMED(LOGNAME, "Body 2: %s", subcontact.body_name_2.c_str());
+      ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
+
+      double scaling_factor = 1;
+      if (subcontact.body_name_1 == "shere_2" ||
+          subcontact.body_name_2 == "shere_2") {
+        scaling_factor = 5;
+      }
+      total_depth = total_depth + std::abs(subcontact.depth) * scaling_factor;
     }
   }
 
@@ -205,7 +234,6 @@ bool PerceptionPlanner::generatePlan(
   res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
   bool is_solved = context_->solve(res);
 
-  // res.getMessage(raw_plan_resp_);
   // sphericalCollisionPermission(false);
   // planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
   // context_->setPlanningScene(lscene);

@@ -283,46 +283,50 @@ void Visualizer::visualizeRepulseOrigin(std::size_t state_num) {
 }
 
 void Visualizer::visualizeObstacleMarker(
-    const std::vector<Eigen::Vector3d>& obstacle_pos) {
+    const std::vector<tacbot::ObstacleGroup>& obstacles) {
   visualization_msgs::MarkerArray marker_array;
 
-  for (std::size_t i = 0; i < obstacle_pos.size(); i++) {
-    uint32_t shape = visualization_msgs::Marker::SPHERE;
+  for (std::size_t k = 0; k < obstacles.size(); k++) {
+    tacbot::ObstacleGroup obstacle = obstacles[k];
+    std::vector<tacbot::PointObstacle> point_obstacles =
+        obstacle.point_obstacles;
+    for (std::size_t i = 0; i < point_obstacles.size(); i++) {
+      tacbot::PointObstacle point_obst = point_obstacles[i];
+      uint32_t shape = visualization_msgs::Marker::SPHERE;
 
-    visualization_msgs::Marker marker;
-    marker.header.frame_id = "world";
-    marker.header.stamp = ros::Time::now();
-    // marker.ns = "basic_shapes";
-    marker.id = i;
-    marker.type = shape;
+      visualization_msgs::Marker marker;
+      marker.header.frame_id = "world";
+      marker.header.stamp = ros::Time::now();
+      // marker.ns = "basic_shapes";
+      marker.id = marker_array.markers.size();
+      marker.type = shape;
 
-    // Set the marker action.  Options are ADD, DELETE, and DELETEALL
-    marker.action = visualization_msgs::Marker::ADD;
+      // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+      marker.action = visualization_msgs::Marker::ADD;
 
-    Eigen::Vector3d pos = obstacle_pos[i];
+      marker.pose.position.x = point_obst.pos[0];
+      marker.pose.position.y = point_obst.pos[1];
+      marker.pose.position.z = point_obst.pos[2];
+      marker.pose.orientation.x = 0.0;
+      marker.pose.orientation.y = 0.0;
+      marker.pose.orientation.z = 0.0;
+      marker.pose.orientation.w = 1.0;
 
-    marker.pose.position.x = pos[0];
-    marker.pose.position.y = pos[1];
-    marker.pose.position.z = pos[2];
-    marker.pose.orientation.x = 0.0;
-    marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
+      marker.scale.x = 0.05;
+      marker.scale.y = 0.05;
+      marker.scale.z = 0.05;
 
-    marker.scale.x = 0.05;
-    marker.scale.y = 0.05;
-    marker.scale.z = 0.05;
+      marker.color.r = 1.0f;
+      marker.color.g = 0.0f;
+      marker.color.b = 0.0f;
+      marker.color.a = 1.0;
 
-    marker.color.r = 1.0f;
-    marker.color.g = 0.0f;
-    marker.color.b = 0.0f;
-    marker.color.a = 1.0;
+      marker.lifetime = ros::Duration();
 
-    marker.lifetime = ros::Duration();
-
-    marker_array.markers.push_back(marker);
+      marker_array.markers.push_back(marker);
+    }
+    obstacle_marker_pub_.publish(marker_array);
   }
-  obstacle_marker_pub_.publish(marker_array);
 }
 
 void Visualizer::visualizeTrajectory(
@@ -472,7 +476,7 @@ void Visualizer::visualizeRepulsedState(const std::vector<std::string>& names) {
     visualizeRepulseVec(viz_state_idx_);
     visualizeNearRandVec(viz_state_idx_);
     visualizeRepulseOrigin(viz_state_idx_);
-    visualizeObstacleMarker(vis_data_->sample_obstacle_pos_[viz_state_idx_]);
+    // visualizeObstacleMarker(vis_data_->sample_obstacle_pos_[viz_state_idx_]);
 
     viz_state_idx_ += 1;
 
