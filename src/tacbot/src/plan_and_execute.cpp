@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     return 0;
   }
   req.group_name = planner->getGroupName();
-  req.allowed_planning_time = 30.0;
+  req.allowed_planning_time = 10.0;
   req.planner_id = context->getPlannerId();
   req.max_acceleration_scaling_factor = 0.5;
   req.max_velocity_scaling_factor = 0.5;

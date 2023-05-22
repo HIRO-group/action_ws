@@ -6,6 +6,7 @@
 #include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 
 #include "ompl/geometric/planners/informedtrees/BITstar.h"
+#include "ompl/geometric/planners/rrt/InformedRRTstar.h"
 #include "ompl/geometric/planners/rrt/RRTstar.h"
 
 using namespace std::chrono;
@@ -90,10 +91,9 @@ void PerceptionPlanner::changePlanner() {
   //  ROS_INFO_NAMED(LOGNAME,
   //  "std::make_shared<ompl::multilevel::QRRTStar>(si)");
   //  std::shared_ptr<ompl::multilevel::QRRTStar>
-  //  planner = std::make_shared<ompl::multilevel::QRRTStar>(si);
+  // planner = std::make_shared<ompl::multilevel::QRRTStar>(si);
 
-  ROS_INFO_NAMED(LOGNAME, "BITstar planner");
-  planner = std::make_shared<ompl::geometric::RRTstar>(si);
+  planner = std::make_shared<ompl::geometric::InformedRRTstar>(si);
 
   std::function<double(const ompl::base::State*)> optFunc;
 
@@ -111,7 +111,6 @@ void PerceptionPlanner::changePlanner() {
 
 double PerceptionPlanner::overlapMagnitude(
     const ompl::base::State* base_state) {
-  // ROS_INFO_NAMED(LOGNAME, "overlapMagnitude");
   sphericalCollisionPermission(false);
 
   const ompl::base::RealVectorStateSpace::StateType& vec_state =
@@ -158,7 +157,7 @@ void PerceptionPlanner::setCollisionChecker(
 
 double PerceptionPlanner::getContactDepth(
     moveit::core::RobotState robot_state) {
-  ROS_INFO_NAMED(LOGNAME, "getContactDepth");
+  // ROS_INFO_NAMED(LOGNAME, "getContactDepth");
 
   collision_detection::CollisionRequest collision_request;
   collision_request.distance = false;
@@ -174,7 +173,7 @@ double PerceptionPlanner::getContactDepth(
       collision_request, collision_result, robot_state);
 
   bool collision = collision_result.collision;
-  ROS_INFO_NAMED(LOGNAME, "collision: %d", collision);
+  // ROS_INFO_NAMED(LOGNAME, "collision: %d", collision);
 
   if (!collision) {
     return 0;
@@ -190,14 +189,14 @@ double PerceptionPlanner::getContactDepth(
     // ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
     for (std::size_t subc_idx = 0; subc_idx < num_subcontacts; subc_idx++) {
       collision_detection::Contact subcontact = contact.second[subc_idx];
-      ROS_INFO_NAMED(LOGNAME, "Body 1: %s", subcontact.body_name_1.c_str());
-      ROS_INFO_NAMED(LOGNAME, "Body 2: %s", subcontact.body_name_2.c_str());
-      ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
+      // ROS_INFO_NAMED(LOGNAME, "Body 1: %s", subcontact.body_name_1.c_str());
+      // ROS_INFO_NAMED(LOGNAME, "Body 2: %s", subcontact.body_name_2.c_str());
+      // ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
       total_depth += std::abs(subcontact.depth);
-      ROS_INFO_NAMED(LOGNAME, "Total Depth: %f", total_depth);
     }
   }
 
+  ROS_INFO_NAMED(LOGNAME, "Total Contact Depth: %f", total_depth);
   return total_depth;
 }
 
@@ -213,7 +212,7 @@ bool PerceptionPlanner::generatePlan(
   // double timeout = 10;
   // context_->simplifySolution(timeout);
 
-  // remove the already queried status from here when doing path simplification
+  // remove the already queried status from here when doing path simplificationz
   // moveit_planners/ompl/ompl_interface/src/detail/state_validity_checker.cpp
 
   if (is_solved) {
