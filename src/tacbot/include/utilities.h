@@ -49,7 +49,8 @@ struct ObstacleGroup {
   std::vector<tacbot::PointObstacle> point_obstacles;
   Eigen::Vector3d center;  // optional for simulated obstacles
   double radius = 0.0;     // optinal simulated spherical obstacles
-  double cost = 0.0;       //
+  double cost = 1.0;       //
+  double MAX_COST = 10;
 };
 
 namespace utilities {

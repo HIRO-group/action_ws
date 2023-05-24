@@ -60,15 +60,23 @@ void PerceptionPlanner::setObstacleScene(std::size_t option) {
       tacbot::ObstacleGroup sphere_1;
       sphere_1.name = "sphere_1";
       sphere_1.radius = 0.1;
+      sphere_1.cost = 10.0;
       sphere_1.center = Eigen::Vector3d{0.45, -0.2, 0.6};
       obstacles_.emplace_back(sphere_1);
 
       tacbot::ObstacleGroup sphere_2;
       sphere_2.name = "sphere_2";
       sphere_2.radius = 0.1;
+      sphere_2.cost = 1.0;
       sphere_2.center = Eigen::Vector3d{0.45, -0.4, 0.6};
       obstacles_.emplace_back(sphere_2);
 
+      tacbot::ObstacleGroup sphere_3;
+      sphere_3.name = "sphere_3";
+      sphere_3.radius = 0.1;
+      sphere_3.cost = 1.0;
+      sphere_3.center = Eigen::Vector3d{0.45, -0.3, 0.8};
+      obstacles_.emplace_back(sphere_3);
       break;
     }
     default:
@@ -216,17 +224,33 @@ double PerceptionPlanner::getContactDepth(
       ROS_INFO_NAMED(LOGNAME, "Body 2: %s", subcontact.body_name_2.c_str());
       ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
 
-      double scaling_factor = 1;
-      if (subcontact.body_name_1 == "shere_2" ||
-          subcontact.body_name_2 == "shere_2") {
-        scaling_factor = 5;
+      tacbot::ObstacleGroup obstacle;
+
+      if (findObstacleByName(subcontact.body_name_1, obstacle) ||
+          findObstacleByName(subcontact.body_name_2, obstacle)) {
+        total_depth = total_depth + std::abs(subcontact.depth) * obstacle.cost;
+      } else {
+        total_depth = total_depth + std::abs(subcontact.depth);
       }
-      total_depth = total_depth + std::abs(subcontact.depth) * scaling_factor;
     }
   }
 
   ROS_INFO_NAMED(LOGNAME, "Total Contact Depth: %f", total_depth);
   return total_depth;
+}
+
+bool PerceptionPlanner::findObstacleByName(const std::string& name,
+                                           tacbot::ObstacleGroup& obstacle) {
+  auto it = std::find_if(std::begin(obstacles_), std::end(obstacles_),
+                         [=](const tacbot::ObstacleGroup& obs) -> bool {
+                           return name == obs.name;
+                         });
+  if (it == std::end(obstacles_)) {
+    return false;
+  } else {
+    obstacle = *it;
+    return true;
+  }
 }
 
 bool PerceptionPlanner::generatePlan(

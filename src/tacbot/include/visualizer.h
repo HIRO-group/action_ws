@@ -9,9 +9,11 @@
 
 namespace tacbot {
 
-/** Forward declaration of the ContactPlanner class.
- */
-class ContactPlanner;
+struct g_hsv {
+  float h;
+  float s;
+  float v;
+};
 
 /** \class The role of this class if to use VisualizerData and ContactPlanner to
  * send visualizing elements to rviz. This allows us to debug and see the
@@ -67,6 +69,13 @@ class Visualizer {
                            std::string name);
 
   void visualizeEEPath();
+
+  void HSVToRGB(struct g_hsv& hsv, std_msgs::ColorRGBA& rgb);
+
+  void setRGB(std_msgs::ColorRGBA& rgb, double r, double g, double b);
+
+  void computeColorForValue(std_msgs::ColorRGBA& color, double gradientValue,
+                            double maxValue);
 
  private:
   ros::NodeHandle nh_;

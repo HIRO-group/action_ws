@@ -8,6 +8,9 @@
 
 constexpr char LOGNAME[] = "visualizer";
 
+const float MAX_RGB = 1.0f;
+const float MAX_HUE_VALUE = 270.0f;
+
 namespace tacbot {
 Visualizer::Visualizer(const std::shared_ptr<VisualizerData>& vis_data)
     : vis_data_(vis_data) {
@@ -282,6 +285,51 @@ void Visualizer::visualizeRepulseOrigin(std::size_t state_num) {
   robot_repulse_origin_pub_.publish(marker_array);
 }
 
+// Functions to set colour of points while displaying obstacle map and cost map
+void Visualizer::HSVToRGB(struct g_hsv& hsv, std_msgs::ColorRGBA& rgb) {
+  float c = hsv.s * hsv.v;
+  float hp = hsv.h / 60.0;
+  float x = c * (1.0f - fabs(fmod(hp, 2.0f) - 1.0f));
+  float m = hsv.v - c;
+  if (hp < 0 || hp >= 6) {
+    setRGB(rgb, 0, 0, 0);
+  } else if (hp < 1) {
+    setRGB(rgb, c, x, 0);
+  } else if (hp < 2) {
+    setRGB(rgb, x, c, 0);
+  } else if (hp < 3) {
+    setRGB(rgb, 0, c, x);
+  } else if (hp < 4) {
+    setRGB(rgb, 0, x, c);
+  } else if (hp < 5) {
+    setRGB(rgb, x, 0, c);
+  } else {
+    setRGB(rgb, c, 0, x);
+  }
+  rgb.r = (rgb.r + m) * MAX_RGB;
+  rgb.g = (rgb.g + m) * MAX_RGB;
+  rgb.b = (rgb.b + m) * MAX_RGB;
+  // ROS_INFO("HSV %f, %f, %f, C %f, hp %f x %f, m %f, RGB %f, %f, %f", hsv.h,
+  // hsv.s, hsv.v, c, hp, x, m, rgb.r, rgb.g, rgb.b);
+}
+
+void Visualizer::setRGB(std_msgs::ColorRGBA& rgb, double r, double g,
+                        double b) {
+  rgb.r = r;
+  rgb.g = g;
+  rgb.b = b;
+}
+
+void Visualizer::computeColorForValue(std_msgs::ColorRGBA& color,
+                                      double gradientValue, double maxValue) {
+  color.a = 1.0;
+  g_hsv hsv;
+  hsv.h = (1 - gradientValue / maxValue) * MAX_HUE_VALUE;
+  hsv.s = 1.0;
+  hsv.v = 1.0;
+  HSVToRGB(hsv, color);
+}
+
 void Visualizer::visualizeObstacleMarker(
     const std::vector<tacbot::ObstacleGroup>& obstacles) {
   visualization_msgs::MarkerArray marker_array;
@@ -316,10 +364,12 @@ void Visualizer::visualizeObstacleMarker(
       marker.scale.y = 0.05;
       marker.scale.z = 0.05;
 
-      marker.color.r = 1.0f;
-      marker.color.g = 0.0f;
-      marker.color.b = 0.0f;
-      marker.color.a = 1.0;
+      computeColorForValue(marker.color, obstacle.cost, obstacle.MAX_COST);
+
+      // marker.color.r = 1.0f;
+      // marker.color.g = 0.0f;
+      // marker.color.b = 0.0f;
+      // marker.color.a = 1.0;
 
       marker.lifetime = ros::Duration();
 

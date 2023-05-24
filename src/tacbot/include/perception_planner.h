@@ -42,6 +42,9 @@ class PerceptionPlanner : public BasePlanner {
   double overlapMagnitude(const ompl::base::State* base_state);
 
   void sphericalCollisionPermission(bool is_allowed);
+
+  bool findObstacleByName(const std::string& name,
+                          tacbot::ObstacleGroup& obstacle);
 };
 }  // namespace tacbot
 #endif
