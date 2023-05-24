@@ -156,6 +156,8 @@ void PerceptionPlanner::sphericalCollisionPermission(bool is_allowed) {
   // collision_detection::CollisionEnvConstPtr col_env =
   //     planning_scene_monitor::LockedPlanningSceneRW(psm_)->getCollisionEnv();
 
+  ROS_INFO_NAMED(LOGNAME, "sphericalCollisionPermission");
+
   collision_detection::AllowedCollisionMatrix& acm =
       planning_scene_monitor::LockedPlanningSceneRW(psm_)
           ->getAllowedCollisionMatrixNonConst();
@@ -169,6 +171,10 @@ void PerceptionPlanner::sphericalCollisionPermission(bool is_allowed) {
   for (auto name : sphere_names) {
     acm.setEntry(name, is_allowed);
   }
+
+  // planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
+  // context_->setPlanningScene(lscene);
+
   // acm.print(std::cout);
 }
 
@@ -256,6 +262,16 @@ bool PerceptionPlanner::findObstacleByName(const std::string& name,
 bool PerceptionPlanner::generatePlan(
     planning_interface::MotionPlanResponse& res) {
   res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
+
+  // std::function<void(bool)> wrapFunc;
+  // wrapFunc = std::bind(&PerceptionPlanner::sphericalCollisionPermission,
+  // this,
+  //                      std::placeholders::_1);
+
+  context_->simplifyWrapFunc_ =
+      std::bind(&PerceptionPlanner::sphericalCollisionPermission, this,
+                std::placeholders::_1);
+
   bool is_solved = context_->solve(res);
 
   // sphericalCollisionPermission(false);

@@ -77,6 +77,8 @@ int main(int argc, char** argv) {
   moveit_msgs::MotionPlanResponse msg;
   res.getMessage(msg);
   visualizer->visualizeTrajectory(msg, "planned_path");
+  visualizer->visualizeTrajectory(
+      planner->getPlanningContext()->getRawTrajectory(), "raw_traj");
 
   utilities::promptUserInput();
 

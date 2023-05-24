@@ -89,7 +89,9 @@ class BasePlanner {
   /** \brief Getter for the moveit plannning context.
     @return Planning context.
   */
-  ompl_interface::ModelBasedPlanningContextPtr getPlanningContext();
+  ompl_interface::ModelBasedPlanningContextPtr getPlanningContext() {
+    return context_;
+  };
 
   void setPlanningContext(
       const ompl_interface::ModelBasedPlanningContextPtr& context) {

@@ -156,6 +156,7 @@ CATKIN_DEPENDS
   # moveit_ros_planning_interface
   # interactive_markers
   # trac_ik_lib
+  my_moveit_context
 DEPENDS
   EIGEN3
   OMPL

@@ -67,6 +67,8 @@ class Visualizer {
 
   void visualizeTrajectory(const moveit_msgs::MotionPlanResponse& traj,
                            std::string name);
+  void visualizeTrajectory(const robot_trajectory::RobotTrajectoryPtr& traj,
+                           std::string name);
 
   void visualizeEEPath();
 

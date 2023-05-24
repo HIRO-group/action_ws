@@ -59,13 +59,18 @@ install_moveit(){
   cd src/moveit
   git checkout ${ROS_DISTRO}-devel
   cd ../../
+  git submodule update --recursive
 }
 
 build_libfranka()
 {
   echo -e "${BLUE}Build and install libfranka${NC}"
   mkdir -p src/libfranka/build
-  cd src/libfranka/build
+  cd src/libfranka
+  git fetch --all --tags
+  git checkout 0.10.0
+  git submodule update --recursive
+  cd build
   cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF ..
   cmake --build .
   cd ../../../
@@ -171,6 +176,7 @@ installer(){
   build_libfranka
   build_ompl
   build_omplapp
+  git submodule update --recursive
   # set_upstream_branches
 }
 

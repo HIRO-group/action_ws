@@ -383,13 +383,13 @@ void Visualizer::visualizeTrajectory(
     const moveit_msgs::MotionPlanResponse& traj, std::string name) {
   // first publish the final path
   moveit_msgs::DisplayTrajectory display_traj;
-  ros::Publisher pub_final_traj;
+  ros::Publisher traj_pub;
 
-  pub_final_traj = nh_.advertise<moveit_msgs::DisplayTrajectory>(name, 1, true);
+  traj_pub = nh_.advertise<moveit_msgs::DisplayTrajectory>(name, 1, true);
   display_traj.trajectory_start = traj.trajectory_start;
   display_traj.trajectory.push_back(traj.trajectory);
-  pub_final_traj.publish(display_traj);
-  trajectory_publishers_.push_back(pub_final_traj);
+  traj_pub.publish(display_traj);
+  trajectory_publishers_.push_back(traj_pub);
 
   // moveit_msgs::DisplayTrajectory display_raw_traj;
   // moveit_msgs::MotionPlanResponse resp_raw_traj;
@@ -406,6 +406,23 @@ void Visualizer::visualizeTrajectory(
   // display_raw_traj.trajectory.push_back(resp_raw_traj.trajectory);
   // pub_raw_traj.publish(display_raw_traj);
   // trajectory_publishers_.push_back(pub_raw_traj);
+}
+
+void Visualizer::visualizeTrajectory(
+    const robot_trajectory::RobotTrajectoryPtr& traj, std::string name) {
+  // first publish the final path
+  moveit_msgs::DisplayTrajectory display_traj;
+  moveit_msgs::MotionPlanResponse moveit_traj;
+  ros::Publisher traj_pub;
+
+  robot_trajectory::RobotTrajectory trajectory = *traj;
+  trajectory.getRobotTrajectoryMsg(moveit_traj.trajectory);
+
+  traj_pub = nh_.advertise<moveit_msgs::DisplayTrajectory>(name, 1, true);
+  display_traj.trajectory_start = moveit_traj.trajectory_start;
+  display_traj.trajectory.push_back(moveit_traj.trajectory);
+  traj_pub.publish(display_traj);
+  trajectory_publishers_.push_back(traj_pub);
 }
 
 void Visualizer::visualizeGoalState(const std::vector<std::string>& names,
