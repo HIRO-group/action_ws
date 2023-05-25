@@ -83,6 +83,7 @@
 
   <depend>trac_ik_lib</depend>
   <depend>nlopt</depend>
+  <depend>my_moveit_context</depend>
 
   <!-- <exec_depend>franka_control</exec_depend> -->
   <!-- <exec_depend>franka_description</exec_depend> -->

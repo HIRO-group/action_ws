@@ -121,7 +121,7 @@ void PerceptionPlanner::changePlanner() {
   //  std::shared_ptr<ompl::multilevel::QRRTStar>
   // planner = std::make_shared<ompl::multilevel::QRRTStar>(si);
 
-  planner = std::make_shared<ompl::geometric::InformedRRTstar>(si);
+  planner = std::make_shared<ompl::geometric::BITstar>(si);
 
   std::function<double(const ompl::base::State*)> optFunc;
 
@@ -156,7 +156,7 @@ void PerceptionPlanner::sphericalCollisionPermission(bool is_allowed) {
   // collision_detection::CollisionEnvConstPtr col_env =
   //     planning_scene_monitor::LockedPlanningSceneRW(psm_)->getCollisionEnv();
 
-  ROS_INFO_NAMED(LOGNAME, "sphericalCollisionPermission");
+  // ROS_INFO_NAMED(LOGNAME, "sphericalCollisionPermission");
 
   collision_detection::AllowedCollisionMatrix& acm =
       planning_scene_monitor::LockedPlanningSceneRW(psm_)
@@ -223,12 +223,12 @@ double PerceptionPlanner::getContactDepth(
 
   for (auto contact : contact_map) {
     std::size_t num_subcontacts = contact.second.size();
-    ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
+    // ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
     for (std::size_t subc_idx = 0; subc_idx < num_subcontacts; subc_idx++) {
       collision_detection::Contact subcontact = contact.second[subc_idx];
-      ROS_INFO_NAMED(LOGNAME, "Body 1: %s", subcontact.body_name_1.c_str());
-      ROS_INFO_NAMED(LOGNAME, "Body 2: %s", subcontact.body_name_2.c_str());
-      ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
+      // ROS_INFO_NAMED(LOGNAME, "Body 1: %s", subcontact.body_name_1.c_str());
+      // ROS_INFO_NAMED(LOGNAME, "Body 2: %s", subcontact.body_name_2.c_str());
+      // ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
 
       tacbot::ObstacleGroup obstacle;
 
@@ -241,7 +241,7 @@ double PerceptionPlanner::getContactDepth(
     }
   }
 
-  ROS_INFO_NAMED(LOGNAME, "Total Contact Depth: %f", total_depth);
+  // ROS_INFO_NAMED(LOGNAME, "Total Contact Depth: %f", total_depth);
   return total_depth;
 }
 
@@ -261,12 +261,9 @@ bool PerceptionPlanner::findObstacleByName(const std::string& name,
 
 bool PerceptionPlanner::generatePlan(
     planning_interface::MotionPlanResponse& res) {
-  res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
+  ROS_INFO_NAMED(LOGNAME, "Generating a plan with the perception planner.");
 
-  // std::function<void(bool)> wrapFunc;
-  // wrapFunc = std::bind(&PerceptionPlanner::sphericalCollisionPermission,
-  // this,
-  //                      std::placeholders::_1);
+  res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
 
   context_->simplifyWrapFunc_ =
       std::bind(&PerceptionPlanner::sphericalCollisionPermission, this,
