@@ -265,17 +265,7 @@ bool PerceptionPlanner::generatePlan(
 
   res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
 
-  context_->simplifyWrapFunc_ =
-      std::bind(&PerceptionPlanner::sphericalCollisionPermission, this,
-                std::placeholders::_1);
-
   bool is_solved = context_->solve(res);
-
-  // sphericalCollisionPermission(false);
-  // planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
-  // context_->setPlanningScene(lscene);
-  // double timeout = 10;
-  // context_->simplifySolution(timeout);
 
   // remove the already queried status from here when doing path simplificationz
   // moveit_planners/ompl/ompl_interface/src/detail/state_validity_checker.cpp
