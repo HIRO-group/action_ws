@@ -38,7 +38,7 @@
     <arg name="use_sim_time" value="true"/>
   </include>
 
-  <param name="robot_description" command="xacro $(find franka_description)/robots/panda/panda.urdf.xacro gazebo:=true hand:=$(arg use_gripper) arm_id:=$(arg arm_id) xyz:='$(arg x) $(arg y) $(arg z)' rpy:='$(arg roll) $(arg pitch) $(arg yaw)'
+  <param name="robot_description" command="xacro $(find franka_description)/robots/fr3/fr3.urdf.xacro gazebo:=true hand:=$(arg use_gripper) arm_id:=$(arg arm_id) xyz:='$(arg x) $(arg y) $(arg z)' rpy:='$(arg roll) $(arg pitch) $(arg yaw)'
                   $(arg xacro_args)">
   </param>
 

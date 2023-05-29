@@ -116,10 +116,10 @@ void PerceptionPlanner::changePlanner() {
   ompl::base::PlannerPtr planner;
 
   // Why is this not working? TODO(nn) investigate this planner
-  //  ROS_INFO_NAMED(LOGNAME,
-  //  "std::make_shared<ompl::multilevel::QRRTStar>(si)");
-  //  std::shared_ptr<ompl::multilevel::QRRTStar>
-  // planner = std::make_shared<ompl::multilevel::QRRTStar>(si);
+  // ROS_INFO_NAMED(LOGNAME, "std::make_shared<ompl::multilevel::QRRTStar>(si)");
+  // std::vector<ompl::base::SpaceInformationPtr> siVec;
+  // std::shared_ptr<ompl::multilevel::QRRTStar> planner =
+  //     std::make_shared<ompl::multilevel::QRRTStar>(si);
 
   planner = std::make_shared<ompl::geometric::BITstar>(si);
 
