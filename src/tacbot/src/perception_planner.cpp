@@ -3,6 +3,7 @@
 #include <moveit/collision_detection_bullet/collision_detector_allocator_bullet.h>
 #include <ompl/base/objectives/MinimizeContactObjective.h>
 #include <ompl/geometric/planners/informedtrees/ABITstar.h>
+#include <ompl/multilevel/planners/qmp/QMPStar.h>
 #include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 
 #include "ompl/geometric/planners/informedtrees/BITstar.h"
@@ -116,13 +117,13 @@ void PerceptionPlanner::changePlanner() {
   ompl::base::PlannerPtr planner;
 
   // Why is this not working? TODO(nn) investigate this planner
-  ROS_INFO_NAMED(LOGNAME, "getLOPandaSpace");
-  ompl::base::SpaceInformationPtr si2 = getLOPandaSpace();
+  // ROS_INFO_NAMED(LOGNAME, "getLOPandaSpace");
+  // ompl::base::SpaceInformationPtr si2 = getLOPandaSpace();
 
-  std::vector<ompl::base::SpaceInformationPtr> siVec;
+  // std::vector<ompl::base::SpaceInformationPtr> siVec;
 
-  siVec.emplace_back(si);
-  siVec.emplace_back(si2);
+  // siVec.emplace_back(si);
+  // siVec.emplace_back(si2);
 
   ROS_INFO_NAMED(LOGNAME, "ompl::multilevel::QRRTStar");
   planner = std::make_shared<ompl::multilevel::QRRTStar>(si);
@@ -139,6 +140,8 @@ void PerceptionPlanner::changePlanner() {
 
   optimization_objective_->setCostToGoHeuristic(
       &ompl::base::goalRegionCostToGo);
+
+  simple_setup->print(std::cout);
 
   simple_setup->setPlanner(planner);
 }
