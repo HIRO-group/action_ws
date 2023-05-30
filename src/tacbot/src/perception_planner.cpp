@@ -116,12 +116,18 @@ void PerceptionPlanner::changePlanner() {
   ompl::base::PlannerPtr planner;
 
   // Why is this not working? TODO(nn) investigate this planner
-  // ROS_INFO_NAMED(LOGNAME, "std::make_shared<ompl::multilevel::QRRTStar>(si)");
-  // std::vector<ompl::base::SpaceInformationPtr> siVec;
-  // std::shared_ptr<ompl::multilevel::QRRTStar> planner =
-  //     std::make_shared<ompl::multilevel::QRRTStar>(si);
+  ROS_INFO_NAMED(LOGNAME, "getLOPandaSpace");
+  ompl::base::SpaceInformationPtr si2 = getLOPandaSpace();
 
-  planner = std::make_shared<ompl::geometric::BITstar>(si);
+  std::vector<ompl::base::SpaceInformationPtr> siVec;
+
+  siVec.emplace_back(si);
+  siVec.emplace_back(si2);
+
+  ROS_INFO_NAMED(LOGNAME, "ompl::multilevel::QRRTStar");
+  planner = std::make_shared<ompl::multilevel::QRRTStar>(si);
+
+  // planner = std::make_shared<ompl::geometric::BITstar>(si);
 
   std::function<double(const ompl::base::State*)> optFunc;
 
@@ -308,6 +314,105 @@ bool PerceptionPlanner::generatePlan(
 
   ROS_INFO_NAMED(LOGNAME, "Is plan generated? %d", is_solved);
   return is_solved;
+}
+
+ompl::base::SpaceInformationPtr PerceptionPlanner::getLOPandaSpace() {
+  robot_model_loader::RobotModelLoaderPtr robot_model_loader;
+  robot_model_loader = std::make_shared<robot_model_loader::RobotModelLoader>(
+      "robot_description_5link");
+  moveit::core::RobotModelPtr robot_model = robot_model_loader->getModel();
+
+  planning_scene_monitor::PlanningSceneMonitorPtr psm;
+
+  psm = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
+      robot_model_loader);
+
+  psm->publishDebugInformation(true);
+  ROS_INFO_NAMED(LOGNAME, "startWorldGeometryMonitor");
+  psm->startWorldGeometryMonitor(planning_scene_monitor::PlanningSceneMonitor::
+                                     DEFAULT_COLLISION_OBJECT_TOPIC,
+                                 planning_scene_monitor::PlanningSceneMonitor::
+                                     DEFAULT_PLANNING_SCENE_WORLD_TOPIC,
+                                 false /* skip octomap monitor */);
+
+  std::string group_name = "panda_arm";
+  ROS_INFO_NAMED(LOGNAME, "space_spec");
+  ompl_interface::ModelBasedStateSpaceSpecification space_spec(robot_model,
+                                                               group_name);
+
+  ROS_INFO_NAMED(LOGNAME, "JointModelStateSpace");
+
+  ompl_interface::ModelBasedStateSpacePtr state_space =
+      std::make_shared<ompl_interface::JointModelStateSpace>(space_spec);
+
+  ROS_INFO_NAMED(LOGNAME, "computeLocations");
+
+  state_space->computeLocations();
+
+  ROS_INFO_NAMED(LOGNAME, "ompl_interface");
+
+  std::unique_ptr<ompl_interface::OMPLInterface> ompl_interface =
+      std::make_unique<ompl_interface::OMPLInterface>(robot_model, nh_);
+
+  ROS_INFO_NAMED(LOGNAME, "pconfig_map");
+  planning_interface::PlannerConfigurationMap pconfig_map =
+      ompl_interface->getPlannerConfigurations();
+
+  std::string planner_id = "panda_arm[RRTConnect]";
+
+  ROS_INFO_NAMED(LOGNAME, "pconfig_map.end()");
+  auto pc = pconfig_map.end();
+  pc = pconfig_map.find(planner_id);
+
+  if (pc == pconfig_map.end()) {
+    ROS_ERROR_NAMED(LOGNAME,
+                    "Cannot find planning configuration for planner %s ",
+                    planner_id.c_str());
+  } else {
+    ROS_INFO_NAMED(LOGNAME, "Found planning configuration for planner %s.",
+                   planner_id.c_str());
+  }
+
+  planning_interface::PlannerConfigurationSettings pconfig_settings =
+      pc->second;
+
+  ROS_INFO_NAMED(LOGNAME, "planning_context_manager");
+
+  ompl_interface::PlanningContextManager planning_context_manager =
+      ompl_interface->getPlanningContextManager();
+
+  ROS_INFO_NAMED(LOGNAME, "context_spec");
+  ompl_interface::ModelBasedPlanningContextSpecification context_spec;
+  context_spec.config_ = pconfig_settings.config;
+  ROS_INFO_NAMED(LOGNAME, "getPlannerSelector");
+
+  context_spec.planner_selector_ =
+      planning_context_manager.getPlannerSelector();
+  context_spec.constraint_sampler_manager_ =
+      std::make_shared<constraint_samplers::ConstraintSamplerManager>();
+  context_spec.state_space_ = state_space;
+
+  ROS_INFO_NAMED(LOGNAME, "ompl_simple_setup");
+
+  ompl::geometric::SimpleSetupPtr ompl_simple_setup =
+      std::make_shared<ompl::geometric::SimpleSetup>(state_space);
+  context_spec.ompl_simple_setup_ = ompl_simple_setup;
+
+  ROS_INFO_NAMED(LOGNAME, "ModelBasedPlanningContext");
+
+  ompl_interface::ModelBasedPlanningContextPtr context =
+      std::make_shared<ompl_interface::ModelBasedPlanningContext>(group_name,
+                                                                  context_spec);
+
+  ROS_INFO_NAMED(LOGNAME, "setStateValidityChecker");
+
+  ompl_simple_setup->setStateValidityChecker(
+      ompl::base::StateValidityCheckerPtr(
+          new ompl_interface::StateValidityChecker(context.get())));
+  ROS_INFO_NAMED(LOGNAME, "spaceinfo");
+
+  ompl::base::SpaceInformationPtr si = ompl_simple_setup->getSpaceInformation();
+  return si;
 }
 
 }  // namespace tacbot

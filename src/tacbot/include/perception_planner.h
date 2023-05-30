@@ -26,6 +26,8 @@ class PerceptionPlanner : public BasePlanner {
 
   bool generatePlan(planning_interface::MotionPlanResponse& res) override;
 
+  ompl::base::SpaceInformationPtr getLOPandaSpace();
+
  protected:
   std::vector<tacbot::ObstacleGroup> obstacles_;
 

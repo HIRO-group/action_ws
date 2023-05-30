@@ -42,6 +42,11 @@
                   $(arg xacro_args)">
   </param>
 
+
+  <param name="robot_description_5link" command="xacro $(find tacbot)/urdf/fr3/fr3.urdf.xacro gazebo:=false hand:=false arm_id:=$(arg arm_id) xyz:='$(arg x) $(arg y) $(arg z)' rpy:='$(arg roll) $(arg pitch) $(arg yaw)'
+                  $(arg xacro_args)">
+  </param>
+
   <rosparam file="$(find franka_gazebo)/config/franka_hw_sim.yaml" subst_value="true" />
   <rosparam file="$(find franka_gazebo)/config/sim_controllers.yaml" subst_value="true" />
   <!-- <rosparam file="$(find tacbot)/config/contact_control.yaml" subst_value="true" /> -->

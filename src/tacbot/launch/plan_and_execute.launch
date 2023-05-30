@@ -22,6 +22,9 @@
   <node pkg="tf2_ros" type="static_transform_publisher" name="odom_world_tf" args="1 1 1 0 0 0 world odom" />
 
 
+  <param name="robot_description_5link_semantic" command="xacro $(find tacbot)/urdf/config/panda.srdf.xacro">
+  </param>
+
   <include file="$(find panda_moveit_config)/launch/planning_context.launch">
     <arg name="load_robot_description" value="true"/>
   </include>
