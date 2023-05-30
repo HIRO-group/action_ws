@@ -56,5 +56,4 @@ catkin build
 
 ## TODO
 
-- multilevel::QRRTStar is not working
-- Read JSON settings to run the planner
+- Configure a json file and have planner settings reach from it. Allows you to set things like path simplification dynamically.

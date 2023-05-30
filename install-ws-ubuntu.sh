@@ -174,7 +174,7 @@ installer(){
   install_moveit
   build_ruckig
   build_libfranka
-  build_ompl
+  # build_ompl #omplapp already build ompl
   build_omplapp
   git submodule update --recursive
   # set_upstream_branches
