@@ -46,10 +46,10 @@ int main(int argc, char** argv) {
   ROS_INFO_NAMED(LOGNAME, "visualizeObstacleMarker");
   visualizer->visualizeObstacleMarker(planner->getObstacles());
 
-  bool status = utilities::promptUserInput();
-  if (!status) {
-    return 0;
-  }
+  // bool status = utilities::promptUserInput();
+  // if (!status) {
+  //   return 0;
+  // }
   req.group_name = planner->getGroupName();
   req.allowed_planning_time = 30.0;
   req.planner_id = context->getPlannerId();
@@ -63,6 +63,8 @@ int main(int argc, char** argv) {
   planner->setPlanningContext(context->getPlanningContext());
 
   ROS_INFO_NAMED(LOGNAME, "planner->changePlanner()");
+  const std::string PLANNER_NAME = "QRRTStar";  //"BITstar"
+  planner->setPlannerName(PLANNER_NAME);
   planner->changePlanner();
 
   ROS_INFO_NAMED(LOGNAME, "generatePlan");

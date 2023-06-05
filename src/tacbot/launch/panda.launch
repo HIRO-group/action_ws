@@ -19,7 +19,8 @@
   <arg name="pitch" default="0" doc="How much to rotate the base of the robot around its Y-axis in [rad]?" />
   <arg name="yaw" default="0" doc="How much to rotate the base of the robot around its Z-axis in [rad]?" />
   <arg name="xacro_args" default="" doc="Additional arguments to pass to panda.urdf.xacro" />
-  <arg name="initial_joint_positions" doc="Initial joint configuration of the panda. Specify as a list of name/value pairs in form of '-J [name-of-joint] [value-in-rad]'. Default is a 90 degree bend in the elbow" default="-J $(arg arm_id)_joint1 0
+  <arg name="initial_joint_positions" doc="Initial joint configuration of the panda. Specify as a list of name/value pairs in form of '-J [name-of-joint] [value-in-rad]'. Default is a 90 degree bend in the elbow" default="
+                -J $(arg arm_id)_joint1 0
                 -J $(arg arm_id)_joint2 -0.785398163
                 -J $(arg arm_id)_joint3 0
                 -J $(arg arm_id)_joint4 -2.35619449

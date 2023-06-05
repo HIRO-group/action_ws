@@ -101,9 +101,6 @@ class ContactPlanner : public BasePlanner {
   void setObstacleScene(std::size_t option);
   void setGoalState(std::size_t option);
 
-  void setPlannerName(std::string planner_name) {
-    planner_name_ = planner_name;
-  }
   void setObjectiveName(std::string objective_name) {
     objective_name_ = objective_name;
   }
@@ -113,7 +110,6 @@ class ContactPlanner : public BasePlanner {
   std::shared_ptr<ContactPerception> contact_perception_;
 
  private:
-  std::string planner_name_ = "ContactTRRTDuo";
   std::string objective_name_ = "FieldAlign";
 
   /** \brief The number of samples that have been processed by the contact

@@ -1,0 +1,84 @@
+# This file does not contain official inertial properties
+# of panda robot. The values are from the identification
+# results published in: Identification of the Franka Emika
+# PandaRobot With Retrieval of Feasible Parameters Using
+# Penalty-Based Optimization
+# by: Claudio Gaz, Marco Cognetti, Alexander Oliva,
+# Paolo Robuffo Giordano, Alessandro de Luca
+link0:
+  origin:
+    xyz: -0.041018 -0.00014 0.049974
+    rpy: 0 0 0
+  mass: 0.629769
+  inertia:
+    xx: 0.00315
+    yy: 0.00388
+    zz: 0.004285
+    xy: 8.2904E-07
+    xz: 0.00015
+    yz: 8.2299E-06
+
+link1:
+  origin:
+    xyz: 0.003875 0.002081 -0.04762
+    rpy: 0 0 0
+  mass: 4.970684
+  inertia:
+    xx: 0.70337
+    yy: 0.70661
+    zz: 0.0091170
+    xy: -0.00013900
+    xz: 0.0067720
+    yz: 0.019169
+
+link2:
+  origin:
+    xyz: -0.003141 -0.02872  0.003495
+    rpy: 0 0 0
+  mass: 0.646926
+  inertia:
+    xx: 0.0079620
+    yy: 2.8110e-02
+    zz: 2.5995e-02
+    xy: -3.9250e-3
+    xz: 1.0254e-02
+    yz: 7.0400e-04
+
+link3:
+  origin:
+    xyz: 2.7518e-02 3.9252e-02 -6.6502e-02
+    rpy: 0 0 0
+  mass: 3.228604
+  inertia:
+    xx: 3.7242e-02
+    yy: 3.6155e-02
+    zz: 1.0830e-02
+    xy: -4.7610e-03
+    xz: -1.1396e-02
+    yz: -1.2805e-02
+
+link4:
+  origin:
+    xyz: -5.317e-02 1.04419e-01 2.7454e-02
+    rpy: 0 0 0
+  mass: 3.587895
+  inertia:
+    xx: 2.5853e-02
+    yy: 1.9552e-02
+    zz: 2.8323e-02
+    xy: 7.7960e-03
+    xz: -1.3320e-03
+    yz: 8.6410e-03
+
+link5:
+  origin:
+    xyz: -1.1953e-02 4.1065e-02 -3.8437e-02
+    rpy: 0 0 0
+  mass: 1.225946
+  inertia:
+    xx: 3.5549e-02
+    yy: 2.9474e-02
+    zz: 8.6270e-03
+    xy: -2.1170e-03
+    xz: -4.0370e-03
+    yz: 2.2900e-04
