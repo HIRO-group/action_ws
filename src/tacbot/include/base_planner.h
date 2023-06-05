@@ -115,14 +115,18 @@ class BasePlanner {
   void convertTraj(std::vector<std::array<double, 7>>& joint_waypoints,
                    std::vector<std::array<double, 7>>& joint_velocities);
 
+  void setPlannerName(std::string planner_name) {
+    planner_name_ = planner_name;
+  }
+
  protected:
   ros::NodeHandle nh_;
 
   /** \brief Default robot being used.*/
   const std::string group_name_ = "panda_arm";
 
-  /** \brief Default planner set to the planning context.*/
-  std::string planner_id_ = "panda_arm[RRT]";
+  /** \brief Planner used to solve motino planning problems.*/
+  std::string planner_name_ = "panda_arm[RRTConnect]";
 
   /** \brief The class that's used to save information for visualization.*/
   std::shared_ptr<VisualizerData> vis_data_;

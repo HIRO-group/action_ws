@@ -3,6 +3,9 @@
 #include <moveit/collision_detection_bullet/collision_detector_allocator_bullet.h>
 #include <ompl/base/objectives/MinimizeContactObjective.h>
 #include <ompl/geometric/planners/informedtrees/ABITstar.h>
+#include <ompl/multilevel/datastructures/Projection.h>
+#include <ompl/multilevel/datastructures/ProjectionTypes.h>
+#include <ompl/multilevel/datastructures/projections/ModelBased_RN_RM.h>
 #include <ompl/multilevel/planners/qmp/QMPStar.h>
 #include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 
@@ -108,30 +111,56 @@ void PerceptionPlanner::addPointObstacles(tacbot::ObstacleGroup& obstacle) {
 }
 
 void PerceptionPlanner::changePlanner() {
-  ROS_INFO_NAMED(LOGNAME, "context_->getOMPLSimpleSetup()");
+  ROS_INFO_NAMED(LOGNAME, "changePlanner()");
   ompl::geometric::SimpleSetupPtr simple_setup = context_->getOMPLSimpleSetup();
-
-  ROS_INFO_NAMED(LOGNAME, "simple_setup->getSpaceInformation()");
   ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
-
   ompl::base::PlannerPtr planner;
 
-  // Why is this not working? TODO(nn) investigate this planner
-  // ROS_INFO_NAMED(LOGNAME, "getLOPandaSpace");
-  // ompl::base::SpaceInformationPtr si2 = getLOPandaSpace();
+  if (planner_name_ == "BITstar") {
+    planner = std::make_shared<ompl::geometric::BITstar>(si);
 
-  // std::vector<ompl::base::SpaceInformationPtr> siVec;
+  } else if (planner_name_ == "QRRTStar") {
+    ROS_INFO_NAMED(LOGNAME, "createPandaBundleContext()");
+    createPandaBundleContext();
 
-  // siVec.emplace_back(si);
-  // siVec.emplace_back(si2);
+    ROS_INFO_NAMED(LOGNAME, "setting siVec");
+    std::vector<ompl::base::SpaceInformationPtr> siVec;
+    ompl::base::SpaceInformationPtr BaseSi =
+        pandaBundleContext_->getPlanningContext()
+            ->getOMPLSimpleSetup()
+            ->getSpaceInformation();
+    ompl::base::SpaceInformationPtr BundleSi = si;
+    siVec.emplace_back(BaseSi);
+    siVec.emplace_back(BundleSi);
 
-  ROS_INFO_NAMED(LOGNAME, "ompl::multilevel::QRRTStar");
-  planner = std::make_shared<ompl::multilevel::QRRTStar>(si);
+    ROS_INFO_NAMED(LOGNAME, "setting projVec");
+    std::vector<ompl::multilevel::ProjectionPtr> projVec;
+    ompl::base::StateSpacePtr BaseSpace =
+        pandaBundleContext_->getPlanningContext()
+            ->getOMPLSimpleSetup()
+            ->getStateSpace();
+    ompl::base::StateSpacePtr BundleSpace = simple_setup->getStateSpace();
+    ompl::multilevel::ProjectionPtr projection =
+        std::make_shared<ompl::multilevel::Projection_ModelBased_RN_RM>(
+            BundleSpace, BaseSpace);
+    ROS_INFO_NAMED(LOGNAME, "FiberedProjection");
+    auto componentFiber =
+        std::dynamic_pointer_cast<ompl::multilevel::FiberedProjection>(
+            projection);
+    ROS_INFO_NAMED(LOGNAME, "makeFiberSpace()");
+    componentFiber->makeFiberSpace();
+    projVec.emplace_back(projection);
 
-  // planner = std::make_shared<ompl::geometric::BITstar>(si);
+    ROS_INFO_NAMED(LOGNAME, "ompl::multilevel::QRRTStar(siVec, projVec)");
+    planner = std::make_shared<ompl::multilevel::QRRTStar>(siVec, projVec);
+
+  } else {
+    ROS_ERROR_NAMED(LOGNAME, "The following planner is not supported: %s",
+                    planner_name_.c_str());
+    throw std::invalid_argument(planner_name_);
+  }
 
   std::function<double(const ompl::base::State*)> optFunc;
-
   optFunc = std::bind(&PerceptionPlanner::overlapMagnitude, this,
                       std::placeholders::_1);
   optimization_objective_ =
@@ -140,8 +169,6 @@ void PerceptionPlanner::changePlanner() {
 
   optimization_objective_->setCostToGoHeuristic(
       &ompl::base::goalRegionCostToGo);
-
-  simple_setup->print(std::cout);
 
   simple_setup->setPlanner(planner);
 }
@@ -235,9 +262,10 @@ double PerceptionPlanner::getContactDepth(
     // ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
     for (std::size_t subc_idx = 0; subc_idx < num_subcontacts; subc_idx++) {
       collision_detection::Contact subcontact = contact.second[subc_idx];
-      // ROS_INFO_NAMED(LOGNAME, "Body 1: %s", subcontact.body_name_1.c_str());
-      // ROS_INFO_NAMED(LOGNAME, "Body 2: %s", subcontact.body_name_2.c_str());
-      // ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
+      // ROS_INFO_NAMED(LOGNAME, "Body 1: %s",
+      // subcontact.body_name_1.c_str()); ROS_INFO_NAMED(LOGNAME, "Body 2:
+      // %s", subcontact.body_name_2.c_str()); ROS_INFO_NAMED(LOGNAME, "Depth:
+      // %f", subcontact.depth);
 
       tacbot::ObstacleGroup obstacle;
 
@@ -276,7 +304,8 @@ bool PerceptionPlanner::generatePlan(
 
   bool is_solved = context_->solve(res);
 
-  // remove the already queried status from here when doing path simplificationz
+  // remove the already queried status from here when doing path
+  // simplificationz
   // moveit_planners/ompl/ompl_interface/src/detail/state_validity_checker.cpp
 
   if (is_solved) {
@@ -319,103 +348,70 @@ bool PerceptionPlanner::generatePlan(
   return is_solved;
 }
 
-ompl::base::SpaceInformationPtr PerceptionPlanner::getLOPandaSpace() {
+void PerceptionPlanner::createPandaBundleContext() {
   robot_model_loader::RobotModelLoaderPtr robot_model_loader;
   robot_model_loader = std::make_shared<robot_model_loader::RobotModelLoader>(
       "robot_description_5link");
   moveit::core::RobotModelPtr robot_model = robot_model_loader->getModel();
-
+  const moveit::core::JointModelGroup* joint_model_group =
+      robot_model->getJointModelGroup(getGroupName());
   planning_scene_monitor::PlanningSceneMonitorPtr psm;
-
   psm = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
       robot_model_loader);
-
   psm->publishDebugInformation(true);
-  ROS_INFO_NAMED(LOGNAME, "startWorldGeometryMonitor");
   psm->startWorldGeometryMonitor(planning_scene_monitor::PlanningSceneMonitor::
                                      DEFAULT_COLLISION_OBJECT_TOPIC,
                                  planning_scene_monitor::PlanningSceneMonitor::
                                      DEFAULT_PLANNING_SCENE_WORLD_TOPIC,
                                  false /* skip octomap monitor */);
 
-  std::string group_name = "panda_arm";
-  ROS_INFO_NAMED(LOGNAME, "space_spec");
-  ompl_interface::ModelBasedStateSpaceSpecification space_spec(robot_model,
-                                                               group_name);
+  pandaBundleContext_ = std::make_shared<MyMoveitContext>(psm, robot_model);
+  moveit::core::RobotStatePtr ready_state(new moveit::core::RobotState(
+      planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
+  ready_state->setToDefaultValues(joint_model_group, "ready");
+  psm->updateSceneWithCurrentState();
 
-  ROS_INFO_NAMED(LOGNAME, "JointModelStateSpace");
+  planning_interface::MotionPlanRequest base_req;
+  planning_interface::MotionPlanRequest bundle_req =
+      context_->getMotionPlanRequest();
 
-  ompl_interface::ModelBasedStateSpacePtr state_space =
-      std::make_shared<ompl_interface::JointModelStateSpace>(space_spec);
+  // setting start state
+  base_req.start_state.joint_state.header.stamp = ros::Time::now();
+  base_req.start_state.joint_state.name = joint_model_group->getVariableNames();
+  sensor_msgs::JointState bundle_state = bundle_req.start_state.joint_state;
+  assert(bundle_state.position.size() >= 5);
+  std::vector<double> start_joint_values{
+      bundle_state.position[0], bundle_state.position[1],
+      bundle_state.position[2], bundle_state.position[3],
+      bundle_state.position[4]};
+  base_req.start_state.joint_state.position = start_joint_values;
+  std::fill(std::begin(start_joint_values), std::end(start_joint_values), 0);
+  base_req.start_state.joint_state.velocity = start_joint_values;
+  base_req.start_state.joint_state.effort = start_joint_values;
 
-  ROS_INFO_NAMED(LOGNAME, "computeLocations");
+  // setting goal state
+  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
+      planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
+  moveit::core::RobotState goal_state(*robot_state);
+  assert(joint_goal_pos_.size() >= 5);
+  std::vector<double> joint_goal_pos =
+      tacbot::utilities::slice(joint_goal_pos_, 0, 4);
+  goal_state.setJointGroupPositions(joint_model_group, joint_goal_pos);
+  double tolerance = 0.001;
+  moveit_msgs::Constraints joint_goal =
+      kinematic_constraints::constructGoalConstraints(
+          goal_state, joint_model_group, tolerance);
+  base_req.goal_constraints.push_back(joint_goal);
 
-  state_space->computeLocations();
+  // setting planning params
+  base_req.group_name = bundle_req.group_name;
+  base_req.allowed_planning_time = bundle_req.allowed_planning_time;
+  base_req.planner_id = bundle_req.planner_id;
+  base_req.max_acceleration_scaling_factor =
+      bundle_req.max_acceleration_scaling_factor;
+  base_req.max_velocity_scaling_factor = bundle_req.max_velocity_scaling_factor;
 
-  ROS_INFO_NAMED(LOGNAME, "ompl_interface");
-
-  std::unique_ptr<ompl_interface::OMPLInterface> ompl_interface =
-      std::make_unique<ompl_interface::OMPLInterface>(robot_model, nh_);
-
-  ROS_INFO_NAMED(LOGNAME, "pconfig_map");
-  planning_interface::PlannerConfigurationMap pconfig_map =
-      ompl_interface->getPlannerConfigurations();
-
-  std::string planner_id = "panda_arm[RRTConnect]";
-
-  ROS_INFO_NAMED(LOGNAME, "pconfig_map.end()");
-  auto pc = pconfig_map.end();
-  pc = pconfig_map.find(planner_id);
-
-  if (pc == pconfig_map.end()) {
-    ROS_ERROR_NAMED(LOGNAME,
-                    "Cannot find planning configuration for planner %s ",
-                    planner_id.c_str());
-  } else {
-    ROS_INFO_NAMED(LOGNAME, "Found planning configuration for planner %s.",
-                   planner_id.c_str());
-  }
-
-  planning_interface::PlannerConfigurationSettings pconfig_settings =
-      pc->second;
-
-  ROS_INFO_NAMED(LOGNAME, "planning_context_manager");
-
-  ompl_interface::PlanningContextManager planning_context_manager =
-      ompl_interface->getPlanningContextManager();
-
-  ROS_INFO_NAMED(LOGNAME, "context_spec");
-  ompl_interface::ModelBasedPlanningContextSpecification context_spec;
-  context_spec.config_ = pconfig_settings.config;
-  ROS_INFO_NAMED(LOGNAME, "getPlannerSelector");
-
-  context_spec.planner_selector_ =
-      planning_context_manager.getPlannerSelector();
-  context_spec.constraint_sampler_manager_ =
-      std::make_shared<constraint_samplers::ConstraintSamplerManager>();
-  context_spec.state_space_ = state_space;
-
-  ROS_INFO_NAMED(LOGNAME, "ompl_simple_setup");
-
-  ompl::geometric::SimpleSetupPtr ompl_simple_setup =
-      std::make_shared<ompl::geometric::SimpleSetup>(state_space);
-  context_spec.ompl_simple_setup_ = ompl_simple_setup;
-
-  ROS_INFO_NAMED(LOGNAME, "ModelBasedPlanningContext");
-
-  ompl_interface::ModelBasedPlanningContextPtr context =
-      std::make_shared<ompl_interface::ModelBasedPlanningContext>(group_name,
-                                                                  context_spec);
-
-  ROS_INFO_NAMED(LOGNAME, "setStateValidityChecker");
-
-  ompl_simple_setup->setStateValidityChecker(
-      ompl::base::StateValidityCheckerPtr(
-          new ompl_interface::StateValidityChecker(context.get())));
-  ROS_INFO_NAMED(LOGNAME, "spaceinfo");
-
-  ompl::base::SpaceInformationPtr si = ompl_simple_setup->getSpaceInformation();
-  return si;
+  pandaBundleContext_->createPlanningContext(base_req);
 }
 
 }  // namespace tacbot

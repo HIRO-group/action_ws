@@ -48,7 +48,7 @@
   <xacro:macro name="configure_collisions" params="link enabled:=${[]}">
     <!-- Disable collision checking between normal links, as these are handled by "sc" links -->
     <xacro:property name="link_fmt" value="$(arg arm_id)_link{}" />
-    <xacro:disable_collisions_for link="${link_fmt.format(link)}" others="${[link_fmt.format(i) for i in python.range(5)]}" />
+    <xacro:disable_collisions_for link="${link_fmt.format(link)}" others="${[link_fmt.format(i) for i in python.range(6)]}" />
 
     <!-- Disable all collision checking for ${link}_sc -->
     <xacro:property name="link_fmt" value="$(arg arm_id)_link{}_sc" />
@@ -58,10 +58,10 @@
   </xacro:macro>
 
   <!-- Configure ACM -->
-  <xacro:configure_collisions link="0" enabled="${[5]}" />
-  <xacro:configure_collisions link="1" enabled="${[5]}" />
-  <xacro:configure_collisions link="2" enabled="${[5]}" />
-  <!-- <xacro:configure_collisions link="3" enabled="${[7]}" /> -->
+  <xacro:configure_collisions link="0" enabled="${[6]}" />
+  <xacro:configure_collisions link="1" enabled="${[6]}" />
+  <xacro:configure_collisions link="2" enabled="${[6]}" />
+  <xacro:configure_collisions link="3" enabled="${[6]}" />
   <xacro:configure_collisions link="4" />
   <xacro:configure_collisions link="5" />
 </robot>

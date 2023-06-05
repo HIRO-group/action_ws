@@ -21,6 +21,8 @@
 
   <node pkg="tf2_ros" type="static_transform_publisher" name="odom_world_tf" args="1 1 1 0 0 0 world odom" />
 
+  <param name="robot_description_5link" command="xacro $(find tacbot)/urdf/fr3/fr3.urdf.xacro gazebo:=false hand:=false arm_id:=$(arg arm_id) xyz:='0 0 0' rpy:='0 0 0'">
+  </param>
 
   <param name="robot_description_5link_semantic" command="xacro $(find tacbot)/urdf/config/panda.srdf.xacro">
   </param>

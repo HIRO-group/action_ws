@@ -3,6 +3,7 @@
 
 #include "base_planner.h"
 #include "contact_perception.h"
+#include "my_moveit_context.h"
 
 namespace tacbot {
 
@@ -26,9 +27,11 @@ class PerceptionPlanner : public BasePlanner {
 
   bool generatePlan(planning_interface::MotionPlanResponse& res) override;
 
-  ompl::base::SpaceInformationPtr getLOPandaSpace();
+  void createPandaBundleContext();
 
  protected:
+  std::shared_ptr<MyMoveitContext> pandaBundleContext_;
+
   std::vector<tacbot::ObstacleGroup> obstacles_;
 
   void addPointObstacles(tacbot::ObstacleGroup& obstacle);

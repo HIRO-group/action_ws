@@ -15,7 +15,7 @@ controller_list:
     joints:
       - $(arg arm_id)_finger_joint1
 
-initial:  # Define initial robot poses per group
+initial: # Define initial robot poses per group
   - group: $(arg arm_id)_arm
     pose: ready
   - group: $(arg arm_id)_hand

@@ -102,7 +102,7 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
   // }
 
   double prox_radius = 0.02;
-  if (planner_id_ == "ContactTRRTDuo" || planner_id_ == "VFRRT") {
+  if (planner_name_ == "ContactTRRTDuo" || planner_name_ == "VFRRT") {
     prox_radius = 0.2;
   }
 
@@ -110,7 +110,7 @@ Eigen::Vector3d ContactPlanner::scaleToDist(Eigen::Vector3d vec) {
     return vec_out;
   }
 
-  if (planner_id_ != "ContactTRRTDuo") {
+  if (planner_name_ != "ContactTRRTDuo") {
     vec.normalize();
     return vec;
   }
@@ -364,7 +364,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
         vec = scaleToDist(vec);
         // std::cout << "vec: " << vec.transpose() << std::endl;
 
-        if (planner_id_ == "ContactTRRTDuo") {
+        if (planner_name_ == "ContactTRRTDuo") {
           Eigen::Vector3d att_pt = getAttractPt(i, j);
 
           Eigen::Vector3d att_vec = att_pt - pt_on_rob;
@@ -646,7 +646,6 @@ Eigen::VectorXd ContactPlanner::totalField(const ompl::base::State* state) {
 }
 
 void ContactPlanner::changePlanner() {
-  planner_id_ = planner_name_;
   ompl::geometric::SimpleSetupPtr simple_setup = context_->getOMPLSimpleSetup();
   ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
 

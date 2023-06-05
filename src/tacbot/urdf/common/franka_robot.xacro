@@ -5,7 +5,7 @@
     <!-- Should a franka_gripper be mounted at the flange?" -->
     <xacro:arg name="hand" default="false" />
     <!-- Positional offset between $(arm_id)_hand -> $(arm_id)_hand_tcp [m]. Only used when hand:=true -->
-    <xacro:arg name="tcp_xyz" default="0 0 0.1034" />
+    <xacro:arg name="tcp_xyz" default="0 0 0" />
     <!-- Rotational offset between $(arm_id)_hand -> $(arm_id)_hand_tcp [rad]. Only used when hand:=true -->
     <xacro:arg name="tcp_rpy" default="0 0 0" />
     <!-- Is the robot being simulated in gazebo?" -->
