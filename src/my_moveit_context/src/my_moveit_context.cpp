@@ -85,6 +85,10 @@ MyMoveitContext::getPlanningContext() {
   return context_;
 }
 
+void MyMoveitContext::setSimplifySolution(bool simplify_solution) {
+  simplify_solution_ = simplify_solution;
+};
+
 void MyMoveitContext::setPlanningContextParams(
     ompl_interface::ModelBasedPlanningContextPtr& context) {
   unsigned int max_goal_samples_ = 10;
@@ -94,7 +98,6 @@ void MyMoveitContext::setPlanningContextParams(
   double max_solution_segment_length_ = 0.0;
   unsigned int minimum_waypoint_count_ = 50;
   double goal_threshold_ = 0.01;
-  bool simplify_solution_ = true;
   bool interpolate_ = true;
   bool hybridize_ = false;
 

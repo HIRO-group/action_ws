@@ -9,6 +9,16 @@
 #include <moveit_msgs/MotionPlanRequest.h>
 #include <ros/ros.h>
 
+/**
+     @anchor MyMoveitContext
+
+     @par Short description
+     This is a class that holds the planning configuration of you
+   planner,optimizer, problem definition, etc. Usually, this class is nested
+   within the motion planning pipeline class and cannot be configured. Here, we
+   extract all the relevant setup and parameter setup for maximum customization.
+*/
+
 class MyMoveitContext {
  public:
   MyMoveitContext(const planning_scene_monitor::PlanningSceneMonitorPtr& psm,
@@ -27,6 +37,8 @@ class MyMoveitContext {
   */
   std::string getPlannerId();
 
+  void setSimplifySolution(bool simplify_solution);
+
  private:
   ros::NodeHandle nh_;
 
@@ -35,6 +47,8 @@ class MyMoveitContext {
 
   /** \brief Default planner set to the planning context.*/
   std::string planner_id_ = "panda_arm[RRTConnect]";
+
+  bool simplify_solution_ = true;
 
   planning_scene_monitor::PlanningSceneMonitorPtr psm_;
 
