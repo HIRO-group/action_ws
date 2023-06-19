@@ -34,6 +34,7 @@ find_package(catkin REQUIRED
     # eigen_conversions
     # joint_limits_interface
     geometry_msgs
+    shape_msgs
     # tf
     # tf_conversions
     # visualization_msgs

@@ -77,6 +77,7 @@
   <depend>visualization_msgs</depend> -->
   <depend>rosbag</depend>
   <depend>sensor_msgs</depend>
+  <depend>shape_msgs</depend>
   <!-- <depend>tf2</depend>
   <depend>tf2_ros</depend> -->
   <depend>pcl_ros</depend>

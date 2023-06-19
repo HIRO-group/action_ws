@@ -61,6 +61,8 @@ class ContactPerception {
    */
   void addFrontWall();
 
+  void addTableMesh();
+
  private:
   ros::NodeHandle nh_;
 

@@ -50,6 +50,8 @@ class PerceptionPlanner : public BasePlanner {
 
   bool findObstacleByName(const std::string& name,
                           tacbot::ObstacleGroup& obstacle);
+
+  void tableCollisionPermission();
 };
 }  // namespace tacbot
 #endif

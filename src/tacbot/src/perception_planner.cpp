@@ -30,6 +30,7 @@ void PerceptionPlanner::init() {
   setGoalState(1);
   setObstacleScene(2);
   sphericalCollisionPermission(true);
+  tableCollisionPermission();
 }
 
 void PerceptionPlanner::setGoalState(std::size_t option) {
@@ -214,6 +215,17 @@ void PerceptionPlanner::sphericalCollisionPermission(bool is_allowed) {
   // acm.print(std::cout);
 }
 
+void PerceptionPlanner::tableCollisionPermission() {
+  collision_detection::AllowedCollisionMatrix& acm =
+      planning_scene_monitor::LockedPlanningSceneRW(psm_)
+          ->getAllowedCollisionMatrixNonConst();
+
+  std::string name = "table";
+  std::vector<std::string> other_names{"panda_link0"};
+
+  acm.setEntry(name, other_names, true);
+}
+
 void PerceptionPlanner::setCollisionChecker(
     std::string collision_checker_name) {
   planning_scene_monitor::LockedPlanningSceneRW(psm_)->addCollisionDetector(
@@ -393,6 +405,8 @@ void PerceptionPlanner::createPandaBundleContext() {
   moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
       planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
   moveit::core::RobotState goal_state(*robot_state);
+
+  // the QRRT planner will do this internally
   assert(joint_goal_pos_.size() >= 5);
   std::vector<double> joint_goal_pos =
       tacbot::utilities::slice(joint_goal_pos_, 0, 4);

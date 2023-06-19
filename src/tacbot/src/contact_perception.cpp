@@ -1,5 +1,6 @@
 #include "contact_perception.h"
 
+#include <geometric_shapes/shapes.h>
 #include <moveit_msgs/PlanningScene.h>
 #include <pcl/common/transforms.h>
 #include <pcl/filters/extract_indices.h>
@@ -10,8 +11,12 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
+#include <shape_msgs/Mesh.h>
 
 #include <chrono>
+
+#include "geometric_shapes/mesh_operations.h"
+#include "geometric_shapes/shape_operations.h"
 using namespace std::chrono;
 constexpr char LOGNAME[] = "contact_perception";
 namespace tacbot {
@@ -29,6 +34,8 @@ void ContactPerception::init() {
       "/oak/points/", 1, &ContactPerception::pointCloudCallback, this);
 
   addSafetyPerimeter();
+
+  addTableMesh();
 
   // addCylinder();
 
@@ -51,7 +58,7 @@ void ContactPerception::addSafetyPerimeter() {
   primitive.dimensions.resize(3);
   primitive.dimensions[primitive.BOX_X] = 0.01;
   primitive.dimensions[primitive.BOX_Y] = 1.5;
-  primitive.dimensions[primitive.BOX_Z] = 0.5;
+  primitive.dimensions[primitive.BOX_Z] = 0.8;
 
   geometry_msgs::Pose pose;
   pose.orientation.w = 1.0;
@@ -59,31 +66,31 @@ void ContactPerception::addSafetyPerimeter() {
   pose.orientation.y = 0.0;
   pose.orientation.z = 0.0;
 
-  pose.position.x = -0.5;
+  pose.position.x = -0.45;
   pose.position.y = 0.0;
-  pose.position.z = 0.25;
+  pose.position.z = 0.5;
 
   safety_perimeter.primitives.push_back(primitive);
   safety_perimeter.primitive_poses.push_back(pose);
 
   // bottom table
-  primitive.type = primitive.BOX;
-  primitive.dimensions.resize(3);
-  primitive.dimensions[primitive.BOX_X] = 1.5;
-  primitive.dimensions[primitive.BOX_Y] = 1.5;
-  primitive.dimensions[primitive.BOX_Z] = 0.01;
+  // primitive.type = primitive.BOX;
+  // primitive.dimensions.resize(3);
+  // primitive.dimensions[primitive.BOX_X] = 1.5;
+  // primitive.dimensions[primitive.BOX_Y] = 1.5;
+  // primitive.dimensions[primitive.BOX_Z] = 0.01;
 
-  // pose.orientation.w = 1.0;
-  // pose.orientation.x = 0.0;
-  // pose.orientation.y = 0.0;
-  // pose.orientation.z = 0.0;
+  // // pose.orientation.w = 1.0;
+  // // pose.orientation.x = 0.0;
+  // // pose.orientation.y = 0.0;
+  // // pose.orientation.z = 0.0;
 
-  pose.position.x = 0.0;
-  pose.position.y = 0.0;
-  pose.position.z = -0.05;
+  // pose.position.x = 0.0;
+  // pose.position.y = 0.0;
+  // pose.position.z = -0.05;
 
-  safety_perimeter.primitives.push_back(primitive);
-  safety_perimeter.primitive_poses.push_back(pose);
+  // safety_perimeter.primitives.push_back(primitive);
+  // safety_perimeter.primitive_poses.push_back(pose);
 
   std::vector<moveit_msgs::CollisionObject> collision_objects;
   collision_objects.emplace_back(safety_perimeter);
@@ -136,6 +143,51 @@ void ContactPerception::addCylinder() {
   // obj_color.id = collision_object.id;
   std_msgs::ColorRGBA color;
   color.a = 1.0;
+  color.r = 1.0;
+  color.g = 0.0;
+  color.b = 0.0;
+  obj_color.color = color;
+
+  std::vector<moveit_msgs::ObjectColor> object_colors;
+  object_colors.emplace_back(obj_color);
+
+  addCollisionObjects(collision_objects, object_colors);
+}
+
+void ContactPerception::addTableMesh() {
+  moveit_msgs::CollisionObject collision_object;
+  collision_object.header.frame_id = "panda_link0";
+  collision_object.id = "table";
+  collision_object.operation = collision_object.ADD;
+
+  shapes::Mesh* m =
+      shapes::createMeshFromResource("package://tacbot/gazebo/table.STL");
+  m->scale(1.1);
+  shape_msgs::Mesh mesh;
+  shapes::ShapeMsg mesh_msg;
+  shapes::constructMsgFromShape(m, mesh_msg);
+  mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
+
+  geometry_msgs::Pose pose;
+  pose.orientation.w = 1.0;
+  pose.orientation.x = 0.0;
+  pose.orientation.y = 0.0;
+  pose.orientation.z = 0.0;
+
+  pose.position.x = -0.65;
+  pose.position.y = -0.6;
+  pose.position.z = 0.0;
+
+  collision_object.meshes.emplace_back(mesh);
+  collision_object.mesh_poses.emplace_back(pose);
+
+  std::vector<moveit_msgs::CollisionObject> collision_objects;
+  collision_objects.emplace_back(collision_object);
+
+  moveit_msgs::ObjectColor obj_color;
+  // obj_color.id = collision_object.id;
+  std_msgs::ColorRGBA color;
+  color.a = 0.2;
   color.r = 1.0;
   color.g = 0.0;
   color.b = 0.0;
