@@ -780,7 +780,7 @@ bool PandaInterface::move_with_velocity_control(
     auto joint_velocity_call_back =
         [&](const franka::RobotState &robot_state,
             franka::Duration period) -> franka::JointVelocities {
-      std::cout << "period: " << period.toSec() << std::endl;
+      // std::cout << "period: " << period.toSec() << std::endl;
       time += 0.001;
       std::array<double, 7> new_velocity = joint_velocities[i];
       i++;
@@ -799,11 +799,11 @@ bool PandaInterface::move_with_velocity_control(
       } else {
         franka::JointVelocities output_velocities = new_velocity;
 
-        std::cout << std::endl;
-        for (auto vel : new_velocity) {
-          std::cout << vel << ", ";
-        }
-        std::cout << std::endl;
+        // std::cout << std::endl;
+        // for (auto vel : new_velocity) {
+        //   std::cout << vel << ", ";
+        // }
+        // std::cout << std::endl;
 
         return output_velocities;
       }

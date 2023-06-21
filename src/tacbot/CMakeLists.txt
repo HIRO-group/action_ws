@@ -237,9 +237,9 @@ target_link_libraries(broadcast_tf ${catkin_LIBRARIES})
 
 target_link_libraries(plan_and_execute
   ${catkin_LIBRARIES}
-  base_planning
   perception_planning
   visualizer
+  panda_interface
 )
 
 target_link_libraries(generate_contact_plan

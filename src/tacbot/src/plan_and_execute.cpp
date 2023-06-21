@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
   ROS_DEBUG_NAMED(LOGNAME, "MyMoveitContext()");
   std::shared_ptr<MyMoveitContext> context = std::make_shared<MyMoveitContext>(
       planner->getPlanningSceneMonitor(), planner->getRobotModel());
-  context->setSimplifySolution(false);
+  context->setSimplifySolution(true);
 
   ROS_DEBUG_NAMED(LOGNAME, "setCurToStartState");
   planning_interface::MotionPlanRequest req;
@@ -51,11 +51,12 @@ int main(int argc, char** argv) {
   if (!status) {
     return 0;
   }
+
   req.group_name = planner->getGroupName();
   req.allowed_planning_time = 10.0;
   req.planner_id = context->getPlannerId();
-  req.max_acceleration_scaling_factor = 0.5;
-  req.max_velocity_scaling_factor = 0.5;
+  req.max_acceleration_scaling_factor = 0.1;
+  req.max_velocity_scaling_factor = 0.1;
 
   ROS_DEBUG_NAMED(LOGNAME, "createPlanningContext");
   context->createPlanningContext(req);
@@ -83,9 +84,12 @@ int main(int argc, char** argv) {
   visualizer->visualizeTrajectory(
       planner->getPlanningContext()->getRawTrajectory(), "raw_traj");
 
-  utilities::promptUserInput();
+  ROS_INFO_NAMED(LOGNAME, "Press continue to exexute trajectory.");
+  bool execute_trajectory = utilities::promptUserInput();
+  if (!status) {
+    return 0;
+  }
 
-  bool execute_trajectory = false;
   if (execute_trajectory == true) {
     PandaInterface panda_interface;
     panda_interface.init();
@@ -99,6 +103,7 @@ int main(int argc, char** argv) {
 
     panda_interface.follow_joint_velocities(panda_interface.robot_.get(),
                                             joint_velocities);
+    sleep(0.5);
   }
 
   std::cout << "Finished!" << std::endl;

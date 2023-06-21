@@ -176,7 +176,7 @@ void ContactPerception::addTableMesh() {
 
   pose.position.x = -0.65;
   pose.position.y = -0.6;
-  pose.position.z = 0.0;
+  pose.position.z = -0.13;
 
   collision_object.meshes.emplace_back(mesh);
   collision_object.mesh_poses.emplace_back(pose);

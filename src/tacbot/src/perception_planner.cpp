@@ -27,8 +27,8 @@ void PerceptionPlanner::init() {
   BasePlanner::init();
   contact_perception_->init();
   setCollisionChecker("Bullet");
-  setGoalState(1);
-  setObstacleScene(2);
+  setGoalState(2);
+  setObstacleScene(3);
   sphericalCollisionPermission(true);
   tableCollisionPermission();
 }
@@ -39,6 +39,14 @@ void PerceptionPlanner::setGoalState(std::size_t option) {
     case 1:
       joint_goal_pos_ =
           std::vector<double>{-1.0, 0.7, 0.7, -1.0, -0.7, 2.0, 0.0};
+      break;
+    case 2:
+      joint_goal_pos_ = std::vector<double>{
+          -2.14724, -1.71044, 1.79525, -1.63762, 0.884311, 0.468508, 1.74704};
+      break;
+    case 3:
+      joint_goal_pos_ = std::vector<double>{
+          -2.11487, -1.75922, 1.59804, -1.40803, 0.625883, 1.10537, 0.741952};
       break;
   }
 }
@@ -84,12 +92,23 @@ void PerceptionPlanner::setObstacleScene(std::size_t option) {
       obstacles_.emplace_back(sphere_3);
       break;
     }
+    case 3: {
+      tacbot::ObstacleGroup sphere_1;
+      sphere_1.name = "sphere_1";
+      sphere_1.radius = 0.08;
+      sphere_1.cost = 10.0;
+      sphere_1.center = Eigen::Vector3d{0.45, 0.05, 0.12};
+      obstacles_.emplace_back(sphere_1);
+      break;
+    }
     default:
       ROS_ERROR_NAMED(LOGNAME,
                       "Selected obstacle scene option is out of bounds: %ld",
                       option);
       break;
   }
+
+  // std::cout << "num obstacles: " << obstacles_.size() << std::endl;
 
   for (auto& obstacle : obstacles_) {
     addPointObstacles(obstacle);
@@ -203,11 +222,16 @@ void PerceptionPlanner::sphericalCollisionPermission(bool is_allowed) {
   std::vector<std::string> sphere_names;
   for (auto obstacle : obstacles_) {
     sphere_names.emplace_back(obstacle.name);
+    // std::cout << "obstacle name: " << obstacle.name << std::endl;
   }
 
   for (auto name : sphere_names) {
     acm.setEntry(name, is_allowed);
   }
+
+  // std::string name = "panda_hand";
+  // std::vector<std::string> other_names{"sphere_1"};
+  // acm.setEntry(name, other_names, is_allowed);
 
   // planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
   // context_->setPlanningScene(lscene);
@@ -238,6 +262,15 @@ void PerceptionPlanner::setCollisionChecker(
           ->getActiveCollisionDetectorName();
   ROS_INFO_NAMED(LOGNAME, "ActiveCollisionDetectorName: %s",
                  active_col_det.c_str());
+
+  // collision_detection::CollisionEnvConstPtr col_env =
+  //     planning_scene_monitor::LockedPlanningSceneRW(psm_)->getCollisionEnv();
+
+  // std::vector<moveit_msgs::LinkPadding> padding;
+  // col_env->getPadding(padding);
+  // for (auto pad : padding) {
+  //   std::cout << pad.link_name << ", " << pad.padding << std::endl;
+  // }
 }
 
 double PerceptionPlanner::getContactDepth(
