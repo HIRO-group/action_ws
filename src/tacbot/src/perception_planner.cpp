@@ -41,12 +41,8 @@ void PerceptionPlanner::setGoalState(std::size_t option) {
           std::vector<double>{-1.0, 0.7, 0.7, -1.0, -0.7, 2.0, 0.0};
       break;
     case 2:
-      joint_goal_pos_ = std::vector<double>{
-          -2.14724, -1.71044, 1.79525, -1.63762, 0.884311, 0.468508, 1.74704};
-      break;
-    case 3:
-      joint_goal_pos_ = std::vector<double>{
-          -2.11487, -1.75922, 1.59804, -1.40803, 0.625883, 1.10537, 0.741952};
+      joint_goal_pos_ = std::vector<double>{-2.0304, -1.44185, 1.4716, -1.72948,
+                                            0.66649, 0.724355, 1.38011};
       break;
   }
 }
@@ -97,7 +93,7 @@ void PerceptionPlanner::setObstacleScene(std::size_t option) {
       sphere_1.name = "sphere_1";
       sphere_1.radius = 0.08;
       sphere_1.cost = 10.0;
-      sphere_1.center = Eigen::Vector3d{0.45, 0.05, 0.12};
+      sphere_1.center = Eigen::Vector3d{0.45, 0.1, 0.35};
       obstacles_.emplace_back(sphere_1);
       break;
     }
@@ -313,6 +309,15 @@ double PerceptionPlanner::getContactDepth(
       // %f", subcontact.depth);
 
       tacbot::ObstacleGroup obstacle;
+
+      // get positions as a vector
+      // see if positions up to link 5 are similar to positions at goal
+      //  if no, then do not allow ee positions to be close to goal
+      //  if yes, allow ee positions to be close to goal
+
+      if (subcontact.body_name_1 == "panda_link5" ||
+          subcontact.body_name_2 == "panda_link5") {
+      }
 
       if (findObstacleByName(subcontact.body_name_1, obstacle) ||
           findObstacleByName(subcontact.body_name_2, obstacle)) {

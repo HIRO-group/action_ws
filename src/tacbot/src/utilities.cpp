@@ -248,10 +248,10 @@ void toControlTrajectory(const moveit_msgs::MotionPlanResponse& msg,
     for (std::size_t jnt_idx = 0; jnt_idx < 7; jnt_idx++) {
       joint_angles[jnt_idx] = point.positions[jnt_idx];
       joint_velocity_pt[jnt_idx] = point.velocities[jnt_idx];
-      if (std::abs(point.velocities[jnt_idx] > 1)) {
-        ROS_INFO_NAMED(LOGNAME, "Trajectory point number: %ld", pt_idx);
-        ROS_INFO_NAMED(LOGNAME, "Velocity: %f", point.velocities[jnt_idx]);
-      }
+      // if (std::abs(point.velocities[jnt_idx] > 1)) {
+      //   ROS_INFO_NAMED(LOGNAME, "Trajectory point number: %ld", pt_idx);
+      //   ROS_INFO_NAMED(LOGNAME, "Velocity: %f", point.velocities[jnt_idx]);
+      // }
     }
     joint_waypoints.emplace_back(joint_angles);
     joint_velocities.emplace_back(joint_velocity_pt);

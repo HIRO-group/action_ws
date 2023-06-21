@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
   ROS_DEBUG_NAMED(LOGNAME, "MyMoveitContext()");
   std::shared_ptr<MyMoveitContext> context = std::make_shared<MyMoveitContext>(
       planner->getPlanningSceneMonitor(), planner->getRobotModel());
-  context->setSimplifySolution(true);
+  context->setSimplifySolution(false);
 
   ROS_DEBUG_NAMED(LOGNAME, "setCurToStartState");
   planning_interface::MotionPlanRequest req;
@@ -55,8 +55,8 @@ int main(int argc, char** argv) {
   req.group_name = planner->getGroupName();
   req.allowed_planning_time = 10.0;
   req.planner_id = context->getPlannerId();
-  req.max_acceleration_scaling_factor = 0.1;
-  req.max_velocity_scaling_factor = 0.1;
+  req.max_acceleration_scaling_factor = 0.5;
+  req.max_velocity_scaling_factor = 0.5;
 
   ROS_DEBUG_NAMED(LOGNAME, "createPlanningContext");
   context->createPlanningContext(req);
@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
   planner->setPlanningContext(context->getPlanningContext());
 
   ROS_DEBUG_NAMED(LOGNAME, "planner->changePlanner()");
-  const std::string PLANNER_NAME = "BITstar";  //"BITstar"
+  const std::string PLANNER_NAME = "BITstar";  //"BITstar, QRRTStar"
   planner->setPlannerName(PLANNER_NAME);
   planner->changePlanner();
 
