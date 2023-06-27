@@ -56,6 +56,8 @@ class BasePlanner {
     @param req The motion planning request.
   */
   void setCurToStartState(planning_interface::MotionPlanRequest& req);
+  void setStartState(planning_interface::MotionPlanRequest& req,
+                     const std::vector<double>& pos);
 
   /** \brief Changes the planner from the default one that is native to the
      moveit environment, such as RRT, to one that has been specifically created
@@ -117,6 +119,10 @@ class BasePlanner {
 
   void setPlannerName(std::string planner_name) {
     planner_name_ = planner_name;
+  }
+
+  const moveit::core::JointModelGroup* getJointModelGroup() {
+    return joint_model_group_;
   }
 
  protected:

@@ -33,6 +33,40 @@ void BasePlanner::setCurToStartState(
   req.start_state.joint_state.effort = start_joint_values;
 }
 
+void BasePlanner::setStartState(planning_interface::MotionPlanRequest& req,
+                                const std::vector<double>& pos) {
+  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
+      planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
+  // robot_state->setToDefaultValues(joint_model_group_, "ready");
+  robot_state->setVariablePositions(pos);
+  robot_state->update();
+  ROS_INFO_NAMED(LOGNAME, "New state positions.");
+  robot_state->printStatePositions(std::cout);
+
+  // planning_scene_monitor::CurrentStateMonitorPtr csm =
+  // psm_->getStateMonitor(); csm->setToCurrentState(*robot_state);
+  // planning_scene_monitor::LockedPlanningSceneRW(psm_)->setCurrentState(
+  //     *robot_state);
+
+  psm_->updateSceneWithCurrentState();
+
+  req.start_state.joint_state.header.stamp = ros::Time::now();
+  req.start_state.joint_state.name = joint_model_group_->getVariableNames();
+
+  std::vector<double> start_joint_values;
+  robot_state->copyJointGroupPositions(joint_model_group_, start_joint_values);
+  req.start_state.joint_state.position = start_joint_values;
+
+  start_joint_values.clear();
+  robot_state->copyJointGroupVelocities(joint_model_group_, start_joint_values);
+  req.start_state.joint_state.velocity = start_joint_values;
+
+  start_joint_values.clear();
+  robot_state->copyJointGroupAccelerations(joint_model_group_,
+                                           start_joint_values);
+  req.start_state.joint_state.effort = start_joint_values;
+}
+
 moveit_msgs::Constraints BasePlanner::createJointGoal() {
   moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
       planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
