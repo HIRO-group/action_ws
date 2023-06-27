@@ -109,7 +109,13 @@ void BasePlanner::init() {
   robot_model_loader_ = std::make_shared<robot_model_loader::RobotModelLoader>(
       "robot_description");
 
+  ROS_INFO_NAMED(LOGNAME, "getModel");
   robot_model_ = robot_model_loader_->getModel();
+
+  ROS_INFO_NAMED(LOGNAME, "getJointModelGroup");
+  joint_model_group_ = robot_model_->getJointModelGroup(group_name_);
+
+  dof_ = joint_model_group_->getActiveVariableCount();
 
   // std::shared_ptr<tf2_ros::Buffer> tf_buffer =
   //     std::make_shared<tf2_ros::Buffer>();
@@ -150,9 +156,6 @@ void BasePlanner::init() {
   ROS_INFO_NAMED(LOGNAME, "robot_state");
   moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
       planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
-
-  ROS_INFO_NAMED(LOGNAME, "getJointModelGroup");
-  joint_model_group_ = robot_model_->getJointModelGroup(group_name_);
 
   ROS_INFO_NAMED(LOGNAME, "updateSceneWithCurrentState");
   robot_state->setToDefaultValues(joint_model_group_, "ready");

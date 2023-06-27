@@ -34,11 +34,11 @@ class PerceptionPlanner : public BasePlanner {
 
   std::vector<tacbot::ObstacleGroup> obstacles_;
 
-  void addPointObstacles(tacbot::ObstacleGroup& obstacle);
-
   /** \brief The class that handles point cloud processing of the surrounding
    * environment and transfers this information to the planner.*/
   std::shared_ptr<ContactPerception> contact_perception_;
+
+  void addPointObstacles(tacbot::ObstacleGroup& obstacle);
 
   void setCollisionChecker(std::string collision_checker_name);
 
@@ -52,6 +52,11 @@ class PerceptionPlanner : public BasePlanner {
                           tacbot::ObstacleGroup& obstacle);
 
   void tableCollisionPermission();
+
+  Eigen::VectorXd getPerLinkContactDepth(moveit::core::RobotState robot_state);
+  Eigen::VectorXd obstacleFieldDuo(const ompl::base::State* near_state,
+                                   const ompl::base::State* rand_state);
+  Eigen::VectorXd obstacleField(const ompl::base::State* rand_state);
 };
 }  // namespace tacbot
 #endif

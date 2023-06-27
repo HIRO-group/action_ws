@@ -274,5 +274,52 @@ void toControlTrajectory(const moveit_msgs::MotionPlanResponse& msg,
   }
 }
 
+bool linkNameToIdx(const std::string& link_name, std::size_t& idx) {
+  std::vector<std::string> link_names{
+      "panda_link0", "panda_link1", "panda_link2", "panda_link3", "panda_link4",
+      "panda_link5", "panda_link6", "panda_link7", "panda_hand"};
+
+  if (link_name == "panda_rightfinger" || link_name == "panda_leftfinger" ||
+      link_name == "panda_rightfinger_sc" ||
+      link_name == "panda_leftfinger_sc") {
+    idx = 6;
+    return true;
+  }
+
+  auto it = std::find(link_names.begin(), link_names.end(), link_name);
+  if (it == link_names.end()) {
+    // ROS_ERROR_NAMED(LOGNAME, "Unable to find the following link in model:
+    // %s",
+    //                 link_name.c_str());
+    // return false;
+  } else {
+    idx = std::distance(link_names.begin(), it);
+    // ROS_INFO_NAMED(LOGNAME, "link_name: %s, idx %ld", link_name.c_str(),
+    // idx);
+    if (idx > 6) idx = 6;
+    return true;
+  }
+
+  std::vector<std::string> link_names2{
+      "panda_link0_sc", "panda_link1_sc", "panda_link2_sc",
+      "panda_link3_sc", "panda_link4_sc", "panda_link5_sc",
+      "panda_link6_sc", "panda_link7_sc", "panda_hand_sc"};
+
+  auto it2 = std::find(link_names2.begin(), link_names2.end(), link_name);
+  if (it2 == link_names2.end()) {
+    ROS_ERROR_NAMED(LOGNAME, "Unable to find the following link in model: %s",
+                    link_name.c_str());
+    // return false;
+  } else {
+    idx = std::distance(link_names2.begin(), it2);
+    // ROS_INFO_NAMED(LOGNAME, "link_name: %s, idx %ld", link_name.c_str(),
+    // idx);
+    if (idx > 6) idx = 6;
+    return true;
+  }
+
+  return false;
+}
+
 }  // namespace utilities
 }  // namespace tacbot

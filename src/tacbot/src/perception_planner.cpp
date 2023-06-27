@@ -2,6 +2,7 @@
 
 #include <moveit/collision_detection_bullet/collision_detector_allocator_bullet.h>
 #include <ompl/base/objectives/MinimizeContactObjective.h>
+#include <ompl/base/objectives/VFMagnitudeOptimizationObjective.h>
 #include <ompl/geometric/planners/informedtrees/ABITstar.h>
 #include <ompl/multilevel/datastructures/Projection.h>
 #include <ompl/multilevel/datastructures/ProjectionTypes.h>
@@ -10,6 +11,7 @@
 #include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 
 #include "ompl/geometric/planners/informedtrees/BITstar.h"
+#include "ompl/geometric/planners/rrt/ContactTRRT.h"
 #include "ompl/geometric/planners/rrt/InformedRRTstar.h"
 #include "ompl/geometric/planners/rrt/RRTstar.h"
 
@@ -91,7 +93,7 @@ void PerceptionPlanner::setObstacleScene(std::size_t option) {
     case 3: {
       tacbot::ObstacleGroup sphere_1;
       sphere_1.name = "sphere_1";
-      sphere_1.radius = 0.08;
+      sphere_1.radius = 0.12;
       sphere_1.cost = 10.0;
       sphere_1.center = Eigen::Vector3d{0.45, 0.1, 0.35};
       obstacles_.emplace_back(sphere_1);
@@ -133,7 +135,26 @@ void PerceptionPlanner::changePlanner() {
   ompl::base::PlannerPtr planner;
 
   if (planner_name_ == "BITstar") {
+    std::function<double(const ompl::base::State*)> optFunc;
+
+    optFunc = std::bind(&PerceptionPlanner::overlapMagnitude, this,
+                        std::placeholders::_1);
+    optimization_objective_ =
+        std::make_shared<ompl::base::MinimizeContactObjective>(si, optFunc);
+    simple_setup->setOptimizationObjective(optimization_objective_);
+
     planner = std::make_shared<ompl::geometric::BITstar>(si);
+
+  } else if (planner_name_ == "RRTstar") {
+    std::function<double(const ompl::base::State*)> optFunc;
+
+    optFunc = std::bind(&PerceptionPlanner::overlapMagnitude, this,
+                        std::placeholders::_1);
+    optimization_objective_ =
+        std::make_shared<ompl::base::MinimizeContactObjective>(si, optFunc);
+    simple_setup->setOptimizationObjective(optimization_objective_);
+
+    planner = std::make_shared<ompl::geometric::RRTstar>(si);
 
   } else if (planner_name_ == "QRRTStar") {
     ROS_INFO_NAMED(LOGNAME, "createPandaBundleContext()");
@@ -167,8 +188,34 @@ void PerceptionPlanner::changePlanner() {
     componentFiber->makeFiberSpace();
     projVec.emplace_back(projection);
 
+    std::function<double(const ompl::base::State*)> optFunc;
+    optFunc = std::bind(&PerceptionPlanner::overlapMagnitude, this,
+                        std::placeholders::_1);
+    optimization_objective_ =
+        std::make_shared<ompl::base::MinimizeContactObjective>(si, optFunc);
+    simple_setup->setOptimizationObjective(optimization_objective_);
+
     ROS_INFO_NAMED(LOGNAME, "ompl::multilevel::QRRTStar(siVec, projVec)");
     planner = std::make_shared<ompl::multilevel::QRRTStar>(siVec, projVec);
+
+  } else if (planner_name_ == "CAT-TRRT") {
+    ROS_INFO_NAMED(LOGNAME, "Using planner: CAT-TRRT.");
+    std::function<Eigen::VectorXd(const ompl::base::State*,
+                                  const ompl::base::State*)>
+        vFieldFuncDuo;
+    vFieldFuncDuo = std::bind(&PerceptionPlanner::obstacleFieldDuo, this,
+                              std::placeholders::_1, std::placeholders::_2);
+
+    std::function<Eigen::VectorXd(const ompl::base::State*)> vFieldFunc;
+    vFieldFunc = std::bind(&PerceptionPlanner::obstacleField, this,
+                           std::placeholders::_1);
+
+    optimization_objective_ =
+        std::make_shared<ompl::base::VFMagnitudeOptimizationObjective>(
+            si, vFieldFunc);
+
+    simple_setup->setOptimizationObjective(optimization_objective_);
+    planner = std::make_shared<ompl::geometric::ContactTRRT>(si, vFieldFuncDuo);
 
   } else {
     ROS_ERROR_NAMED(LOGNAME, "The following planner is not supported: %s",
@@ -176,73 +223,67 @@ void PerceptionPlanner::changePlanner() {
     throw std::invalid_argument(planner_name_);
   }
 
-  std::function<double(const ompl::base::State*)> optFunc;
-  optFunc = std::bind(&PerceptionPlanner::overlapMagnitude, this,
-                      std::placeholders::_1);
-  optimization_objective_ =
-      std::make_shared<ompl::base::MinimizeContactObjective>(si, optFunc);
-  simple_setup->setOptimizationObjective(optimization_objective_);
-
   optimization_objective_->setCostToGoHeuristic(
       &ompl::base::goalRegionCostToGo);
-
   simple_setup->setPlanner(planner);
 }
 
-double PerceptionPlanner::overlapMagnitude(
-    const ompl::base::State* base_state) {
-  sphericalCollisionPermission(false);
+Eigen::VectorXd PerceptionPlanner::obstacleFieldDuo(
+    const ompl::base::State* near_state, const ompl::base::State* rand_state) {
+  // one state not used
+  return obstacleField(rand_state);
+}
 
+Eigen::VectorXd PerceptionPlanner::obstacleField(
+    const ompl::base::State* rand_state) {
+  sphericalCollisionPermission(false);
   const ompl::base::RealVectorStateSpace::StateType& vec_state =
-      *base_state->as<ompl::base::RealVectorStateSpace::StateType>();
+      *rand_state->as<ompl::base::RealVectorStateSpace::StateType>();
   std::vector<double> joint_angles = utilities::toStlVec(vec_state, dof_);
   moveit::core::RobotState robot_state(*robot_state_);
   robot_state.setJointGroupPositions(joint_model_group_, joint_angles);
-
-  double contact_depth = getContactDepth(robot_state);
+  Eigen::VectorXd vfield = getPerLinkContactDepth(robot_state);
   sphericalCollisionPermission(true);
-  return contact_depth;
+  return vfield;
+}
+
+double PerceptionPlanner::overlapMagnitude(const ompl::base::State* state) {
+  sphericalCollisionPermission(false);
+
+  const ompl::base::RealVectorStateSpace::StateType& vec_state =
+      *state->as<ompl::base::RealVectorStateSpace::StateType>();
+  std::vector<double> joint_angles = utilities::toStlVec(vec_state, dof_);
+  moveit::core::RobotState robot_state(*robot_state_);
+  robot_state.setJointGroupPositions(joint_model_group_, joint_angles);
+  double cost = getContactDepth(robot_state);
+
+  sphericalCollisionPermission(true);
+  return cost;
 }
 
 void PerceptionPlanner::sphericalCollisionPermission(bool is_allowed) {
   // collision_detection::CollisionEnvConstPtr col_env =
   //     planning_scene_monitor::LockedPlanningSceneRW(psm_)->getCollisionEnv();
-
-  // ROS_INFO_NAMED(LOGNAME, "sphericalCollisionPermission");
-
   collision_detection::AllowedCollisionMatrix& acm =
       planning_scene_monitor::LockedPlanningSceneRW(psm_)
           ->getAllowedCollisionMatrixNonConst();
-  // acm.print(std::cout);
 
   std::vector<std::string> sphere_names;
   for (auto obstacle : obstacles_) {
     sphere_names.emplace_back(obstacle.name);
-    // std::cout << "obstacle name: " << obstacle.name << std::endl;
   }
 
   for (auto name : sphere_names) {
     acm.setEntry(name, is_allowed);
   }
-
-  // std::string name = "panda_hand";
-  // std::vector<std::string> other_names{"sphere_1"};
-  // acm.setEntry(name, other_names, is_allowed);
-
-  // planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
-  // context_->setPlanningScene(lscene);
-
-  // acm.print(std::cout);
 }
 
 void PerceptionPlanner::tableCollisionPermission() {
   collision_detection::AllowedCollisionMatrix& acm =
       planning_scene_monitor::LockedPlanningSceneRW(psm_)
           ->getAllowedCollisionMatrixNonConst();
-
   std::string name = "table";
   std::vector<std::string> other_names{"panda_link0"};
-
   acm.setEntry(name, other_names, true);
 }
 
@@ -261,12 +302,59 @@ void PerceptionPlanner::setCollisionChecker(
 
   // collision_detection::CollisionEnvConstPtr col_env =
   //     planning_scene_monitor::LockedPlanningSceneRW(psm_)->getCollisionEnv();
-
   // std::vector<moveit_msgs::LinkPadding> padding;
   // col_env->getPadding(padding);
   // for (auto pad : padding) {
   //   std::cout << pad.link_name << ", " << pad.padding << std::endl;
   // }
+}
+
+Eigen::VectorXd PerceptionPlanner::getPerLinkContactDepth(
+    moveit::core::RobotState robot_state) {
+  collision_detection::CollisionRequest collision_request;
+  collision_request.distance = false;
+  collision_request.cost = false;
+  collision_request.contacts = true;
+  collision_request.max_contacts = 20;
+  collision_request.max_contacts_per_pair = 1;
+  collision_request.max_cost_sources = 20;
+  collision_request.verbose = false;
+
+  collision_detection::CollisionResult collision_result;
+  planning_scene_monitor::LockedPlanningSceneRO(psm_)->checkCollisionUnpadded(
+      collision_request, collision_result, robot_state);
+
+  bool collision = collision_result.collision;
+  // ROS_INFO_NAMED(LOGNAME, "collision: %d", collision);
+
+  if (!collision) {
+    return Eigen::VectorXd::Zero(dof_);
+  }
+
+  collision_detection::CollisionResult::ContactMap contact_map =
+      collision_result.contacts;
+
+  Eigen::VectorXd field_out = Eigen::VectorXd::Zero(dof_);
+
+  for (auto contact : contact_map) {
+    std::size_t num_subcontacts = contact.second.size();
+    // ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
+    for (std::size_t subc_idx = 0; subc_idx < num_subcontacts; subc_idx++) {
+      collision_detection::Contact subcontact = contact.second[subc_idx];
+      // ROS_INFO_NAMED(LOGNAME, "Body 1: %s", subcontact.body_name_1.c_str());
+      // ROS_INFO_NAMED(LOGNAME, "Body 2: %s", subcontact.body_name_2.c_str());
+      // ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
+
+      std::size_t idx = 0;
+      if (utilities::linkNameToIdx(subcontact.body_name_1, idx)) {
+        field_out[idx] += std::abs(subcontact.depth);
+      } else if (utilities::linkNameToIdx(subcontact.body_name_2, idx)) {
+        field_out[idx] += std::abs(subcontact.depth);
+      }
+    }
+  }
+
+  return field_out;
 }
 
 double PerceptionPlanner::getContactDepth(
@@ -278,7 +366,7 @@ double PerceptionPlanner::getContactDepth(
   collision_request.cost = false;
   collision_request.contacts = true;
   collision_request.max_contacts = 20;
-  collision_request.max_contacts_per_pair = 2;
+  collision_request.max_contacts_per_pair = 1;
   collision_request.max_cost_sources = 20;
   collision_request.verbose = false;
 
@@ -300,25 +388,25 @@ double PerceptionPlanner::getContactDepth(
 
   for (auto contact : contact_map) {
     std::size_t num_subcontacts = contact.second.size();
-    // ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld", num_subcontacts);
+    // ROS_INFO_NAMED(LOGNAME, "Number of subcontacts: %ld",
+    // num_subcontacts);
     for (std::size_t subc_idx = 0; subc_idx < num_subcontacts; subc_idx++) {
       collision_detection::Contact subcontact = contact.second[subc_idx];
       // ROS_INFO_NAMED(LOGNAME, "Body 1: %s",
-      // subcontact.body_name_1.c_str()); ROS_INFO_NAMED(LOGNAME, "Body 2:
-      // %s", subcontact.body_name_2.c_str()); ROS_INFO_NAMED(LOGNAME, "Depth:
-      // %f", subcontact.depth);
+      // subcontact.body_name_1.c_str());
+      // ROS_INFO_NAMED(LOGNAME, "Body 2: %s",
+      // subcontact.body_name_2.c_str());
+      // ROS_INFO_NAMED(LOGNAME, "Depth: %f", subcontact.depth);
+
+      // std::size_t idx = 0;
+      // if (utilities::linkNameToIdx(subcontact.body_name_1, idx) ||
+      //     utilities::linkNameToIdx(subcontact.body_name_2, idx)) {
+      //   if (idx == 6) {
+      //     subcontact.depth += 1;
+      //   }
+      // }
 
       tacbot::ObstacleGroup obstacle;
-
-      // get positions as a vector
-      // see if positions up to link 5 are similar to positions at goal
-      //  if no, then do not allow ee positions to be close to goal
-      //  if yes, allow ee positions to be close to goal
-
-      if (subcontact.body_name_1 == "panda_link5" ||
-          subcontact.body_name_2 == "panda_link5") {
-      }
-
       if (findObstacleByName(subcontact.body_name_1, obstacle) ||
           findObstacleByName(subcontact.body_name_2, obstacle)) {
         total_depth = total_depth + std::abs(subcontact.depth) * obstacle.cost;

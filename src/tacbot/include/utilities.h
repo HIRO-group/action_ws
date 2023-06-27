@@ -159,6 +159,8 @@ void toControlTrajectory(const moveit_msgs::MotionPlanResponse& msg,
                          std::vector<std::array<double, 7>>& joint_waypoints,
                          std::vector<std::array<double, 7>>& joint_velocities);
 
+bool linkNameToIdx(const std::string& link_name, std::size_t& idx);
+
 template <typename T>
 std::vector<T> slice(std::vector<T> const& v, int m, int n) {
   auto first = v.cbegin() + m;

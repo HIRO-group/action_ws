@@ -884,7 +884,7 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
         depth_per_state += std::abs(subcontact.depth);
 
         std::size_t idx = 0;
-        if (linkNameToIdx(subcontact.body_name_1, idx)) {
+        if (utilities::linkNameToIdx(subcontact.body_name_1, idx)) {
           depth_per_link[idx] = std::abs(subcontact.depth);
         }
       }
@@ -908,22 +908,6 @@ void ContactPlanner::analyzePlanResponse(BenchMarkData& benchmark_data) {
                  plan_analysis.num_path_states);
   ROS_INFO_NAMED(LOGNAME, "plan_analysis.total_contact_count: %ld",
                  plan_analysis.total_contact_count);
-}
-
-bool ContactPlanner::linkNameToIdx(const std::string& link_name,
-                                   std::size_t& idx) {
-  std::vector<std::string> link_names{
-      "panda_link0", "panda_link1", "panda_link2", "panda_link3", "panda_link4",
-      "panda_link5", "panda_link6", "panda_link7", "panda_hand"};
-  auto it = std::find(link_names.begin(), link_names.end(), link_name);
-  if (it == link_names.end()) {
-    ROS_ERROR_NAMED(LOGNAME, "Unable to find the following link in model: %s",
-                    link_name.c_str());
-    return false;
-  }
-  idx = std::distance(link_names.begin(), it);
-  ROS_INFO_NAMED(LOGNAME, "link_name: %s, idx %ld", link_name.c_str(), idx);
-  return true;
 }
 
 void ContactPlanner::init() {

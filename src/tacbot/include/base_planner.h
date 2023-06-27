@@ -132,7 +132,7 @@ class BasePlanner {
   std::shared_ptr<VisualizerData> vis_data_;
 
   /** \brief Number of degrees of freedom of the panda robot.*/
-  const std::size_t dof_ = 7;
+  std::size_t dof_ = 0;
 
   /** \brief The goal pose for the robot. The robot will try to move to this
    * state when planning a trajectory.*/
