@@ -11,6 +11,8 @@ add_compile_options(-std=c++17)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+find_package(NLopt REQUIRED)
+
 find_package(catkin REQUIRED
   COMPONENTS
     # interactive_markers

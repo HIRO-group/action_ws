@@ -10,6 +10,8 @@
 #include <ompl/multilevel/planners/qmp/QMPStar.h>
 #include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 
+#include <nlopt.hpp>
+
 #include "ompl/geometric/planners/informedtrees/BITstar.h"
 #include "ompl/geometric/planners/rrt/ContactTRRT.h"
 #include "ompl/geometric/planners/rrt/InformedRRTstar.h"
@@ -434,68 +436,6 @@ bool PerceptionPlanner::findObstacleByName(const std::string& name,
   }
 }
 
-// bool PerceptionPlanner::generatePlan(
-//     planning_interface::MotionPlanResponse& res) {
-//   ROS_INFO_NAMED(LOGNAME, "Generating a plan with the perception planner.");
-
-//   res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
-
-//   bool is_solved = context_->solve(res);
-
-//   // remove the already queried status from here when doing path
-//   // simplifications
-//   //
-//   moveit_planners/ompl/ompl_interface/src/detail/state_validity_checker.cpp
-
-//   if (is_solved) {
-//     std::size_t state_count = res.trajectory_->getWayPointCount();
-//     ROS_INFO_NAMED(LOGNAME, "Motion planner reported a solution path with
-//     %ld",
-//                    state_count);
-//   }
-
-//   if (is_solved && res.trajectory_) {
-//     trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
-//         0.05, 0.001, 0.01);
-//     // moveit::core::RobotStatePtr first_prt =
-//     //     res.trajectory_->getFirstWayPointPtr();
-//     // moveit::core::RobotStatePtr last_prt =
-//     //     res.trajectory_->getLastWayPointPtr();
-//     // first_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0,
-//     // 0}); last_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0,
-//     0,
-//     // 0, 0});
-
-//     ROS_INFO_NAMED(LOGNAME, "Computing time parameterization.");
-//     planning_interface::MotionPlanRequest req =
-//         context_->getMotionPlanRequest();
-//     // ROS_INFO_NAMED(LOGNAME, "req.max_velocity_scaling_factor %f",
-//     //                req.max_velocity_scaling_factor);
-//     // ROS_INFO_NAMED(LOGNAME, "req.max_acceleration_scaling_factor %f",
-//     //                req.max_acceleration_scaling_factor);
-//     if (!time_param_.computeTimeStamps(*res.trajectory_,
-//                                        req.max_velocity_scaling_factor,
-//                                        req.max_acceleration_scaling_factor))
-//                                        {
-//       ROS_ERROR_NAMED(LOGNAME,
-//                       "Time parametrization for the solution path failed.");
-//       is_solved = false;
-//     } else {
-//       bool is_smoothed =
-//       trajectory_processing::RuckigSmoothing::applySmoothing(
-//           *res.trajectory_, req.max_velocity_scaling_factor,
-//           req.max_acceleration_scaling_factor);
-//       ROS_INFO_NAMED(LOGNAME, "is_smoothed? %d", is_smoothed);
-
-//       ROS_INFO_NAMED(LOGNAME, "Time parameterization success.");
-//       plan_response_ = res;
-//     }
-//   }
-
-//   ROS_INFO_NAMED(LOGNAME, "Is plan generated? %d", is_solved);
-//   return is_solved;
-// }
-
 void PerceptionPlanner::createPandaBundleContext() {
   robot_model_loader::RobotModelLoaderPtr robot_model_loader;
   robot_model_loader = std::make_shared<robot_model_loader::RobotModelLoader>(
@@ -562,6 +502,66 @@ void PerceptionPlanner::createPandaBundleContext() {
   base_req.max_velocity_scaling_factor = bundle_req.max_velocity_scaling_factor;
 
   pandaBundleContext_->createPlanningContext(base_req);
+}
+
+double OptimizationProblem::objective(const std::vector<double>& x,
+                                      std::vector<double>& grad, void* data) {
+  OptimizationProblem* problem = static_cast<OptimizationProblem*>(data);
+
+  double result = problem->a * x[0] * x[0] + problem->b;
+  if (!grad.empty()) {
+    grad[0] = 2 * problem->a * x[0];
+  }
+  return result;
+}
+
+double OptimizationProblem::constraint(const std::vector<double>& x,
+                                       std::vector<double>& grad, void* data) {
+  OptimizationProblem* problem = static_cast<OptimizationProblem*>(data);
+  double a = problem->a;
+  double b = problem->b;
+  return -1;
+}
+
+double OptimizationProblem::optimize() {
+  nlopt::opt opt(nlopt::LN_COBYLA, 1);
+
+  opt.set_min_objective(
+      [](const std::vector<double>& x, std::vector<double>& grad,
+         void* data) -> double {
+        return static_cast<OptimizationProblem*>(data)->objective(x, grad,
+                                                                  data);
+      },
+      this);
+
+  // Set the constraint function
+  // opt.add_inequality_constraint(
+  //     [](const std::vector<double>& x, std::vector<double>& grad,
+  //        void* data) -> double {
+  //       return static_cast<OptimizationProblem*>(data)->constraint(x, grad,
+  //                                                                  data);
+  //     },
+  //     this, 1e-8);
+
+  std::vector<double> lb = {-10};
+  std::vector<double> ub = {10};
+  opt.set_lower_bounds(lb);
+  opt.set_upper_bounds(ub);
+
+  opt.set_xtol_rel(1e-4);
+
+  std::vector<double> x = {2};
+  double minf;
+  nlopt::result result = opt.optimize(x, minf);
+
+  if (result == nlopt::SUCCESS) {
+    std::cout << "Optimization success! Minimum value found: " << minf
+              << std::endl;
+  } else {
+    std::cout << "Optimization failed!" << std::endl;
+  }
+
+  return minf;
 }
 
 }  // namespace tacbot

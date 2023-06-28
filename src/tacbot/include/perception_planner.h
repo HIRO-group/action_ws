@@ -56,5 +56,20 @@ class PerceptionPlanner : public BasePlanner {
                                    const ompl::base::State* rand_state);
   Eigen::VectorXd obstacleField(const ompl::base::State* rand_state);
 };
+
+class OptimizationProblem {
+ public:
+  double objective(const std::vector<double>& x, std::vector<double>& grad,
+                   void* data);
+  double constraint(const std::vector<double>& x, std::vector<double>& grad,
+                    void* data);
+
+  double optimize();
+
+ private:
+  double a = 1;
+  double b = 1;
+};
+
 }  // namespace tacbot
 #endif

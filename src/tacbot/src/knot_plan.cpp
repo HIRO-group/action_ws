@@ -9,13 +9,16 @@ constexpr char LOGNAME[] = "knot_plan";
 
 using namespace tacbot;
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   ros::init(argc, argv, "knot_plan");
   ros::AsyncSpinner spinner(1);
   spinner.start();
   ros::NodeHandle node_handle;
 
   ROS_DEBUG_NAMED(LOGNAME, "Start!");
+
+  OptimizationProblem problem;
+  problem.optimize();
 
   std::shared_ptr<PerceptionPlanner> planner =
       std::make_shared<PerceptionPlanner>();
