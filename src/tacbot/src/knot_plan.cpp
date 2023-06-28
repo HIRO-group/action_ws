@@ -2,12 +2,6 @@
 #include "my_moveit_context.h"
 #include "panda_interface.h"
 #include "perception_planner.h"
-// #include "pilz_industrial_motion_planner/cartesian_limits_aggregator.h"
-// #include "pilz_industrial_motion_planner/joint_limits_aggregator.h"
-// #include "pilz_industrial_motion_planner/tip_frame_getter.h"
-// #include "pilz_industrial_motion_planner/trajectory_blend_request.h"
-// #include
-// "pilz_industrial_motion_planner/trajectory_blender_transition_window.h"
 #include "utilities.h"
 #include "visualizer.h"
 
@@ -35,16 +29,16 @@ int main(int argc, char** argv) {
   ROS_DEBUG_NAMED(LOGNAME, "MyMoveitContext()");
   std::shared_ptr<MyMoveitContext> context = std::make_shared<MyMoveitContext>(
       planner->getPlanningSceneMonitor(), planner->getRobotModel());
-  context->setSimplifySolution(false);
+  context->setSimplifySolution(true);
 
   std::vector<double> start{
       0, -0.785398163, 0, -2.35619449, 0, 1.57079632679, 0.785398163397};
-  std::vector<double> wp1{-1.0304, -1.04185, 1.0716, -1.72948,
-                          0.66649, 0.724355, 1.38011};
-  std::vector<double> wp2{-1.5304, -1.44185, 1.4716, -1.72948,
-                          0.66649, 0.724355, 1.38011};
-  std::vector<double> goal{-2.0304, -1.44185, 1.4716, -1.72948,
-                           0.66649, 0.724355, 1.38011};
+  std::vector<double> wp1{-1.80753,  -1.22744, 1.94936,  -1.356,
+                          -0.440299, 2.34236,  -0.313631};
+  std::vector<double> wp2{-2.02094,  -1.10387, 1.9391,   -1.61801,
+                          -0.440085, 1.69906,  -0.295163};
+  std::vector<double> goal{-2.02408,   -1.06383, 1.8716,    -1.80128,
+                           0.00569006, 0.713265, -0.0827766};
 
   std::vector<std::vector<double>> knots;
   knots.emplace_back(start);
@@ -105,7 +99,7 @@ int main(int argc, char** argv) {
     req.goal_constraints.push_back(constraints[i]);
 
     req.group_name = planner->getGroupName();
-    req.allowed_planning_time = 10.0;
+    req.allowed_planning_time = 5.0;
     req.planner_id = context->getPlannerId();
     req.max_acceleration_scaling_factor = 0.5;
     req.max_velocity_scaling_factor = 0.5;
@@ -137,6 +131,10 @@ int main(int argc, char** argv) {
       return 1;
     }
 
+    if (!planner->parameterizePlan(res)) {
+      return 1;
+    }
+
     moveit_msgs::MotionPlanResponse msg;
     res.getMessage(msg);
     visualizer->visualizeTrajectory(msg, "planned_path");
@@ -145,35 +143,11 @@ int main(int argc, char** argv) {
 
     responses.emplace_back(res);
 
-    bool status = utilities::promptUserInput();
-    if (!status) {
-      return 0;
-    }
+    // bool status = utilities::promptUserInput();
+    // if (!status) {
+    //   return 0;
+    // }
   }
-
-  // pilz_industrial_motion_planner::JointLimitsContainer
-  //     aggregated_limit_active_joints;
-
-  // aggregated_limit_active_joints = pilz_industrial_motion_planner::
-  //     JointLimitsAggregator::getAggregatedLimits(
-  //         node_handle, planner->getRobotModel()->getActiveJointModels());
-
-  // // Obtain cartesian limits
-  // pilz_industrial_motion_planner::CartesianLimit cartesian_limit =
-  //     pilz_industrial_motion_planner::CartesianLimitsAggregator::
-  //         getAggregatedLimits(node_handle);
-
-  // pilz_industrial_motion_planner::LimitsContainer limits;
-  // limits.setJointLimits(aggregated_limit_active_joints);
-  // limits.setCartesianLimits(cartesian_limit);
-
-  // PlanComponentsBuilder plan_comp_builder_;
-  // plan_comp_builder_.setModel(planner->getRobotModel());
-  // plan_comp_builder_.setBlender(
-  //     std::unique_ptr<pilz_industrial_motion_planner::TrajectoryBlender>(
-  //         new
-  //         pilz_industrial_motion_planner::TrajectoryBlenderTransitionWindow(
-  //             limits)));
 
   ROS_INFO_NAMED(LOGNAME, "Press continue to execute trajectory.");
   bool execute = utilities::promptUserInput();
@@ -184,6 +158,8 @@ int main(int argc, char** argv) {
   PandaInterface panda_interface;
   panda_interface.init();
   panda_interface.move_to_default_pose(panda_interface.robot_.get());
+
+  sleep(0.1);
 
   for (std::size_t i = 0; i < responses.size(); i++) {
     planning_interface::MotionPlanResponse res = responses[i];
@@ -196,10 +172,12 @@ int main(int argc, char** argv) {
     panda_interface.follow_joint_velocities(panda_interface.robot_.get(),
                                             joint_velocities);
 
-    bool status = utilities::promptUserInput();
-    if (!status) {
-      return 0;
-    }
+    sleep(0.1);
+
+    // bool status = utilities::promptUserInput();
+    // if (!status) {
+    //   return 0;
+    // }
   }
 
   std::cout << "Finished!" << std::endl;

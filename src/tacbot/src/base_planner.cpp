@@ -1,5 +1,8 @@
 #include "base_planner.h"
 
+#include <moveit/trajectory_processing/ruckig_traj_smoothing.h>
+#include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
+
 using namespace std::chrono;
 constexpr char LOGNAME[] = "contact_planner";
 
@@ -40,8 +43,8 @@ void BasePlanner::setStartState(planning_interface::MotionPlanRequest& req,
   // robot_state->setToDefaultValues(joint_model_group_, "ready");
   robot_state->setVariablePositions(pos);
   robot_state->update();
-  ROS_INFO_NAMED(LOGNAME, "New state positions.");
-  robot_state->printStatePositions(std::cout);
+  // ROS_INFO_NAMED(LOGNAME, "New state positions.");
+  // robot_state->printStatePositions(std::cout);
 
   // planning_scene_monitor::CurrentStateMonitorPtr csm =
   // psm_->getStateMonitor(); csm->setToCurrentState(*robot_state);
@@ -98,45 +101,55 @@ void BasePlanner::changePlanner() {
 
 bool BasePlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
   res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
-  bool is_solved = context_->solve(res);
-  if (is_solved) {
+  if (context_->solve(res)) {
     std::size_t state_count = res.trajectory_->getWayPointCount();
-    ROS_INFO_NAMED(LOGNAME, "Motion planner reported a solution path with %ld",
-                   state_count);
+    ROS_INFO_NAMED(LOGNAME, "State count in solution path %ld", state_count);
+    plan_response_ = res;
+    return true;
+  } else {
+    ROS_ERROR_NAMED(LOGNAME, "Failed to find motion plan.");
+    return false;
+  }
+}
+
+bool BasePlanner::parameterizePlan(
+    planning_interface::MotionPlanResponse& res) {
+  if (res.error_code_.val != res.error_code_.SUCCESS || !res.trajectory_) {
+    ROS_ERROR_NAMED(LOGNAME, "Invalid solution. Cannot parameterize.");
+    return false;
   }
 
-  if (is_solved && res.trajectory_) {
-    trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
-        0.05, 0.001, 0.01);  // 0.001 for real execution
+  ROS_INFO_NAMED(LOGNAME, "Computing time parameterization.");
+  trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
+      0.05, 0.001, 0.01);
+  planning_interface::MotionPlanRequest req = context_->getMotionPlanRequest();
 
-    moveit::core::RobotStatePtr first_prt =
-        res.trajectory_->getFirstWayPointPtr();
-    moveit::core::RobotStatePtr last_prt =
-        res.trajectory_->getLastWayPointPtr();
-    first_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
-    last_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
+  moveit::core::RobotStatePtr first_prt =
+      res.trajectory_->getFirstWayPointPtr();
+  moveit::core::RobotStatePtr last_prt = res.trajectory_->getLastWayPointPtr();
+  first_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
+  last_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
 
-    ROS_INFO_NAMED(LOGNAME, "Computing time parameterization.");
-    planning_interface::MotionPlanRequest req =
-        context_->getMotionPlanRequest();
-    ROS_INFO_NAMED(LOGNAME, "req.max_velocity_scaling_factor %f",
-                   req.max_velocity_scaling_factor);
-    ROS_INFO_NAMED(LOGNAME, "req.max_acceleration_scaling_factor %f",
-                   req.max_acceleration_scaling_factor);
-    if (!time_param_.computeTimeStamps(*res.trajectory_,
-                                       req.max_velocity_scaling_factor,
-                                       req.max_acceleration_scaling_factor)) {
-      ROS_ERROR_NAMED(LOGNAME,
-                      "Time parametrization for the solution path failed.");
-      is_solved = false;
-    } else {
-      ROS_INFO_NAMED(LOGNAME, "Time parameterization success.");
-      plan_response_ = res;
-    }
+  if (!time_param_.computeTimeStamps(*res.trajectory_,
+                                     req.max_velocity_scaling_factor,
+                                     req.max_acceleration_scaling_factor)) {
+    ROS_ERROR_NAMED(LOGNAME, "Time parametrization for path failed.");
+    return false;
+  } else {
+    ROS_INFO_NAMED(LOGNAME, "Time parameterization success.");
   }
 
-  ROS_INFO_NAMED(LOGNAME, "Is plan generated? %d", is_solved);
-  return is_solved;
+  if (trajectory_processing::RuckigSmoothing::applySmoothing(
+          *res.trajectory_, req.max_velocity_scaling_factor,
+          req.max_acceleration_scaling_factor)) {
+    ROS_INFO_NAMED(LOGNAME, "Ruckig smoothing for the solution success.");
+  } else {
+    ROS_ERROR_NAMED(LOGNAME, "Ruckig smoothing for the solution failure.");
+    return false;
+  }
+
+  plan_response_ = res;
+  return true;
 }
 
 void BasePlanner::init() {

@@ -24,7 +24,6 @@
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/planning_scene_monitor/current_state_monitor.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
-#include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
 
 // OMPL
 
@@ -74,6 +73,8 @@ class BasePlanner {
      successfully accomplished.
   */
   virtual bool generatePlan(planning_interface::MotionPlanResponse& res);
+
+  virtual bool parameterizePlan(planning_interface::MotionPlanResponse& res);
 
   /** \brief Create a sample joint goal state, in joint space, for the robot to
     reach.

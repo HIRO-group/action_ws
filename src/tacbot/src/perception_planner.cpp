@@ -143,7 +143,7 @@ void PerceptionPlanner::changePlanner() {
         std::make_shared<ompl::base::MinimizeContactObjective>(si, optFunc);
     simple_setup->setOptimizationObjective(optimization_objective_);
 
-    planner = std::make_shared<ompl::geometric::BITstar>(si);
+    planner = std::make_shared<ompl::geometric::ABITstar>(si);
 
   } else if (planner_name_ == "RRTstar") {
     std::function<double(const ompl::base::State*)> optFunc;
@@ -434,57 +434,67 @@ bool PerceptionPlanner::findObstacleByName(const std::string& name,
   }
 }
 
-bool PerceptionPlanner::generatePlan(
-    planning_interface::MotionPlanResponse& res) {
-  ROS_INFO_NAMED(LOGNAME, "Generating a plan with the perception planner.");
+// bool PerceptionPlanner::generatePlan(
+//     planning_interface::MotionPlanResponse& res) {
+//   ROS_INFO_NAMED(LOGNAME, "Generating a plan with the perception planner.");
 
-  res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
+//   res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
 
-  bool is_solved = context_->solve(res);
+//   bool is_solved = context_->solve(res);
 
-  // remove the already queried status from here when doing path
-  // simplificationz
-  // moveit_planners/ompl/ompl_interface/src/detail/state_validity_checker.cpp
+//   // remove the already queried status from here when doing path
+//   // simplifications
+//   //
+//   moveit_planners/ompl/ompl_interface/src/detail/state_validity_checker.cpp
 
-  if (is_solved) {
-    std::size_t state_count = res.trajectory_->getWayPointCount();
-    ROS_INFO_NAMED(LOGNAME, "Motion planner reported a solution path with %ld",
-                   state_count);
-  }
+//   if (is_solved) {
+//     std::size_t state_count = res.trajectory_->getWayPointCount();
+//     ROS_INFO_NAMED(LOGNAME, "Motion planner reported a solution path with
+//     %ld",
+//                    state_count);
+//   }
 
-  if (is_solved && res.trajectory_) {
-    trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
-        0.05, 0.001, 0.01);
+//   if (is_solved && res.trajectory_) {
+//     trajectory_processing::TimeOptimalTrajectoryGeneration time_param_(
+//         0.05, 0.001, 0.01);
+//     // moveit::core::RobotStatePtr first_prt =
+//     //     res.trajectory_->getFirstWayPointPtr();
+//     // moveit::core::RobotStatePtr last_prt =
+//     //     res.trajectory_->getLastWayPointPtr();
+//     // first_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0,
+//     // 0}); last_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0,
+//     0,
+//     // 0, 0});
 
-    moveit::core::RobotStatePtr first_prt =
-        res.trajectory_->getFirstWayPointPtr();
-    moveit::core::RobotStatePtr last_prt =
-        res.trajectory_->getLastWayPointPtr();
-    first_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
-    last_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
+//     ROS_INFO_NAMED(LOGNAME, "Computing time parameterization.");
+//     planning_interface::MotionPlanRequest req =
+//         context_->getMotionPlanRequest();
+//     // ROS_INFO_NAMED(LOGNAME, "req.max_velocity_scaling_factor %f",
+//     //                req.max_velocity_scaling_factor);
+//     // ROS_INFO_NAMED(LOGNAME, "req.max_acceleration_scaling_factor %f",
+//     //                req.max_acceleration_scaling_factor);
+//     if (!time_param_.computeTimeStamps(*res.trajectory_,
+//                                        req.max_velocity_scaling_factor,
+//                                        req.max_acceleration_scaling_factor))
+//                                        {
+//       ROS_ERROR_NAMED(LOGNAME,
+//                       "Time parametrization for the solution path failed.");
+//       is_solved = false;
+//     } else {
+//       bool is_smoothed =
+//       trajectory_processing::RuckigSmoothing::applySmoothing(
+//           *res.trajectory_, req.max_velocity_scaling_factor,
+//           req.max_acceleration_scaling_factor);
+//       ROS_INFO_NAMED(LOGNAME, "is_smoothed? %d", is_smoothed);
 
-    ROS_INFO_NAMED(LOGNAME, "Computing time parameterization.");
-    planning_interface::MotionPlanRequest req =
-        context_->getMotionPlanRequest();
-    ROS_INFO_NAMED(LOGNAME, "req.max_velocity_scaling_factor %f",
-                   req.max_velocity_scaling_factor);
-    ROS_INFO_NAMED(LOGNAME, "req.max_acceleration_scaling_factor %f",
-                   req.max_acceleration_scaling_factor);
-    if (!time_param_.computeTimeStamps(*res.trajectory_,
-                                       req.max_velocity_scaling_factor,
-                                       req.max_acceleration_scaling_factor)) {
-      ROS_ERROR_NAMED(LOGNAME,
-                      "Time parametrization for the solution path failed.");
-      is_solved = false;
-    } else {
-      ROS_INFO_NAMED(LOGNAME, "Time parameterization success.");
-      plan_response_ = res;
-    }
-  }
+//       ROS_INFO_NAMED(LOGNAME, "Time parameterization success.");
+//       plan_response_ = res;
+//     }
+//   }
 
-  ROS_INFO_NAMED(LOGNAME, "Is plan generated? %d", is_solved);
-  return is_solved;
-}
+//   ROS_INFO_NAMED(LOGNAME, "Is plan generated? %d", is_solved);
+//   return is_solved;
+// }
 
 void PerceptionPlanner::createPandaBundleContext() {
   robot_model_loader::RobotModelLoaderPtr robot_model_loader;

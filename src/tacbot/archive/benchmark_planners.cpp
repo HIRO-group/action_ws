@@ -204,6 +204,10 @@ int main(int argc, char** argv) {
     contact_planner->changePlanner(PLANNER_NAME, OBJECTIVE_NAME);
     contact_planner->generatePlan(res);
 
+    if (!planner->parameterizePlan(res)) {
+      return 1;
+    }
+
     PlanAnalysisData plan_analysis;
     benchmark_data.plan_analysis = plan_analysis;
 

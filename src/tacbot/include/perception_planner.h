@@ -25,8 +25,6 @@ class PerceptionPlanner : public BasePlanner {
 
   std::vector<tacbot::ObstacleGroup> getObstacles() { return obstacles_; };
 
-  bool generatePlan(planning_interface::MotionPlanResponse& res) override;
-
   void createPandaBundleContext();
 
  protected:

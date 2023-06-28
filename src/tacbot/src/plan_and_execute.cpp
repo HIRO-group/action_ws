@@ -78,6 +78,10 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  if (!planner->parameterizePlan(res)) {
+    return 1;
+  }
+
   moveit_msgs::MotionPlanResponse msg;
   res.getMessage(msg);
   visualizer->visualizeTrajectory(msg, "planned_path");
