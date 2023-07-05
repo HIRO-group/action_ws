@@ -105,11 +105,11 @@ bool BasePlanner::generatePlan(planning_interface::MotionPlanResponse& res) {
     std::size_t state_count = res.trajectory_->getWayPointCount();
     ROS_INFO_NAMED(LOGNAME, "State count in solution path %ld", state_count);
     plan_response_ = res;
-    return true;
   } else {
     ROS_ERROR_NAMED(LOGNAME, "Failed to find motion plan.");
     return false;
   }
+  return true;
 }
 
 bool BasePlanner::parameterizePlan(
@@ -130,23 +130,23 @@ bool BasePlanner::parameterizePlan(
   first_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
   last_prt->setVariableVelocities(std::vector<double>{0, 0, 0, 0, 0, 0, 0});
 
-  if (!time_param_.computeTimeStamps(*res.trajectory_,
-                                     req.max_velocity_scaling_factor,
-                                     req.max_acceleration_scaling_factor)) {
+  if (time_param_.computeTimeStamps(*res.trajectory_,
+                                    req.max_velocity_scaling_factor,
+                                    req.max_acceleration_scaling_factor)) {
+    ROS_INFO_NAMED(LOGNAME, "Time parameterization success.");
+  } else {
     ROS_ERROR_NAMED(LOGNAME, "Time parametrization for path failed.");
     return false;
-  } else {
-    ROS_INFO_NAMED(LOGNAME, "Time parameterization success.");
   }
 
-  if (trajectory_processing::RuckigSmoothing::applySmoothing(
-          *res.trajectory_, req.max_velocity_scaling_factor,
-          req.max_acceleration_scaling_factor)) {
-    ROS_INFO_NAMED(LOGNAME, "Ruckig smoothing for the solution success.");
-  } else {
-    ROS_ERROR_NAMED(LOGNAME, "Ruckig smoothing for the solution failure.");
-    return false;
-  }
+  // if (trajectory_processing::RuckigSmoothing::applySmoothing(
+  //         *res.trajectory_, req.max_velocity_scaling_factor,
+  //         req.max_acceleration_scaling_factor)) {
+  //   ROS_INFO_NAMED(LOGNAME, "Ruckig smoothing for the solution success.");
+  // } else {
+  //   ROS_ERROR_NAMED(LOGNAME, "Ruckig smoothing for the solution failure.");
+  //   return false;
+  // }
 
   plan_response_ = res;
   return true;

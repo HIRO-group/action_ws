@@ -9,8 +9,6 @@ MyMoveitContext::MyMoveitContext(
 
 void MyMoveitContext::createPlanningContext(
     const moveit_msgs::MotionPlanRequest& req) {
-  context_->clear();
-
   planning_scene_monitor::LockedPlanningSceneRO lscene(psm_);
 
   ompl_interface::ModelBasedStateSpaceSpecification space_spec(robot_model_,

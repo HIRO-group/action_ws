@@ -1,5 +1,8 @@
-cmake_minimum_required(VERSION 3.4)
-project(tacbot)
+cmake_minimum_required(VERSION 3.0.2)
+project(drake_opt)
+
+## Compile as C++11, supported in ROS Kinetic and newer
+# add_compile_options(-std=c++11)
 
 
 set(CMAKE_C_EXTENSIONS OFF)
@@ -10,59 +13,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-## Compile as C++17, supported in ROS Kinetic and newer
-add_compile_options(-std=c++17)
+find_package(drake CONFIG REQUIRED PATHS /opt/drake)
+
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-
-find_package(catkin REQUIRED
-  COMPONENTS
-    # interactive_markers
-    moveit_core
-    # moveit_ros_planning
-    moveit_planners_ompl
-    # moveit_ros_planning_interface
-    moveit_ros_perception
-    # rviz_visual_tools
-    # moveit_visual_tools
-    # pluginlib
-    # controller_interface
-    # geometric_shapes
-    # message_generation
-    # realtime_tools
-    roscpp
-    # rospy
-    # franka_hw
-    # franka_msgs
-    # hardware_interface
-    # eigen_conversions
-    # joint_limits_interface
-    geometry_msgs
-    shape_msgs
-    # tf
-    # tf_conversions
-    # visualization_msgs
-    # pcl_conversions
-    rosbag
-    sensor_msgs
-    # tf2
-    # tf2_ros
-    pcl_ros
-    trac_ik_lib
-    nlopt
-    my_moveit_context
-    # tf2_eigen
-    # tf2_geometry_msgs
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  rospy
+  std_msgs
 )
-
-find_package(Eigen3 REQUIRED)
-find_package(Boost REQUIRED system filesystem date_time thread)
-find_package(ompl REQUIRED)
-find_package(Franka REQUIRED)
-# find_package(PCL 1.2 REQUIRED)
-find_package(NLopt REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -100,8 +61,8 @@ find_package(NLopt REQUIRED)
 ## Generate messages in the 'msg' folder
 # add_message_files(
 #   FILES
-#   JointTorqueComparison.msg
-#   TrajExecutionMonitor.msg
+#   Message1.msg
+#   Message2.msg
 # )
 
 ## Generate services in the 'srv' folder
@@ -121,7 +82,6 @@ find_package(NLopt REQUIRED)
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   # franka_msgs
 #   std_msgs
 # )
 
@@ -155,20 +115,10 @@ find_package(NLopt REQUIRED)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-INCLUDE_DIRS include
-LIBRARIES
-  ${nlopt_LIBRARY}
-CATKIN_DEPENDS
-  # moveit_core
-  # moveit_visual_tools
-  # moveit_ros_planning_interface
-  # interactive_markers
-  # trac_ik_lib
-  my_moveit_context
-DEPENDS
-  EIGEN3
-  OMPL
-  Franka
+#  INCLUDE_DIRS include
+#  LIBRARIES drake_opt
+#  CATKIN_DEPENDS roscpp rospy std_msgs
+  DEPENDS drake
 )
 
 ###########
@@ -177,91 +127,40 @@ DEPENDS
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(PUBLIC
-  include
-)
-
-include_directories(SYSTEM PUBLIC
+include_directories(
+# include
   ${catkin_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIR}
-  ${EIGEN3_INCLUDE_DIRS}
-  ${OMPL_INCLUDE_DIRS}
-  ${PCL_INCLUDE_DIRS}
-  ${Franka_INCLUDE_DIRS}
-  ${nlopt_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
-add_library(base_planning SHARED src/base_planner.cpp)
-add_library(perception_planning SHARED src/perception_planner.cpp)
-add_library(contact_planning SHARED src/contact_planner.cpp src/visualizer_data.cpp)
-add_library(contact_perception SHARED src/contact_perception.cpp)
-add_library(visualizer SHARED src/visualizer.cpp src/visualizer_data.cpp)
-add_library(panda_interface SHARED src/panda_interface.cpp)
-add_library(common STATIC src/common.cpp)
+# add_library(${PROJECT_NAME}
+#   src/${PROJECT_NAME}/drake_opt.cpp
+# )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(contact_planning ${catkin_EXPORTED_TARGETS})
+# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(publish_pc_bag src/publish_pc_bag.cpp)
-add_executable(broadcast_tf src/broadcast_tf.cpp)
-add_executable(plan_and_execute src/plan_and_execute.cpp src/utilities.cpp)
-add_executable(knot_plan src/knot_plan.cpp src/utilities.cpp)
-add_executable(generate_contact_plan src/generate_contact_plan.cpp src/utilities.cpp)
+add_executable(${PROJECT_NAME}_node src/drake_test_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
+# set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-
-add_definitions(${PCL_DEFINITIONS})
+# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(visualizer PUBLIC ${catkin_LIBRARIES})
-target_link_libraries(contact_perception PUBLIC
+target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
-  ${PCL_LIBRARIES}
-  )
-
-target_link_libraries(base_planning PUBLIC ${catkin_LIBRARIES} visualizer)
-target_link_libraries(contact_planning PUBLIC ${catkin_LIBRARIES} base_planning contact_perception)
-target_link_libraries(perception_planning PUBLIC ${catkin_LIBRARIES} base_planning contact_perception visualizer)
-
-
-target_link_libraries(common PUBLIC  ${catkin_LIBRARIES} ${Franka_LIBRARIES})
-target_link_libraries(panda_interface PUBLIC ${catkin_LIBRARIES} ${Franka_LIBRARIES} ${nlopt_LIBRARY} ruckig common)
-
-
-target_link_libraries(publish_pc_bag ${catkin_LIBRARIES})
-target_link_libraries(broadcast_tf ${catkin_LIBRARIES})
-
-target_link_libraries(plan_and_execute
-  ${catkin_LIBRARIES}
-  perception_planning
-  visualizer
-  panda_interface
-)
-
-target_link_libraries(knot_plan
-  ${catkin_LIBRARIES}
-  perception_planning
-  visualizer
-  panda_interface
-)
-
-target_link_libraries(generate_contact_plan
-  ${catkin_LIBRARIES}
-  contact_planning
-  visualizer
-  panda_interface
+  drake::drake
 )
 
 #############
@@ -280,41 +179,9 @@ target_link_libraries(generate_contact_plan
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-
-install(
-TARGETS
-  base_planning
-  contact_planning
-  perception_planning
-  contact_perception
-  visualizer
-  panda_interface
-ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+install(TARGETS ${PROJECT_NAME}_node
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
-
-install(
-TARGETS
-  publish_pc_bag
-  broadcast_tf
-  plan_and_execute
-  knot_plan
-  generate_contact_plan
-RUNTIME DESTINATION
-  ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-install(DIRECTORY include
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-)
-
-install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
-
-# install(DIRECTORY config
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
-
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
@@ -343,14 +210,10 @@ install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_tacbot.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_drake_opt.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-
-
-#rospack plugins --attrib=plugin controller_interface
-#rosservice call controller_manager/list_controller_types

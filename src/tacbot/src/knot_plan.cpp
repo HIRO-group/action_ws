@@ -1,3 +1,6 @@
+
+
+// local
 #include "base_planner.h"
 #include "my_moveit_context.h"
 #include "panda_interface.h"
@@ -16,9 +19,6 @@ int main(int argc, char **argv) {
   ros::NodeHandle node_handle;
 
   ROS_DEBUG_NAMED(LOGNAME, "Start!");
-
-  OptimizationProblem problem;
-  problem.optimize();
 
   std::shared_ptr<PerceptionPlanner> planner =
       std::make_shared<PerceptionPlanner>();
@@ -146,6 +146,7 @@ int main(int argc, char **argv) {
 
     responses.emplace_back(res);
 
+    context->getPlanningContext()->clear();
     // bool status = utilities::promptUserInput();
     // if (!status) {
     //   return 0;

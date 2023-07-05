@@ -10,14 +10,13 @@
 #include <ompl/multilevel/planners/qmp/QMPStar.h>
 #include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 
-#include <nlopt.hpp>
-
 #include "ompl/geometric/planners/informedtrees/BITstar.h"
 #include "ompl/geometric/planners/rrt/ContactTRRT.h"
 #include "ompl/geometric/planners/rrt/InformedRRTstar.h"
 #include "ompl/geometric/planners/rrt/RRTstar.h"
 
 using namespace std::chrono;
+
 constexpr char LOGNAME[] = "perception_planner";
 
 namespace tacbot {
@@ -145,7 +144,7 @@ void PerceptionPlanner::changePlanner() {
         std::make_shared<ompl::base::MinimizeContactObjective>(si, optFunc);
     simple_setup->setOptimizationObjective(optimization_objective_);
 
-    planner = std::make_shared<ompl::geometric::ABITstar>(si);
+    planner = std::make_shared<ompl::geometric::BITstar>(si);
 
   } else if (planner_name_ == "RRTstar") {
     std::function<double(const ompl::base::State*)> optFunc;
@@ -502,66 +501,6 @@ void PerceptionPlanner::createPandaBundleContext() {
   base_req.max_velocity_scaling_factor = bundle_req.max_velocity_scaling_factor;
 
   pandaBundleContext_->createPlanningContext(base_req);
-}
-
-double OptimizationProblem::objective(const std::vector<double>& x,
-                                      std::vector<double>& grad, void* data) {
-  OptimizationProblem* problem = static_cast<OptimizationProblem*>(data);
-
-  double result = problem->a * x[0] * x[0] + problem->b;
-  if (!grad.empty()) {
-    grad[0] = 2 * problem->a * x[0];
-  }
-  return result;
-}
-
-double OptimizationProblem::constraint(const std::vector<double>& x,
-                                       std::vector<double>& grad, void* data) {
-  OptimizationProblem* problem = static_cast<OptimizationProblem*>(data);
-  double a = problem->a;
-  double b = problem->b;
-  return -1;
-}
-
-double OptimizationProblem::optimize() {
-  nlopt::opt opt(nlopt::LN_COBYLA, 1);
-
-  opt.set_min_objective(
-      [](const std::vector<double>& x, std::vector<double>& grad,
-         void* data) -> double {
-        return static_cast<OptimizationProblem*>(data)->objective(x, grad,
-                                                                  data);
-      },
-      this);
-
-  // Set the constraint function
-  // opt.add_inequality_constraint(
-  //     [](const std::vector<double>& x, std::vector<double>& grad,
-  //        void* data) -> double {
-  //       return static_cast<OptimizationProblem*>(data)->constraint(x, grad,
-  //                                                                  data);
-  //     },
-  //     this, 1e-8);
-
-  std::vector<double> lb = {-10};
-  std::vector<double> ub = {10};
-  opt.set_lower_bounds(lb);
-  opt.set_upper_bounds(ub);
-
-  opt.set_xtol_rel(1e-4);
-
-  std::vector<double> x = {2};
-  double minf;
-  nlopt::result result = opt.optimize(x, minf);
-
-  if (result == nlopt::SUCCESS) {
-    std::cout << "Optimization success! Minimum value found: " << minf
-              << std::endl;
-  } else {
-    std::cout << "Optimization failed!" << std::endl;
-  }
-
-  return minf;
 }
 
 }  // namespace tacbot
