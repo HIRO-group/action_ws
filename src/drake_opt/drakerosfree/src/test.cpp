@@ -66,6 +66,19 @@ using systems::Simulator;
 using systems::SimulatorConfig;
 using systems::controllers::InverseDynamicsController;
 
+/**
+ * TODO
+ * instead of the mug, add a real object
+ * let the object fall if the robot is not constraining it
+ * add centroidal moment constraint
+ * what could be the cost?
+ * how do we define the object, as point cloud?
+ * do we need to add trajectory optimization based on contact?
+ * how do we pipe this to the robot? need to spawn a ros node.
+ * how does the analogous method with traj optimization deal with whole body
+ * grasping is our method superior? how can we show this?
+ */
+
 class EmptyGradientCost : public Cost {
  public:
   EmptyGradientCost() : Cost(7) {}
@@ -74,78 +87,26 @@ class EmptyGradientCost : public Cost {
   template <typename T>
   void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
                      VectorX<T>* y) const {
+    std::cout << "here 1" << std::endl;
     y->resize(1);
     (*y)(0) = x(0) + x(1) + x(2) + x(3) + x(4) + x(5) + x(6);
   }
 
   void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
               Eigen::VectorXd* y) const override {
+    std::cout << "here 2" << std::endl;
     DoEvalGeneric(x, y);
   }
 
   void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
               AutoDiffVecXd* y) const override {
+    std::cout << "here 3" << std::endl;
     DoEvalGeneric(x, y);
   }
 
   void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
               VectorX<symbolic::Expression>* y) const override {
-    DoEvalGeneric<symbolic::Expression>(x.cast<symbolic::Expression>(), y);
-  }
-};
-
-// ======================
-// GLOBAL VARIABLES
-// ======================
-
-std::unique_ptr<drake::systems::Diagram<double>> diagram_{};
-systems::DiagramBuilder<double>* builder_(
-    new systems::DiagramBuilder<double>());
-geometry::SceneGraph<double>* scene_graph_{};
-MultibodyPlant<double>* plant_{};
-systems::Simulator<double>* simulator_;
-
-class ContactCost : public Cost {
- public:
-  ContactCost() : Cost(dim_) {}
-
- private:
-  std::size_t dim_ = 7;
-  template <typename T>
-  void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
-                     VectorX<T>* y) const {
-    y->resize(1);
-
-    simulator_->get_mutable_context().SetTime(0);
-
-    Eigen::VectorX joint_positions(dim_);
-    for (std::size_t i = 0; i < dim_; i++) {
-      joint_positions[i] = x(i);
-    }
-
-    systems::Context<double>& root_context = simulator_->get_mutable_context();
-
-    plant_->SetPositions(
-        &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
-        joint_positions);
-
-    simulator_->AdvanceTo(0.001);
-
-    (*y)(0) = x(0) + x(1) + x(2) + x(3) + x(4) + x(5) + x(6);
-  }
-
-  void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
-              Eigen::VectorXd* y) const override {
-    DoEvalGeneric(x, y);
-  }
-
-  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
-              AutoDiffVecXd* y) const override {
-    DoEvalGeneric(x, y);
-  }
-
-  void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
-              VectorX<symbolic::Expression>* y) const override {
+    std::cout << "here 4" << std::endl;
     DoEvalGeneric<symbolic::Expression>(x.cast<symbolic::Expression>(), y);
   }
 };
@@ -165,6 +126,144 @@ void SetPidGains(Eigen::VectorXd* kp, Eigen::VectorXd* ki,
   }
   *ki = Eigen::VectorXd::Zero(7);
 }
+
+// ======================
+// GLOBAL VARIABLES
+// ======================
+
+std::unique_ptr<drake::systems::Diagram<double>> diagram_{};
+systems::DiagramBuilder<double>* builder_(
+    new systems::DiagramBuilder<double>());
+geometry::SceneGraph<double>* scene_graph_{};
+MultibodyPlant<double>* plant_{};
+systems::Simulator<double>* simulator_;
+
+// ======================
+// PRINT HELPERS
+// ======================
+
+void printPlantInfo(MultibodyPlant<double>* plant) {
+  std::cout << "plant->num_actuators(): " << plant->num_actuators()
+            << std::endl;
+  std::cout << "plant->num_bodies(): " << plant->num_bodies() << std::endl;
+  std::cout << "plant->num_positions(): " << plant->num_positions()
+            << std::endl;
+  std::cout << "plant->num_velocities(): " << plant->num_velocities()
+            << std::endl;
+
+  const VectorX<double> lower_limits = plant->GetPositionLowerLimits();
+  const VectorX<double> upper_limits = plant->GetPositionUpperLimits();
+
+  std::cout << "lower_limits\n" << lower_limits.transpose() << std::endl;
+  std::cout << "upper_limits\n" << upper_limits.transpose() << std::endl;
+
+  for (drake::multibody::BodyIndex body_index(0);
+       body_index < plant->num_bodies(); ++body_index) {
+    const drake::multibody::Body<double>& body = plant->get_body(body_index);
+    std::cout << "body name: " << body.name() << std::endl;
+  }
+}
+
+void printGeometryInfo(geometry::SceneGraph<double>* scene_graph) {
+  const geometry::SceneGraphInspector<double>& inspector =
+      scene_graph->model_inspector();
+
+  std::size_t num_geom = inspector.num_geometries();
+  std::cout << "num_geom: " << num_geom << std::endl;
+  std::vector<geometry::GeometryId> allIds = inspector.GetAllGeometryIds();
+  std::cout << "allIds.size(): " << allIds.size() << std::endl;
+
+  for (std::size_t i = 0; i < allIds.size(); i++) {
+    geometry::GeometryId geo = allIds[i];
+    std::cout << "name: " << inspector.GetName(geo) << std::endl;
+    // const geometry::ProximityProperties* props =
+    //     inspector.GetProximityProperties(geo);  // nullptr unless specified
+    //     in urdf or sdf
+  }
+}
+
+void printContactInfo(
+    MultibodyPlant<double>* plant,
+    const multibody::PointPairContactInfo<double>& contact_info) {
+  std::cout << "\nbodyA, bodyB: "
+            << plant_->get_body(contact_info.bodyA_index()).name() << ", "
+            << plant_->get_body(contact_info.bodyB_index()).name() << std::endl;
+  std::cout << "slip speed: " << contact_info.slip_speed() << std::endl;
+  std::cout << "separation speed: " << contact_info.separation_speed()
+            << std::endl;
+  std::cout << "contact point: " << contact_info.contact_point().transpose()
+            << std::endl;
+  std::cout << "contact force: " << contact_info.contact_force().transpose()
+            << std::endl;
+}
+
+// ======================
+// COST FUNCTION
+// ======================
+
+class ContactCost : public Cost {
+ public:
+  ContactCost()
+      : Cost(7) {
+  }  // this needs to be a number, not a variable otherwise runtime error occurs
+
+ private:
+  std::size_t dim_ = 7;
+
+  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
+              AutoDiffVecXd* y) const override {
+    y->resize(1);
+
+    // simulator_->Initialize();
+    // simulator_->get_mutable_context().SetTime(0);
+
+    auto x_vec = drake::math::ExtractValue(x);
+    std::cout << "x_vec: " << x_vec.transpose() << std::endl;
+
+    Eigen::VectorXd joint_positions(dim_);
+    for (std::size_t i = 0; i < dim_; i++) {
+      joint_positions[i] = x_vec(i);
+    }
+
+    systems::Context<double>& root_context = simulator_->get_mutable_context();
+    plant_->SetPositions(
+        &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
+        joint_positions);
+
+    const drake::multibody::ContactResults<double>& contact_results =
+        plant_->get_contact_results_output_port()
+            .Eval<drake::multibody::ContactResults<double>>(
+                diagram_->GetMutableSubsystemContext(*plant_, &root_context));
+
+    std::cout << "num pair contacts: "
+              << contact_results.num_point_pair_contacts() << std::endl;
+
+    double cost = 0;
+
+    for (std::size_t i = 0; i < contact_results.num_point_pair_contacts();
+         ++i) {
+      const auto& contact_info = contact_results.point_pair_contact_info(i);
+      cost += contact_info.contact_force().norm();
+      // printContactInfo(plant_, contact_info);
+    }
+
+    std::cout << "cost: " << cost << std::endl;
+
+    (*y)(0) = cost;
+  }
+
+  void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
+              VectorX<symbolic::Expression>* y) const override {
+    std::cout << "ContactCost DoEval 1" << std::endl;
+    throw std::runtime_error("error");
+  }
+
+  void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
+              Eigen::VectorXd* y) const override {
+    std::cout << "ContactCost DoEval 2" << std::endl;
+    throw std::runtime_error("error");
+  }
+};
 
 int main() {
   // ======================
@@ -211,27 +310,7 @@ int main() {
   // ======================
 
   plant_->Finalize();
-
-  std::cout << "plant_->num_actuators(): " << plant_->num_actuators()
-            << std::endl;
-  std::cout << "plant_->num_bodies(): " << plant_->num_bodies() << std::endl;
-  std::cout << "plant_->num_positions(): " << plant_->num_positions()
-            << std::endl;
-  std::cout << "plant_->num_velocities(): " << plant_->num_velocities()
-            << std::endl;
-
-  const VectorX<double> lower_limits = plant_->GetPositionLowerLimits();
-  const VectorX<double> upper_limits = plant_->GetPositionUpperLimits();
-
-  std::cout << "lower_limits\n" << lower_limits.transpose() << std::endl;
-  std::cout << "upper_limits\n" << upper_limits.transpose() << std::endl;
-
-  for (drake::multibody::BodyIndex body_index(0);
-       body_index < plant_->num_bodies(); ++body_index) {
-    const drake::multibody::Body<double>& body = plant_->get_body(body_index);
-    std::cout << "body name: " << body.name() << std::endl;
-  }
-  const int dim = plant_->num_positions();
+  printPlantInfo(plant_);
 
   // ======================
   // CONTROL
@@ -245,6 +324,7 @@ int main() {
           desired);
   target->set_name("target");
 
+  const int dim = plant_->num_positions();
   Eigen::VectorXd kp(dim), ki(dim), kd(dim);
   SetPidGains(&kp, &ki, &kd);
 
@@ -269,7 +349,9 @@ int main() {
   // VISUALIZATION
   // ======================
 
-  auto meshcat = std::make_shared<geometry::Meshcat>();
+  std::shared_ptr<geometry::Meshcat> meshcat =
+      std::make_shared<geometry::Meshcat>();  // params available
+
   visualization::ApplyVisualizationConfig(
       visualization::VisualizationConfig{
           .default_proximity_color = geometry::Rgba{1, 0, 0, 0.25},
@@ -295,7 +377,6 @@ int main() {
   diagram_->SetDefaultContext(diagram_context.get());
   systems::Context<double>* plant_context =
       &diagram_->GetMutableSubsystemContext(*plant_, diagram_context.get());
-
   std::cout << "has_only_continuous_state: "
             << plant_context->has_only_continuous_state() << std::endl;
   std::cout << "has_only_discrete_state: "
@@ -313,7 +394,7 @@ int main() {
 
   systems::Context<double>& root_context = simulator_->get_mutable_context();
 
-  Eigen::VectorXd initial_position(dim);
+  Eigen::VectorXd initial_position(plant_->num_positions());
   initial_position << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006,
       0.713265, -0.0827766;
 
@@ -345,69 +426,11 @@ int main() {
   std::cout << "num hydro contacts: "
             << contact_results.num_hydroelastic_contacts() << std::endl;
 
-  std::vector<drake::multibody::SpatialForce<double>> F_BBo_W_array(
-      plant_->num_bodies(), drake::multibody::SpatialForce<double>{
-                                Vector3d::Zero(), Vector3d::Zero()});
-
-  for (std::size_t i = 0; i < contact_results.num_point_pair_contacts(); ++i) {
-    const auto& contact_info = contact_results.point_pair_contact_info(i);
-
-    // std::cout << "\nbodyA: "
-    //           << plant_->get_body(contact_info.bodyA_index()).name() <<
-    //           std::endl;
-    // std::cout << "bodyB: " <<
-    // plant_->get_body(contact_info.bodyB_index()).name()
-    //           << std::endl;
-
-    // std::cout << "slip speed: " << contact_info.slip_speed() << std::endl;
-    // std::cout << "separation speed: " << contact_info.separation_speed()
-    //           << std::endl;
-    // std::cout << "contact point: " <<
-    // contact_info.contact_point().transpose()
-    //           << std::endl;
-    // std::cout << "contact force: " <<
-    // contact_info.contact_force().transpose()
-    //           << std::endl;
-
-    const drake::multibody::SpatialForce<double> F_Bc_W{
-        Vector3d::Zero(), contact_info.contact_force()};
-    const Vector3d& p_WC = contact_info.contact_point();
-    const auto& bodyA = plant_->get_body(contact_info.bodyA_index());
-    const Vector3d& p_WAo = bodyA.EvalPoseInWorld(*plant_context).translation();
-    const Vector3d& p_CAo_W = p_WAo - p_WC;
-    const auto& bodyB = plant_->get_body(contact_info.bodyB_index());
-    const Vector3d& p_WBo = bodyB.EvalPoseInWorld(*plant_context).translation();
-    const Vector3d& p_CBo_W = p_WBo - p_WC;
-
-    // N.B. Since we are using this method to test the internal (private)
-    // MultibodyPlant::EvalSpatialContactForcesContinuous(), we must use
-    // internal API to generate a forces vector sorted in the same way, by
-    // internal::BodyNodeIndex.
-    F_BBo_W_array[bodyB.node_index()] += F_Bc_W.Shift(p_CBo_W);
-    F_BBo_W_array[bodyA.node_index()] -= F_Bc_W.Shift(p_CAo_W);
-  }
-
-  const geometry::SceneGraphInspector<double>& inspector =
-      scene_graph_->model_inspector();
-
-  std::size_t num_geom = inspector.num_geometries();
-  std::cout << "num_geom: " << num_geom << std::endl;
-  std::vector<geometry::GeometryId> allIds = inspector.GetAllGeometryIds();
-  std::cout << "allIds.size(): " << allIds.size() << std::endl;
-
-  for (std::size_t i = 0; i < allIds.size(); i++) {
-    geometry::GeometryId geo = allIds[i];
-    std::cout << "name: " << inspector.GetName(geo) << std::endl;
-    const geometry::ProximityProperties* props =
-        inspector.GetProximityProperties(geo);  // nullptr
-  }
-
   // ======================
   // OPTIMIZATION
   // ======================
 
   drake::solvers::MathematicalProgram prog;
-
   auto q_var = prog.NewContinuousVariables<7>();
 
   Eigen::Matrix<double, 7, 1> q_lower, q_upper;
