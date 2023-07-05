@@ -94,6 +94,62 @@ class EmptyGradientCost : public Cost {
   }
 };
 
+// ======================
+// GLOBAL VARIABLES
+// ======================
+
+std::unique_ptr<drake::systems::Diagram<double>> diagram_{};
+systems::DiagramBuilder<double>* builder_(
+    new systems::DiagramBuilder<double>());
+geometry::SceneGraph<double>* scene_graph_{};
+MultibodyPlant<double>* plant_{};
+systems::Simulator<double>* simulator_;
+
+class ContactCost : public Cost {
+ public:
+  ContactCost() : Cost(dim_) {}
+
+ private:
+  std::size_t dim_ = 7;
+  template <typename T>
+  void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
+                     VectorX<T>* y) const {
+    y->resize(1);
+
+    simulator_->get_mutable_context().SetTime(0);
+
+    Eigen::VectorX joint_positions(dim_);
+    for (std::size_t i = 0; i < dim_; i++) {
+      joint_positions[i] = x(i);
+    }
+
+    systems::Context<double>& root_context = simulator_->get_mutable_context();
+
+    plant_->SetPositions(
+        &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
+        joint_positions);
+
+    simulator_->AdvanceTo(0.001);
+
+    (*y)(0) = x(0) + x(1) + x(2) + x(3) + x(4) + x(5) + x(6);
+  }
+
+  void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
+              Eigen::VectorXd* y) const override {
+    DoEvalGeneric(x, y);
+  }
+
+  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
+              AutoDiffVecXd* y) const override {
+    DoEvalGeneric(x, y);
+  }
+
+  void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
+              VectorX<symbolic::Expression>* y) const override {
+    DoEvalGeneric<symbolic::Expression>(x.cast<symbolic::Expression>(), y);
+  }
+};
+
 void SetPidGains(Eigen::VectorXd* kp, Eigen::VectorXd* ki,
                  Eigen::VectorXd* kd) {
   // *kp << 100, 100, 100, 100, 100, 100, 100;
@@ -115,60 +171,67 @@ int main() {
   // MODEL
   // ======================
 
-  systems::DiagramBuilder<double> builder;
   MultibodyPlantConfig plant_config;
 
-  auto [plant, scene_graph] =
-      multibody::AddMultibodyPlant(plant_config, &builder);
-  multibody::Parser parser(&plant);
+  multibody::AddMultibodyPlantSceneGraphResult<double> mbp_result =
+      multibody::AddMultibodyPlant(plant_config, builder_);
+
+  plant_ = std::move(&mbp_result.plant);
+  scene_graph_ = std::move(&mbp_result.scene_graph);
+
+  multibody::Parser parser(plant_);
   std::vector<drake::multibody::ModelInstanceIndex> panda_instance =
       parser.AddModels("../../franka_description/urdf/panda_arm_hand.urdf");
-  plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("panda_link0"));
+  plant_->WeldFrames(plant_->world_frame(),
+                     plant_->GetFrameByName("panda_link0"));
   std::vector<drake::multibody::ModelInstanceIndex> table_instance =
       parser.AddModels(
           "../../manipulation_station/models/table/"
           "extra_heavy_duty_table_surface_only_collision.sdf");
 
   const double table_height = 0.7645;
-  plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("table_link"),
-                   drake::math::RigidTransformd(
-                       Eigen::Vector3d{0, 0, -table_height - 0.01}));
+  plant_->WeldFrames(plant_->world_frame(),
+                     plant_->GetFrameByName("table_link"),
+                     drake::math::RigidTransformd(
+                         Eigen::Vector3d{0, 0, -table_height - 0.01}));
 
   const RigidTransformd X_TO(RotationMatrixd::MakeXRotation(0),
                              Vector3d(0.48, 0.1, 0.3));
-  const auto& objects_frame_O = plant.AddFrame(
+  const auto& objects_frame_O = plant_->AddFrame(
       std::make_unique<drake::multibody::FixedOffsetFrame<double>>(
-          "objects_frame", plant.GetFrameByName("table_top_center"), X_TO));
+          "objects_frame", plant_->GetFrameByName("table_top_center"), X_TO));
 
   std::vector<drake::multibody::ModelInstanceIndex> cylinder_instance =
       parser.AddModels("../../manipulation_station/models/cylinder.sdf");
-  plant.WeldFrames(objects_frame_O, plant.GetFrameByName("cylinder_link"),
-                   drake::math::RigidTransformd(Eigen::Vector3d{0, 0, 0.0}));
+  plant_->WeldFrames(objects_frame_O, plant_->GetFrameByName("cylinder_link"),
+                     drake::math::RigidTransformd(Eigen::Vector3d{0, 0, 0.0}));
 
   // ======================
   // FINALIZE PLANT
   // ======================
 
-  plant.Finalize();
+  plant_->Finalize();
 
-  std::cout << "plant.num_actuators(): " << plant.num_actuators() << std::endl;
-  std::cout << "plant.num_bodies(): " << plant.num_bodies() << std::endl;
-  std::cout << "plant.num_positions(): " << plant.num_positions() << std::endl;
-  std::cout << "plant.num_velocities(): " << plant.num_velocities()
+  std::cout << "plant_->num_actuators(): " << plant_->num_actuators()
+            << std::endl;
+  std::cout << "plant_->num_bodies(): " << plant_->num_bodies() << std::endl;
+  std::cout << "plant_->num_positions(): " << plant_->num_positions()
+            << std::endl;
+  std::cout << "plant_->num_velocities(): " << plant_->num_velocities()
             << std::endl;
 
-  const VectorX<double> lower_limits = plant.GetPositionLowerLimits();
-  const VectorX<double> upper_limits = plant.GetPositionUpperLimits();
+  const VectorX<double> lower_limits = plant_->GetPositionLowerLimits();
+  const VectorX<double> upper_limits = plant_->GetPositionUpperLimits();
 
   std::cout << "lower_limits\n" << lower_limits.transpose() << std::endl;
   std::cout << "upper_limits\n" << upper_limits.transpose() << std::endl;
 
   for (drake::multibody::BodyIndex body_index(0);
-       body_index < plant.num_bodies(); ++body_index) {
-    const drake::multibody::Body<double>& body = plant.get_body(body_index);
+       body_index < plant_->num_bodies(); ++body_index) {
+    const drake::multibody::Body<double>& body = plant_->get_body(body_index);
     std::cout << "body name: " << body.name() << std::endl;
   }
-  const int dim = plant.num_positions();
+  const int dim = plant_->num_positions();
 
   // ======================
   // CONTROL
@@ -178,28 +241,29 @@ int main() {
   desired << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006, 0.713265,
       -0.0827766, 0, 0, 0, 0, 0, 0, 0;
   drake::systems::ConstantVectorSource<double>* target =
-      builder.template AddSystem<drake::systems::ConstantVectorSource>(desired);
+      builder_->template AddSystem<drake::systems::ConstantVectorSource>(
+          desired);
   target->set_name("target");
 
   Eigen::VectorXd kp(dim), ki(dim), kd(dim);
   SetPidGains(&kp, &ki, &kd);
 
-  auto idc_controller =
-      builder.AddSystem<InverseDynamicsController>(plant, kp, ki, kd, false);
+  auto idc_controller = builder_->AddSystem<InverseDynamicsController>(
+      *plant_, kp, ki, kd, false);
 
-  builder.Connect(plant.get_state_output_port(),
-                  idc_controller->get_input_port_estimated_state());
+  builder_->Connect(plant_->get_state_output_port(),
+                    idc_controller->get_input_port_estimated_state());
 
-  // builder.Connect(plant.get_state_output_port(),
+  // builder.Connect(plant_->get_state_output_port(),
   //                 idc_controller->get_input_port_desired_state()); // let the
   //                 robot keep steady position, assume desired pose is equal to
   //                 initial pose
 
-  builder.Connect(target->get_output_port(),
-                  idc_controller->get_input_port_desired_state());
+  builder_->Connect(target->get_output_port(),
+                    idc_controller->get_input_port_desired_state());
 
-  builder.Connect(idc_controller->get_output_port(),
-                  plant.get_actuation_input_port());
+  builder_->Connect(idc_controller->get_output_port(),
+                    plant_->get_actuation_input_port());
 
   // ======================
   // VISUALIZATION
@@ -211,26 +275,26 @@ int main() {
           .default_proximity_color = geometry::Rgba{1, 0, 0, 0.25},
           .enable_alpha_sliders = true,
       },
-      &builder, nullptr, nullptr, nullptr, meshcat);
+      builder_, nullptr, nullptr, nullptr, meshcat);
 
   drake::geometry::MeshcatVisualizerParams params;
   params.delete_on_initialization_event = false;
   auto& visualizer = drake::geometry::MeshcatVisualizerd::AddToBuilder(
-      &builder, scene_graph, meshcat, std::move(params));
+      builder_, *scene_graph_, meshcat, std::move(params));
 
   multibody::meshcat::ContactVisualizerParams cparams;
   // cparams.newtons_per_meter = 60.0;
-  multibody::meshcat::ContactVisualizerd::AddToBuilder(&builder, plant, meshcat,
-                                                       std::move(cparams));
-  // ConnectContactResultsToDrakeVisualizer(&builder, plant, scene_graph);
+  multibody::meshcat::ContactVisualizerd::AddToBuilder(
+      builder_, *plant_, meshcat, std::move(cparams));
+  // ConnectContactResultsToDrakeVisualizer(&builder, plant, scene_graph_;
 
-  std::unique_ptr<systems::Diagram<double>> diagram = builder.Build();
+  diagram_ = builder_->Build();
 
   std::unique_ptr<systems::Context<double>> diagram_context =
-      diagram->CreateDefaultContext();
-  diagram->SetDefaultContext(diagram_context.get());
+      diagram_->CreateDefaultContext();
+  diagram_->SetDefaultContext(diagram_context.get());
   systems::Context<double>* plant_context =
-      &diagram->GetMutableSubsystemContext(plant, diagram_context.get());
+      &diagram_->GetMutableSubsystemContext(*plant_, diagram_context.get());
 
   std::cout << "has_only_continuous_state: "
             << plant_context->has_only_continuous_state() << std::endl;
@@ -243,27 +307,28 @@ int main() {
   // SIMULATION
   // ======================
 
-  SimulatorConfig sim_config;
-  systems::Simulator<double> simulator(*diagram);
-  ApplySimulatorConfig(sim_config, &simulator);
+  // SimulatorConfig sim_config;
+  simulator_ = new systems::Simulator<double>(*diagram_);
+  // ApplySimulatorConfig(sim_config, &simulator);
 
-  systems::Context<double>& root_context = simulator.get_mutable_context();
+  systems::Context<double>& root_context = simulator_->get_mutable_context();
 
   Eigen::VectorXd initial_position(dim);
   initial_position << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006,
       0.713265, -0.0827766;
 
-  plant.SetPositions(&diagram->GetMutableSubsystemContext(plant, &root_context),
-                     initial_position);
+  plant_->SetPositions(
+      &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
+      initial_position);
 
-  simulator.set_target_realtime_rate(1.0);
-  simulator.Initialize();
+  simulator_->set_target_realtime_rate(1.0);
+  simulator_->Initialize();
   meshcat->StartRecording();
-  simulator.AdvanceTo(1);
+  simulator_->AdvanceTo(1);
   meshcat->StopRecording();
   meshcat->PublishRecording();
 
-  systems::PrintSimulatorStatistics(simulator);
+  systems::PrintSimulatorStatistics(*simulator_);
 
   const std::string html_filename("meshcat_static.html");
   std::ofstream html_file(html_filename);
@@ -271,10 +336,9 @@ int main() {
   html_file.close();
 
   const drake::multibody::ContactResults<double>& contact_results =
-      plant.get_contact_results_output_port()
+      plant_->get_contact_results_output_port()
           .Eval<drake::multibody::ContactResults<double>>(
-              diagram->GetMutableSubsystemContext(
-                  plant, &root_context));  //*plant_context
+              diagram_->GetMutableSubsystemContext(*plant_, &root_context));
 
   std::cout << "num pair contacts: "
             << contact_results.num_point_pair_contacts() << std::endl;
@@ -282,17 +346,17 @@ int main() {
             << contact_results.num_hydroelastic_contacts() << std::endl;
 
   std::vector<drake::multibody::SpatialForce<double>> F_BBo_W_array(
-      plant.num_bodies(), drake::multibody::SpatialForce<double>{
-                              Vector3d::Zero(), Vector3d::Zero()});
+      plant_->num_bodies(), drake::multibody::SpatialForce<double>{
+                                Vector3d::Zero(), Vector3d::Zero()});
 
   for (std::size_t i = 0; i < contact_results.num_point_pair_contacts(); ++i) {
     const auto& contact_info = contact_results.point_pair_contact_info(i);
 
     // std::cout << "\nbodyA: "
-    //           << plant.get_body(contact_info.bodyA_index()).name() <<
+    //           << plant_->get_body(contact_info.bodyA_index()).name() <<
     //           std::endl;
     // std::cout << "bodyB: " <<
-    // plant.get_body(contact_info.bodyB_index()).name()
+    // plant_->get_body(contact_info.bodyB_index()).name()
     //           << std::endl;
 
     // std::cout << "slip speed: " << contact_info.slip_speed() << std::endl;
@@ -308,10 +372,10 @@ int main() {
     const drake::multibody::SpatialForce<double> F_Bc_W{
         Vector3d::Zero(), contact_info.contact_force()};
     const Vector3d& p_WC = contact_info.contact_point();
-    const auto& bodyA = plant.get_body(contact_info.bodyA_index());
+    const auto& bodyA = plant_->get_body(contact_info.bodyA_index());
     const Vector3d& p_WAo = bodyA.EvalPoseInWorld(*plant_context).translation();
     const Vector3d& p_CAo_W = p_WAo - p_WC;
-    const auto& bodyB = plant.get_body(contact_info.bodyB_index());
+    const auto& bodyB = plant_->get_body(contact_info.bodyB_index());
     const Vector3d& p_WBo = bodyB.EvalPoseInWorld(*plant_context).translation();
     const Vector3d& p_CBo_W = p_WBo - p_WC;
 
@@ -323,9 +387,8 @@ int main() {
     F_BBo_W_array[bodyA.node_index()] -= F_Bc_W.Shift(p_CAo_W);
   }
 
-  // For a SceneGraph<T> instance called scene_graph.
   const geometry::SceneGraphInspector<double>& inspector =
-      scene_graph.model_inspector();
+      scene_graph_->model_inspector();
 
   std::size_t num_geom = inspector.num_geometries();
   std::cout << "num_geom: " << num_geom << std::endl;
@@ -352,7 +415,7 @@ int main() {
   q_upper << 2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973;
   prog.AddBoundingBoxConstraint(q_lower, q_upper, q_var);
 
-  prog.AddCost(std::make_shared<EmptyGradientCost>(), q_var);
+  prog.AddCost(std::make_shared<ContactCost>(), q_var);
   auto result = Solve(prog, {}, {});
 
   const auto q_res = result.GetSolution(q_var);
@@ -376,9 +439,9 @@ int main() {
 // ======================
 
 // drake::multibody::ModelInstanceIndex sphere_instance =
-//     plant.AddModelInstance("Sphere1InstanceName");
+//     plant_->AddModelInstance("Sphere1InstanceName");
 
-// const RigidBody<double>& sphere1 = plant.AddRigidBody(
+// const RigidBody<double>& sphere1 = plant_->AddRigidBody(
 //     "Sphere1", sphere_instance,
 //     drake::multibody::SpatialInertia<double>::MakeUnitary());
 // drake::multibody::CoulombFriction<double> sphere1_friction(0.8, 0.5);
@@ -397,6 +460,6 @@ int main() {
 // sphere1_properties.AddProperty(geometry::internal::kMaterialGroup,
 //                                geometry::internal::kHcDissipation,
 //                                sphere1_dissipation);
-// drake::geometry::GeometryId sphere1_id = plant.RegisterCollisionGeometry(
+// drake::geometry::GeometryId sphere1_id = plant_->RegisterCollisionGeometry(
 //     sphere1, RigidTransformd::Identity(), geometry::Sphere(radius),
 //     "collision", std::move(sphere1_properties));
