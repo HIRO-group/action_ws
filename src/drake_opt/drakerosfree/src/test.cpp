@@ -131,11 +131,20 @@ void SetPidGains(Eigen::VectorXd* kp, Eigen::VectorXd* ki,
 // GLOBAL VARIABLES
 // ======================
 
-std::unique_ptr<drake::systems::Diagram<double>> diagram_{};
+MultibodyPlantConfig plant_config_;
+
+multibody::MultibodyPlant<double>* controller_plant_;
+systems::DiagramBuilder<double>* controller_builder_(
+    new systems::DiagramBuilder<double>());
+geometry::SceneGraph<double>* scene_graph_;
+std::unique_ptr<drake::systems::Diagram<double>> controller_diagram_;
+
+multibody::MultibodyPlant<double>* plant_;
 systems::DiagramBuilder<double>* builder_(
     new systems::DiagramBuilder<double>());
-geometry::SceneGraph<double>* scene_graph_{};
-MultibodyPlant<double>* plant_{};
+geometry::SceneGraph<double>* controller_scene_graph_;
+std::unique_ptr<drake::systems::Diagram<double>> diagram_;
+
 systems::Simulator<double>* simulator_;
 
 // ======================
@@ -214,8 +223,8 @@ class ContactCost : public Cost {
               AutoDiffVecXd* y) const override {
     y->resize(1);
 
-    // simulator_->Initialize();
-    // simulator_->get_mutable_context().SetTime(0);
+    // simulator_->Initialize(); // this adds significant time, and not sure is
+    // needed simulator_->get_mutable_context().SetTime(0);
 
     auto x_vec = drake::math::ExtractValue(x);
     std::cout << "x_vec: " << x_vec.transpose() << std::endl;
@@ -265,48 +274,64 @@ class ContactCost : public Cost {
   }
 };
 
+void addRobot(multibody::MultibodyPlant<double>* plant) {
+  multibody::Parser parser(plant);
+  std::vector<multibody::ModelInstanceIndex> panda_instance =
+      parser.AddModels("../../franka_description/urdf/panda_arm_hand.urdf");
+  plant->WeldFrames(plant->world_frame(), plant->GetFrameByName("panda_link0"));
+}
+
+void addObjects(multibody::MultibodyPlant<double>* plant) {
+  multibody::Parser parser(plant);
+  std::vector<multibody::ModelInstanceIndex> table_instance = parser.AddModels(
+      "../../manipulation_station/models/table/"
+      "extra_heavy_duty_table_surface_only_collision.sdf");
+
+  const double table_height = 0.7645;
+  plant->WeldFrames(plant->world_frame(), plant->GetFrameByName("table_link"),
+                    drake::math::RigidTransformd(
+                        Eigen::Vector3d{0, 0, -table_height - 0.01}));
+
+  const RigidTransformd X_TO(RotationMatrixd::MakeXRotation(0),
+                             Vector3d(0.48, 0.1, 0.3));
+  const auto& objects_frame_O = plant->AddFrame(
+      std::make_unique<drake::multibody::FixedOffsetFrame<double>>(
+          "objects_frame", plant->GetFrameByName("table_top_center"), X_TO));
+
+  std::vector<drake::multibody::ModelInstanceIndex> cylinder_instance =
+      parser.AddModels("../../manipulation_station/models/cylinder.sdf");
+
+  // plant->WeldFrames(objects_frame_O,
+  // plant->GetFrameByName("cylinder_link"),
+  //                    drake::math::RigidTransformd(Eigen::Vector3d{0, 0,
+  //                    0.0}));
+}
+
 int main() {
   // ======================
   // MODEL
   // ======================
 
-  MultibodyPlantConfig plant_config;
-
   multibody::AddMultibodyPlantSceneGraphResult<double> mbp_result =
-      multibody::AddMultibodyPlant(plant_config, builder_);
-
+      multibody::AddMultibodyPlant(plant_config_, builder_);
   plant_ = std::move(&mbp_result.plant);
   scene_graph_ = std::move(&mbp_result.scene_graph);
+  plant_->set_name("plant");
+  // scene_graph_->set_name("scene_graph");
+  addObjects(plant_);
+  addRobot(plant_);
 
-  multibody::Parser parser(plant_);
-  std::vector<drake::multibody::ModelInstanceIndex> panda_instance =
-      parser.AddModels("../../franka_description/urdf/panda_arm_hand.urdf");
-  plant_->WeldFrames(plant_->world_frame(),
-                     plant_->GetFrameByName("panda_link0"));
-  std::vector<drake::multibody::ModelInstanceIndex> table_instance =
-      parser.AddModels(
-          "../../manipulation_station/models/table/"
-          "extra_heavy_duty_table_surface_only_collision.sdf");
+  // multibody::AddMultibodyPlantSceneGraphResult<double> controller_mbp_result
+  // =
+  //     multibody::AddMultibodyPlant(plant_config_, controller_builder_);
+  // controller_plant_ = std::move(&controller_mbp_result.plant);
+  // controller_scene_graph_ = std::move(&controller_mbp_result.scene_graph);
 
-  const double table_height = 0.7645;
-  plant_->WeldFrames(plant_->world_frame(),
-                     plant_->GetFrameByName("table_link"),
-                     drake::math::RigidTransformd(
-                         Eigen::Vector3d{0, 0, -table_height - 0.01}));
+  controller_plant_ = new multibody::MultibodyPlant<double>(0.0);
 
-  const RigidTransformd X_TO(RotationMatrixd::MakeXRotation(0),
-                             Vector3d(0.48, 0.1, 0.3));
-  const auto& objects_frame_O = plant_->AddFrame(
-      std::make_unique<drake::multibody::FixedOffsetFrame<double>>(
-          "objects_frame", plant_->GetFrameByName("table_top_center"), X_TO));
-
-  std::vector<drake::multibody::ModelInstanceIndex> cylinder_instance =
-      parser.AddModels("../../manipulation_station/models/cylinder.sdf");
-
-  // plant_->WeldFrames(objects_frame_O,
-  // plant_->GetFrameByName("cylinder_link"),
-  //                    drake::math::RigidTransformd(Eigen::Vector3d{0, 0,
-  //                    0.0}));
+  controller_plant_->set_name("controller_plant");
+  // scene_graph_->set_name("Controller_scene_graph");
+  addRobot(controller_plant_);
 
   // ======================
   // FINALIZE PLANT
@@ -315,47 +340,50 @@ int main() {
   plant_->Finalize();
   printPlantInfo(plant_);
 
+  controller_plant_->Finalize();
+  printPlantInfo(controller_plant_);
+
   // ======================
   // CONTROL
   // ======================
 
-  // Eigen::VectorXd desired(14);
-  // desired << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006, 0.713265,
-  //     -0.0827766, 0, 0, 0, 0, 0, 0, 0;
-  // drake::systems::ConstantVectorSource<double>* target =
-  //     builder_->template AddSystem<drake::systems::ConstantVectorSource>(
-  //         desired);
-  // target->set_name("target");
+  Eigen::VectorXd desired(14);
+  desired << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006, 0.713265,
+      -0.0827766, 0, 0, 0, 0, 0, 0, 0;
+  drake::systems::ConstantVectorSource<double>* target =
+      builder_->AddSystem<drake::systems::ConstantVectorSource>(desired);
+  target->set_name("robot_target");
 
-  const int dim = plant_->num_positions();
-  Eigen::VectorXd kp = Eigen::VectorXd::Constant(dim, 100);
-  Eigen::VectorXd kd = 2.0 * kp.array().sqrt();
-  Eigen::VectorXd ki = Eigen::VectorXd::Zero(dim);
-
-  // Eigen::VectorXd kp(dim), ki(dim), kd(dim);
-  // SetPidGains(&kp, &ki, &kd);
+  const int dim = controller_plant_->num_positions();
+  Eigen::VectorXd kp(dim), ki(dim), kd(dim);
+  SetPidGains(&kp, &ki, &kd);
 
   auto idc_controller = builder_->AddSystem<InverseDynamicsController>(
-      *plant_, kp, ki, kd, false);
+      *controller_plant_, kp, ki, kd, false);
 
   builder_->Connect(plant_->get_state_output_port(),
                     idc_controller->get_input_port_estimated_state());
 
   builder_->Connect(plant_->get_state_output_port(),
-                    idc_controller->get_input_port_desired_state());
+                    idc_controller->get_input_port_estimated_state());
 
-  // builder_->Connect(target->get_output_port(),
+  // builder_->Connect(controller_plant_->get_state_output_port(),
   //                   idc_controller->get_input_port_desired_state());
+
+  builder_->Connect(target->get_output_port(),
+                    idc_controller->get_input_port_desired_state());
 
   builder_->Connect(idc_controller->get_output_port(),
                     plant_->get_actuation_input_port());
+  std::cout << "finished control" << std::endl;
 
   // ======================
   // VISUALIZATION
   // ======================
 
+  // params for meshcat constructor available
   std::shared_ptr<geometry::Meshcat> meshcat =
-      std::make_shared<geometry::Meshcat>(7001);  // params available
+      std::make_shared<geometry::Meshcat>(7001);
 
   visualization::ApplyVisualizationConfig(
       visualization::VisualizationConfig{
@@ -377,11 +405,15 @@ int main() {
 
   diagram_ = builder_->Build();
 
-  std::unique_ptr<systems::Context<double>> diagram_context =
-      diagram_->CreateDefaultContext();
-  diagram_->SetDefaultContext(diagram_context.get());
+  // ======================
+  // CONTEXT
+  // ======================
+
+  std::unique_ptr<systems::Context<double>> controller_diagram_context =
+      controller_diagram_->CreateDefaultContext();
   systems::Context<double>* plant_context =
-      &diagram_->GetMutableSubsystemContext(*plant_, diagram_context.get());
+      &controller_diagram_->GetMutableSubsystemContext(
+          *controller_plant_, controller_diagram_context.get());
   std::cout << "has_only_continuous_state: "
             << plant_context->has_only_continuous_state() << std::endl;
   std::cout << "has_only_discrete_state: "
@@ -396,14 +428,12 @@ int main() {
   // SimulatorConfig sim_config;
   simulator_ = new systems::Simulator<double>(*diagram_);
   // ApplySimulatorConfig(sim_config, &simulator);
-
   systems::Context<double>& root_context = simulator_->get_mutable_context();
 
-  Eigen::VectorXd initial_position(plant_->num_positions());
+  Eigen::VectorXd initial_position(controller_plant_->num_positions());
   initial_position << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006,
       0.713265, -0.0827766, 0, 0, 0, 1, 0, 0, 0;
-
-  plant_->SetPositions(
+  controller_plant_->SetPositions(
       &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
       initial_position);
 
