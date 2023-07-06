@@ -24,7 +24,9 @@
 #include "drake/multibody/plant/multibody_plant.h"
 #include "drake/multibody/plant/multibody_plant_config_functions.h"
 #include "drake/multibody/tree/rigid_body.h"
+#include "drake/solvers/get_program_type.h"
 #include "drake/solvers/mathematical_program_result.h"
+#include "drake/solvers/nlopt_solver.h"
 #include "drake/systems/analysis/simulator.h"
 #include "drake/systems/analysis/simulator_config_functions.h"
 #include "drake/systems/analysis/simulator_print_stats.h"
@@ -134,16 +136,13 @@ void SetPidGains(Eigen::VectorXd* kp, Eigen::VectorXd* ki,
 MultibodyPlantConfig plant_config_;
 
 multibody::MultibodyPlant<double>* controller_plant_;
-systems::DiagramBuilder<double>* controller_builder_(
-    new systems::DiagramBuilder<double>());
-geometry::SceneGraph<double>* scene_graph_;
-std::unique_ptr<drake::systems::Diagram<double>> controller_diagram_;
 
 multibody::MultibodyPlant<double>* plant_;
 systems::DiagramBuilder<double>* builder_(
     new systems::DiagramBuilder<double>());
-geometry::SceneGraph<double>* controller_scene_graph_;
+geometry::SceneGraph<double>* scene_graph_;
 std::unique_ptr<drake::systems::Diagram<double>> diagram_;
+std::vector<multibody::ModelInstanceIndex> robot_idx_;
 
 systems::Simulator<double>* simulator_;
 
@@ -212,9 +211,9 @@ void printContactInfo(
 
 class ContactCost : public Cost {
  public:
-  ContactCost()
-      : Cost(7) {
-  }  // this needs to be a number, not a variable otherwise runtime error occurs
+  ContactCost() : Cost(7) {
+    // this needs to be a number, not a variable otherwise runtime error occurs
+  }
 
  private:
   std::size_t dim_ = 7;
@@ -229,15 +228,16 @@ class ContactCost : public Cost {
     auto x_vec = drake::math::ExtractValue(x);
     std::cout << "x_vec: " << x_vec.transpose() << std::endl;
 
-    Eigen::VectorXd joint_positions(dim_);
+    Eigen::VectorXd joint_position(dim_);
     for (std::size_t i = 0; i < dim_; i++) {
-      joint_positions[i] = x_vec(i);
+      joint_position[i] = x_vec(i);
     }
 
     systems::Context<double>& root_context = simulator_->get_mutable_context();
+
     plant_->SetPositions(
         &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
-        joint_positions);
+        robot_idx_.at(0), joint_position);
 
     const drake::multibody::ContactResults<double>& contact_results =
         plant_->get_contact_results_output_port()
@@ -274,14 +274,17 @@ class ContactCost : public Cost {
   }
 };
 
-void addRobot(multibody::MultibodyPlant<double>* plant) {
+std::vector<multibody::ModelInstanceIndex> addRobot(
+    multibody::MultibodyPlant<double>* plant) {
   multibody::Parser parser(plant);
   std::vector<multibody::ModelInstanceIndex> panda_instance =
       parser.AddModels("../../franka_description/urdf/panda_arm_hand.urdf");
   plant->WeldFrames(plant->world_frame(), plant->GetFrameByName("panda_link0"));
+  return panda_instance;
 }
 
-void addObjects(multibody::MultibodyPlant<double>* plant) {
+std::vector<multibody::ModelInstanceIndex> addTable(
+    multibody::MultibodyPlant<double>* plant) {
   multibody::Parser parser(plant);
   std::vector<multibody::ModelInstanceIndex> table_instance = parser.AddModels(
       "../../manipulation_station/models/table/"
@@ -292,19 +295,21 @@ void addObjects(multibody::MultibodyPlant<double>* plant) {
                     drake::math::RigidTransformd(
                         Eigen::Vector3d{0, 0, -table_height - 0.01}));
 
-  const RigidTransformd X_TO(RotationMatrixd::MakeXRotation(0),
-                             Vector3d(0.48, 0.1, 0.3));
-  const auto& objects_frame_O = plant->AddFrame(
-      std::make_unique<drake::multibody::FixedOffsetFrame<double>>(
-          "objects_frame", plant->GetFrameByName("table_top_center"), X_TO));
+  // const RigidTransformd X_TO(RotationMatrixd::MakeXRotation(0),
+  //                            Vector3d(0.48, 0.1, 0.3));
+  // const auto& objects_frame_O = plant->AddFrame(
+  //     std::make_unique<drake::multibody::FixedOffsetFrame<double>>(
+  //         "objects_frame", plant->GetFrameByName("table_top_center"), X_TO));
+  return table_instance;
+}
 
+std::vector<multibody::ModelInstanceIndex> addObject(
+    multibody::MultibodyPlant<double>* plant) {
+  multibody::Parser parser(plant);
   std::vector<drake::multibody::ModelInstanceIndex> cylinder_instance =
-      parser.AddModels("../../manipulation_station/models/cylinder.sdf");
-
-  // plant->WeldFrames(objects_frame_O,
-  // plant->GetFrameByName("cylinder_link"),
-  //                    drake::math::RigidTransformd(Eigen::Vector3d{0, 0,
-  //                    0.0}));
+      parser.AddModels(
+          "../../manipulation_station/models/objects/simple_cylinder.urdf");
+  return cylinder_instance;
 }
 
 int main() {
@@ -318,30 +323,41 @@ int main() {
   scene_graph_ = std::move(&mbp_result.scene_graph);
   plant_->set_name("plant");
   // scene_graph_->set_name("scene_graph");
-  addObjects(plant_);
-  addRobot(plant_);
 
-  // multibody::AddMultibodyPlantSceneGraphResult<double> controller_mbp_result
-  // =
-  //     multibody::AddMultibodyPlant(plant_config_, controller_builder_);
-  // controller_plant_ = std::move(&controller_mbp_result.plant);
-  // controller_scene_graph_ = std::move(&controller_mbp_result.scene_graph);
+  robot_idx_ = addRobot(plant_);
+  std::cout << "robot_idx_.size(): " << robot_idx_.size() << std::endl;
+
+  std::vector<multibody::ModelInstanceIndex> table_idx;
+  table_idx = addTable(plant_);
+  std::cout << "table_idx.size(): " << table_idx.size() << std::endl;
+
+  std::vector<multibody::ModelInstanceIndex> cyl_idx;
+  cyl_idx = addObject(plant_);
+  std::cout << "cyl_idx.size(): " << cyl_idx.size() << std::endl;
 
   controller_plant_ = new multibody::MultibodyPlant<double>(0.0);
-
   controller_plant_->set_name("controller_plant");
   // scene_graph_->set_name("Controller_scene_graph");
-  addRobot(controller_plant_);
+  std::vector<multibody::ModelInstanceIndex> control_idx;
+  control_idx = addRobot(controller_plant_);
+  std::cout << "control_idx.size(): " << control_idx.size() << std::endl;
 
   // ======================
   // FINALIZE PLANT
   // ======================
 
+  std::cout << "full plant" << std::endl;
   plant_->Finalize();
   printPlantInfo(plant_);
 
+  std::size_t num_instantes = plant_->num_model_instances();
+  std::cout << "num_instantes: " << num_instantes << std::endl;
+
+  std::cout << "controller plant" << std::endl;
   controller_plant_->Finalize();
   printPlantInfo(controller_plant_);
+  num_instantes = controller_plant_->num_model_instances();
+  std::cout << "num_instantes: " << num_instantes << std::endl;
 
   // ======================
   // CONTROL
@@ -361,20 +377,25 @@ int main() {
   auto idc_controller = builder_->AddSystem<InverseDynamicsController>(
       *controller_plant_, kp, ki, kd, false);
 
-  builder_->Connect(plant_->get_state_output_port(),
+  std::cout << "here 1" << std::endl;
+  builder_->Connect(plant_->get_state_output_port(robot_idx_.at(0)),
                     idc_controller->get_input_port_estimated_state());
 
-  builder_->Connect(plant_->get_state_output_port(),
-                    idc_controller->get_input_port_estimated_state());
+  // std::cout << "here 2" << std::endl;
+  // builder_->Connect(plant_->get_state_output_port(),
+  //                   idc_controller->get_input_port_estimated_state());
+
+  std::cout << "here 3" << std::endl;
 
   // builder_->Connect(controller_plant_->get_state_output_port(),
   //                   idc_controller->get_input_port_desired_state());
 
   builder_->Connect(target->get_output_port(),
                     idc_controller->get_input_port_desired_state());
+  std::cout << "here 4" << std::endl;
 
   builder_->Connect(idc_controller->get_output_port(),
-                    plant_->get_actuation_input_port());
+                    plant_->get_actuation_input_port(robot_idx_.at(0)));
   std::cout << "finished control" << std::endl;
 
   // ======================
@@ -385,6 +406,8 @@ int main() {
   std::shared_ptr<geometry::Meshcat> meshcat =
       std::make_shared<geometry::Meshcat>(7001);
 
+  std::cout << "here 1" << std::endl;
+
   visualization::ApplyVisualizationConfig(
       visualization::VisualizationConfig{
           .default_proximity_color = geometry::Rgba{1, 0, 0, 0.25},
@@ -392,34 +415,39 @@ int main() {
       },
       builder_, nullptr, nullptr, nullptr, meshcat);
 
+  std::cout << "here 2" << std::endl;
+
   drake::geometry::MeshcatVisualizerParams params;
   params.delete_on_initialization_event = false;
   auto& visualizer = drake::geometry::MeshcatVisualizerd::AddToBuilder(
       builder_, *scene_graph_, meshcat, std::move(params));
+
+  std::cout << "here 3" << std::endl;
 
   multibody::meshcat::ContactVisualizerParams cparams;
   // cparams.newtons_per_meter = 60.0;
   multibody::meshcat::ContactVisualizerd::AddToBuilder(
       builder_, *plant_, meshcat, std::move(cparams));
   // ConnectContactResultsToDrakeVisualizer(&builder, plant, scene_graph_;
+  std::cout << "here 4" << std::endl;
 
   diagram_ = builder_->Build();
+  std::cout << "finished visualization" << std::endl;
 
   // ======================
   // CONTEXT
   // ======================
 
-  std::unique_ptr<systems::Context<double>> controller_diagram_context =
-      controller_diagram_->CreateDefaultContext();
-  systems::Context<double>* plant_context =
-      &controller_diagram_->GetMutableSubsystemContext(
-          *controller_plant_, controller_diagram_context.get());
+  std::unique_ptr<systems::Context<double>> plant_context =
+      controller_plant_->CreateDefaultContext();
+
   std::cout << "has_only_continuous_state: "
             << plant_context->has_only_continuous_state() << std::endl;
   std::cout << "has_only_discrete_state: "
             << plant_context->has_only_discrete_state() << std::endl;
-  std::cout << "get_discrete_state_vector().size(): "
-            << plant_context->get_discrete_state_vector().size() << std::endl;
+
+  // std::unique_ptr<Context<double>> context_ =
+  // diagram_->CreateDefaultContext();
 
   // ======================
   // SIMULATION
@@ -432,15 +460,24 @@ int main() {
 
   Eigen::VectorXd initial_position(controller_plant_->num_positions());
   initial_position << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006,
-      0.713265, -0.0827766, 0, 0, 0, 1, 0, 0, 0;
-  controller_plant_->SetPositions(
+      0.713265, -0.0827766;
+  controller_plant_->SetPositions(plant_context.get(), initial_position);
+
+  plant_->SetPositions(
       &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
-      initial_position);
+      robot_idx_.at(0), initial_position);
+
+  const math::RigidTransform<double> X_WF1 = math::RigidTransform<double>(
+      math::RollPitchYaw(0.0, 0.0, 0.0), Eigen::Vector3d(0.2, 0.0, 0.5));
+  const auto& base_link = plant_->GetBodyByName("cylinder_base");
+  plant_->SetFreeBodyPose(
+      &diagram_->GetMutableSubsystemContext(*plant_, &root_context), base_link,
+      X_WF1);
 
   simulator_->set_target_realtime_rate(1.0);
   simulator_->Initialize();
   meshcat->StartRecording();
-  simulator_->AdvanceTo(1);
+  simulator_->AdvanceTo(3);
   meshcat->StopRecording();
   meshcat->PublishRecording();
 
@@ -461,9 +498,16 @@ int main() {
   std::cout << "num hydro contacts: "
             << contact_results.num_hydroelastic_contacts() << std::endl;
 
+  for (std::size_t i = 0; i < contact_results.num_point_pair_contacts(); ++i) {
+    const auto& contact_info = contact_results.point_pair_contact_info(i);
+    printContactInfo(plant_, contact_info);
+  }
+
   // ======================
   // OPTIMIZATION
   // ======================
+
+  NloptSolver solver;
 
   drake::solvers::MathematicalProgram prog;
   auto q_var = prog.NewContinuousVariables<7>();
@@ -474,7 +518,13 @@ int main() {
   prog.AddBoundingBoxConstraint(q_lower, q_upper, q_var);
 
   prog.AddCost(std::make_shared<ContactCost>(), q_var);
-  auto result = Solve(prog, {}, {});
+
+  const ProgramType prog_type = GetProgramType(prog);
+  std::cout << "prog_type: " << prog_type << std::endl;
+
+  // auto result = Solve(prog, {}, {});
+
+  MathematicalProgramResult result = solver.Solve(prog, {}, {});
 
   const auto q_res = result.GetSolution(q_var);
 
