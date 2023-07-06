@@ -302,8 +302,11 @@ int main() {
 
   std::vector<drake::multibody::ModelInstanceIndex> cylinder_instance =
       parser.AddModels("../../manipulation_station/models/cylinder.sdf");
-  plant_->WeldFrames(objects_frame_O, plant_->GetFrameByName("cylinder_link"),
-                     drake::math::RigidTransformd(Eigen::Vector3d{0, 0, 0.0}));
+
+  // plant_->WeldFrames(objects_frame_O,
+  // plant_->GetFrameByName("cylinder_link"),
+  //                    drake::math::RigidTransformd(Eigen::Vector3d{0, 0,
+  //                    0.0}));
 
   // ======================
   // FINALIZE PLANT
@@ -316,17 +319,21 @@ int main() {
   // CONTROL
   // ======================
 
-  Eigen::VectorXd desired(14);
-  desired << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006, 0.713265,
-      -0.0827766, 0, 0, 0, 0, 0, 0, 0;
-  drake::systems::ConstantVectorSource<double>* target =
-      builder_->template AddSystem<drake::systems::ConstantVectorSource>(
-          desired);
-  target->set_name("target");
+  // Eigen::VectorXd desired(14);
+  // desired << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006, 0.713265,
+  //     -0.0827766, 0, 0, 0, 0, 0, 0, 0;
+  // drake::systems::ConstantVectorSource<double>* target =
+  //     builder_->template AddSystem<drake::systems::ConstantVectorSource>(
+  //         desired);
+  // target->set_name("target");
 
   const int dim = plant_->num_positions();
-  Eigen::VectorXd kp(dim), ki(dim), kd(dim);
-  SetPidGains(&kp, &ki, &kd);
+  Eigen::VectorXd kp = Eigen::VectorXd::Constant(dim, 100);
+  Eigen::VectorXd kd = 2.0 * kp.array().sqrt();
+  Eigen::VectorXd ki = Eigen::VectorXd::Zero(dim);
+
+  // Eigen::VectorXd kp(dim), ki(dim), kd(dim);
+  // SetPidGains(&kp, &ki, &kd);
 
   auto idc_controller = builder_->AddSystem<InverseDynamicsController>(
       *plant_, kp, ki, kd, false);
@@ -334,13 +341,11 @@ int main() {
   builder_->Connect(plant_->get_state_output_port(),
                     idc_controller->get_input_port_estimated_state());
 
-  // builder.Connect(plant_->get_state_output_port(),
-  //                 idc_controller->get_input_port_desired_state()); // let the
-  //                 robot keep steady position, assume desired pose is equal to
-  //                 initial pose
-
-  builder_->Connect(target->get_output_port(),
+  builder_->Connect(plant_->get_state_output_port(),
                     idc_controller->get_input_port_desired_state());
+
+  // builder_->Connect(target->get_output_port(),
+  //                   idc_controller->get_input_port_desired_state());
 
   builder_->Connect(idc_controller->get_output_port(),
                     plant_->get_actuation_input_port());
@@ -350,7 +355,7 @@ int main() {
   // ======================
 
   std::shared_ptr<geometry::Meshcat> meshcat =
-      std::make_shared<geometry::Meshcat>();  // params available
+      std::make_shared<geometry::Meshcat>(7001);  // params available
 
   visualization::ApplyVisualizationConfig(
       visualization::VisualizationConfig{
@@ -396,7 +401,7 @@ int main() {
 
   Eigen::VectorXd initial_position(plant_->num_positions());
   initial_position << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006,
-      0.713265, -0.0827766;
+      0.713265, -0.0827766, 0, 0, 0, 1, 0, 0, 0;
 
   plant_->SetPositions(
       &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
