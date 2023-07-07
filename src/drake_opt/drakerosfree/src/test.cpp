@@ -40,6 +40,8 @@
 #include "drake/systems/primitives/discrete_derivative.h"
 #include "drake/visualization/visualization_config.h"
 #include "drake/visualization/visualization_config_functions.h"
+#include "drake/solvers/snopt_solver.h"
+
 
 using namespace drake;
 using namespace solvers;
@@ -70,9 +72,6 @@ using systems::controllers::InverseDynamicsController;
 
 /**
  * TODO
- * instead of the mug, add a real object
- * let the object fall if the robot is not constraining it
- * add centroidal moment constraint
  * what could be the cost?
  * how do we define the object, as point cloud?
  * do we need to add trajectory optimization based on contact?
@@ -80,38 +79,6 @@ using systems::controllers::InverseDynamicsController;
  * how does the analogous method with traj optimization deal with whole body
  * grasping is our method superior? how can we show this?
  */
-
-class EmptyGradientCost : public Cost {
- public:
-  EmptyGradientCost() : Cost(7) {}
-
- private:
-  template <typename T>
-  void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
-                     VectorX<T>* y) const {
-    std::cout << "here 1" << std::endl;
-    y->resize(1);
-    (*y)(0) = x(0) + x(1) + x(2) + x(3) + x(4) + x(5) + x(6);
-  }
-
-  void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
-              Eigen::VectorXd* y) const override {
-    std::cout << "here 2" << std::endl;
-    DoEvalGeneric(x, y);
-  }
-
-  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
-              AutoDiffVecXd* y) const override {
-    std::cout << "here 3" << std::endl;
-    DoEvalGeneric(x, y);
-  }
-
-  void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
-              VectorX<symbolic::Expression>* y) const override {
-    std::cout << "here 4" << std::endl;
-    DoEvalGeneric<symbolic::Expression>(x.cast<symbolic::Expression>(), y);
-  }
-};
 
 void SetPidGains(Eigen::VectorXd* kp, Eigen::VectorXd* ki,
                  Eigen::VectorXd* kd) {
@@ -253,7 +220,7 @@ class ContactCost : public Cost {
          ++i) {
       const auto& contact_info = contact_results.point_pair_contact_info(i);
       cost += contact_info.contact_force().norm();
-      // printContactInfo(plant_, contact_info);
+      printContactInfo(plant_, contact_info);
     }
 
     std::cout << "cost: " << cost << std::endl;
@@ -270,6 +237,58 @@ class ContactCost : public Cost {
   void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
               Eigen::VectorXd* y) const override {
     std::cout << "ContactCost DoEval 2" << std::endl;
+    throw std::runtime_error("error");
+  }
+};
+
+// ======================
+// CONSTRAINT FUNCTION
+// ======================
+
+class ContactConstraint : public Constraint {
+ public:
+  ContactConstraint() : Constraint(1, 7, drake::Vector1d::Constant(-1), drake::Vector1d::Constant(1)) {}
+
+ private:
+   std::size_t dim_ = 7;
+
+  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
+              AutoDiffVecXd* y) const override {
+    
+    y->resize(1);
+
+    auto x_vec = drake::math::ExtractValue(x);
+    std::cout << "x_vec: " << x_vec.transpose() << std::endl;
+
+    Eigen::VectorXd joint_position(dim_);
+    for (std::size_t i = 0; i < dim_; i++) {
+      joint_position[i] = x_vec(i);
+    }
+
+    systems::Context<double>& root_context = simulator_->get_mutable_context();
+
+    plant_->SetPositions(
+        &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
+        robot_idx_.at(0), joint_position);
+
+    const drake::multibody::ContactResults<double>& contact_results =
+        plant_->get_contact_results_output_port()
+            .Eval<drake::multibody::ContactResults<double>>(
+                diagram_->GetMutableSubsystemContext(*plant_, &root_context));
+
+    (*y)(0) = contact_results.num_point_pair_contacts();
+  }
+
+
+  void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
+              Eigen::VectorXd* y) const override {
+    std::cout << "ContactConstraint DoEval 1" << std::endl;
+    throw std::runtime_error("error");
+  }
+
+  void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
+              VectorX<symbolic::Expression>* y) const override {
+    std::cout << "ContactConstraint DoEval 1" << std::endl;
     throw std::runtime_error("error");
   }
 };
@@ -377,7 +396,6 @@ int main() {
   auto idc_controller = builder_->AddSystem<InverseDynamicsController>(
       *controller_plant_, kp, ki, kd, false);
 
-  std::cout << "here 1" << std::endl;
   builder_->Connect(plant_->get_state_output_port(robot_idx_.at(0)),
                     idc_controller->get_input_port_estimated_state());
 
@@ -385,14 +403,12 @@ int main() {
   // builder_->Connect(plant_->get_state_output_port(),
   //                   idc_controller->get_input_port_estimated_state());
 
-  std::cout << "here 3" << std::endl;
 
   // builder_->Connect(controller_plant_->get_state_output_port(),
   //                   idc_controller->get_input_port_desired_state());
 
   builder_->Connect(target->get_output_port(),
                     idc_controller->get_input_port_desired_state());
-  std::cout << "here 4" << std::endl;
 
   builder_->Connect(idc_controller->get_output_port(),
                     plant_->get_actuation_input_port(robot_idx_.at(0)));
@@ -406,8 +422,6 @@ int main() {
   std::shared_ptr<geometry::Meshcat> meshcat =
       std::make_shared<geometry::Meshcat>(7001);
 
-  std::cout << "here 1" << std::endl;
-
   visualization::ApplyVisualizationConfig(
       visualization::VisualizationConfig{
           .default_proximity_color = geometry::Rgba{1, 0, 0, 0.25},
@@ -415,22 +429,17 @@ int main() {
       },
       builder_, nullptr, nullptr, nullptr, meshcat);
 
-  std::cout << "here 2" << std::endl;
-
   drake::geometry::MeshcatVisualizerParams params;
   params.delete_on_initialization_event = false;
   auto& visualizer = drake::geometry::MeshcatVisualizerd::AddToBuilder(
       builder_, *scene_graph_, meshcat, std::move(params));
-
-  std::cout << "here 3" << std::endl;
 
   multibody::meshcat::ContactVisualizerParams cparams;
   // cparams.newtons_per_meter = 60.0;
   multibody::meshcat::ContactVisualizerd::AddToBuilder(
       builder_, *plant_, meshcat, std::move(cparams));
   // ConnectContactResultsToDrakeVisualizer(&builder, plant, scene_graph_;
-  std::cout << "here 4" << std::endl;
-
+  
   diagram_ = builder_->Build();
   std::cout << "finished visualization" << std::endl;
 
@@ -477,7 +486,7 @@ int main() {
   simulator_->set_target_realtime_rate(1.0);
   simulator_->Initialize();
   meshcat->StartRecording();
-  simulator_->AdvanceTo(3);
+  simulator_->AdvanceTo(0.1);
   meshcat->StopRecording();
   meshcat->PublishRecording();
 
@@ -508,6 +517,8 @@ int main() {
   // ======================
 
   NloptSolver solver;
+  // SnoptSolver solver;
+
 
   drake::solvers::MathematicalProgram prog;
   auto q_var = prog.NewContinuousVariables<7>();
@@ -517,7 +528,8 @@ int main() {
   q_upper << 2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973;
   prog.AddBoundingBoxConstraint(q_lower, q_upper, q_var);
 
-  prog.AddCost(std::make_shared<ContactCost>(), q_var);
+  // prog.AddCost(std::make_shared<ContactCost>(), q_var);
+  prog.AddConstraint(std::make_shared<ContactConstraint>(), q_var);
 
   const ProgramType prog_type = GetProgramType(prog);
   std::cout << "prog_type: " << prog_type << std::endl;
