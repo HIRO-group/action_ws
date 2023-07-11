@@ -6,8 +6,16 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(drake CONFIG REQUIRED PATHS /opt/drake)
+find_package(drake CONFIG REQUIRED)
+
+# set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+# find_package(GUROBI REQUIRED)
+# include_directories(${GUROBI_INCLUDE_DIRS})
+
+
 
 add_executable(drake_test src/test.cpp)
 target_link_libraries(drake_test drake::drake)
+
+# target_link_libraries(drake_test drake::drake ${GUROBI_LIBRARY})
 

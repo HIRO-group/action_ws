@@ -18,6 +18,7 @@
 #include "drake/geometry/shape_specification.h"
 #include "drake/math/rigid_transform.h"
 #include "drake/math/rotation_matrix.h"
+#include "drake/multibody/inverse_kinematics/distance_constraint.h"
 #include "drake/multibody/meshcat/contact_visualizer.h"
 #include "drake/multibody/parsing/parser.h"
 #include "drake/multibody/plant/contact_results_to_lcm.h"
@@ -25,8 +26,10 @@
 #include "drake/multibody/plant/multibody_plant_config_functions.h"
 #include "drake/multibody/tree/rigid_body.h"
 #include "drake/solvers/get_program_type.h"
+#include "drake/solvers/gurobi_solver.h"
 #include "drake/solvers/mathematical_program_result.h"
 #include "drake/solvers/nlopt_solver.h"
+#include "drake/solvers/snopt_solver.h"
 #include "drake/systems/analysis/simulator.h"
 #include "drake/systems/analysis/simulator_config_functions.h"
 #include "drake/systems/analysis/simulator_print_stats.h"
@@ -40,8 +43,9 @@
 #include "drake/systems/primitives/discrete_derivative.h"
 #include "drake/visualization/visualization_config.h"
 #include "drake/visualization/visualization_config_functions.h"
-#include "drake/solvers/snopt_solver.h"
 
+// GUROBI
+// #include "gurobi_c++.h"
 
 using namespace drake;
 using namespace solvers;
@@ -247,15 +251,16 @@ class ContactCost : public Cost {
 
 class ContactConstraint : public Constraint {
  public:
-  ContactConstraint() : Constraint(1, 7, drake::Vector1d::Constant(-1), drake::Vector1d::Constant(1)) {}
+  ContactConstraint()
+      : Constraint(3, 7, Eigen::Vector3d(0.0, 0.0, 0.0),
+                   Eigen::Vector3d(0.1, 0.1, 0.1)) {}
 
  private:
-   std::size_t dim_ = 7;
+  std::size_t dim_ = 7;
 
   void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
               AutoDiffVecXd* y) const override {
-    
-    y->resize(1);
+    y->resize(3);
 
     auto x_vec = drake::math::ExtractValue(x);
     std::cout << "x_vec: " << x_vec.transpose() << std::endl;
@@ -271,14 +276,40 @@ class ContactConstraint : public Constraint {
         &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
         robot_idx_.at(0), joint_position);
 
-    const drake::multibody::ContactResults<double>& contact_results =
-        plant_->get_contact_results_output_port()
-            .Eval<drake::multibody::ContactResults<double>>(
-                diagram_->GetMutableSubsystemContext(*plant_, &root_context));
+    std::cout << "positions set" << std::endl;
 
-    (*y)(0) = contact_results.num_point_pair_contacts();
+    const multibody::Frame<double>& frame_e =
+        plant_->GetFrameByName("panda_leftfinger");
+    // math::RigidTransform<double> Te =
+    //     plant_->EvalBodyPoseInWorld(root_context, frame_E.body());
+
+    const multibody::Frame<double>& frame_c =
+        plant_->GetFrameByName("cylinder_base");
+    // math::RigidTransform<double> Tc =
+    //     plant_->EvalBodyPoseInWorld(root_context, frame_c.body());
+    std::cout << "frames set" << std::endl;
+
+    math::RigidTransform<double> X_AB = plant_->CalcRelativeTransform(
+        diagram_->GetMutableSubsystemContext(*plant_, &root_context), frame_e,
+        frame_c);
+
+    std::cout << "X_AB: " << X_AB.translation() << std::endl;
+
+    // double distance = X_AB.translation().norm();
+
+    // const drake::multibody::ContactResults<double>& contact_results =
+    //     plant_->get_contact_results_output_port()
+    //         .Eval<drake::multibody::ContactResults<double>>(
+    //             diagram_->GetMutableSubsystemContext(*plant_,
+    //             &root_context));
+
+    // std::cout << "distance: " << distance << std::endl;
+
+    // (*y)(0) = distance;
+    (*y)(0) = static_cast<double>(X_AB.translation().x());
+    (*y)(1) = static_cast<double>(X_AB.translation().y());
+    (*y)(2) = static_cast<double>(X_AB.translation().z());
   }
-
 
   void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
               Eigen::VectorXd* y) const override {
@@ -403,7 +434,6 @@ int main() {
   // builder_->Connect(plant_->get_state_output_port(),
   //                   idc_controller->get_input_port_estimated_state());
 
-
   // builder_->Connect(controller_plant_->get_state_output_port(),
   //                   idc_controller->get_input_port_desired_state());
 
@@ -439,7 +469,7 @@ int main() {
   multibody::meshcat::ContactVisualizerd::AddToBuilder(
       builder_, *plant_, meshcat, std::move(cparams));
   // ConnectContactResultsToDrakeVisualizer(&builder, plant, scene_graph_;
-  
+
   diagram_ = builder_->Build();
   std::cout << "finished visualization" << std::endl;
 
@@ -516,9 +546,9 @@ int main() {
   // OPTIMIZATION
   // ======================
 
-  NloptSolver solver;
+  // NloptSolver solver;
   // SnoptSolver solver;
-
+  solvers::GurobiSolver solver;
 
   drake::solvers::MathematicalProgram prog;
   auto q_var = prog.NewContinuousVariables<7>();
