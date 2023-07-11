@@ -74,16 +74,6 @@ using systems::Simulator;
 using systems::SimulatorConfig;
 using systems::controllers::InverseDynamicsController;
 
-/**
- * TODO
- * what could be the cost?
- * how do we define the object, as point cloud?
- * do we need to add trajectory optimization based on contact?
- * how do we pipe this to the robot? need to spawn a ros node.
- * how does the analogous method with traj optimization deal with whole body
- * grasping is our method superior? how can we show this?
- */
-
 void SetPidGains(Eigen::VectorXd* kp, Eigen::VectorXd* ki,
                  Eigen::VectorXd* kd) {
   // *kp << 100, 100, 100, 100, 100, 100, 100;
@@ -253,74 +243,117 @@ class ContactConstraint : public Constraint {
  public:
   ContactConstraint()
       : Constraint(3, 7, Eigen::Vector3d(0.0, 0.0, 0.0),
-                   Eigen::Vector3d(0.1, 0.1, 0.1)) {}
+                   Eigen::Vector3d(0.0, 0.0, 0.0)) {}
 
  private:
   std::size_t dim_ = 7;
 
-  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
-              AutoDiffVecXd* y) const override {
+  template <typename T, typename S>
+  void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
+                     VectorX<S>* y) const {
     y->resize(3);
-
-    auto x_vec = drake::math::ExtractValue(x);
-    std::cout << "x_vec: " << x_vec.transpose() << std::endl;
 
     Eigen::VectorXd joint_position(dim_);
     for (std::size_t i = 0; i < dim_; i++) {
-      joint_position[i] = x_vec(i);
+      joint_position[i] = x(i);
     }
+    std::cout << "joint_position: " << joint_position.transpose() << std::endl;
 
     systems::Context<double>& root_context = simulator_->get_mutable_context();
-
     plant_->SetPositions(
         &diagram_->GetMutableSubsystemContext(*plant_, &root_context),
         robot_idx_.at(0), joint_position);
 
-    std::cout << "positions set" << std::endl;
-
     const multibody::Frame<double>& frame_e =
         plant_->GetFrameByName("panda_leftfinger");
-    // math::RigidTransform<double> Te =
-    //     plant_->EvalBodyPoseInWorld(root_context, frame_E.body());
 
     const multibody::Frame<double>& frame_c =
         plant_->GetFrameByName("cylinder_base");
-    // math::RigidTransform<double> Tc =
-    //     plant_->EvalBodyPoseInWorld(root_context, frame_c.body());
-    std::cout << "frames set" << std::endl;
 
     math::RigidTransform<double> X_AB = plant_->CalcRelativeTransform(
         diagram_->GetMutableSubsystemContext(*plant_, &root_context), frame_e,
         frame_c);
 
-    std::cout << "X_AB: " << X_AB.translation() << std::endl;
+    std::cout << "X_AB: " << X_AB.translation().transpose() << std::endl;
 
-    // double distance = X_AB.translation().norm();
-
-    // const drake::multibody::ContactResults<double>& contact_results =
-    //     plant_->get_contact_results_output_port()
-    //         .Eval<drake::multibody::ContactResults<double>>(
-    //             diagram_->GetMutableSubsystemContext(*plant_,
-    //             &root_context));
-
-    // std::cout << "distance: " << distance << std::endl;
-
-    // (*y)(0) = distance;
     (*y)(0) = static_cast<double>(X_AB.translation().x());
     (*y)(1) = static_cast<double>(X_AB.translation().y());
     (*y)(2) = static_cast<double>(X_AB.translation().z());
   }
 
+  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
+              AutoDiffVecXd* y) const override {
+    Eigen::Ref<const VectorX<double>> x_vec = drake::math::ExtractValue(x);
+    DoEvalGeneric(x_vec, y);
+  }
+
   void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
               Eigen::VectorXd* y) const override {
-    std::cout << "ContactConstraint DoEval 1" << std::endl;
-    throw std::runtime_error("error");
+    DoEvalGeneric(x, y);
   }
 
   void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
               VectorX<symbolic::Expression>* y) const override {
-    std::cout << "ContactConstraint DoEval 1" << std::endl;
     throw std::runtime_error("error");
+  }
+};
+
+class DummyConstraint : public Constraint {
+  // 0.5x² + 0.5*y² + z² = 1
+ public:
+  DummyConstraint() : Constraint(1, 3, Vector1d(1), Vector1d(1)) {}
+
+ protected:
+  template <typename T>
+  void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
+                     VectorX<T>* y) const {
+    y->resize(1);
+    (*y)(0) = 0.5 * x(0) * x(0) + 0.5 * x(1) * x(1) + x(2) * x(2);
+  }
+
+  void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
+              Eigen::VectorXd* y) const override {
+    DoEvalGeneric<double>(x, y);
+  }
+
+  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
+              AutoDiffVecXd* y) const override {
+    DoEvalGeneric<AutoDiffXd>(x, y);
+  }
+
+  void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
+              VectorX<symbolic::Expression>* y) const override {
+    DoEvalGeneric<symbolic::Expression>(x.cast<symbolic::Expression>(), y);
+  }
+};
+
+class DummyCost : public Cost {
+  // -x²-2xy - 2xz - y² - 3z²
+ public:
+  DummyCost() : Cost(3) {}
+
+ protected:
+  template <typename T>
+  void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
+                     VectorX<T>* y) const {
+    y->resize(1);
+    (*y)(0) = -x(0) * x(0) - 2 * x(0) * x(1) - 2 * x(0) * x(2) - x(1) * x(1) -
+              3 * x(2) * x(2);
+  }
+
+  void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
+              Eigen::VectorXd* y) const override {
+    DoEvalGeneric<double>(x, y);
+  }
+
+  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
+              AutoDiffVecXd* y) const override {
+    DoEvalGeneric<AutoDiffXd>(x, y);
+  }
+
+  void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
+              VectorX<symbolic::Expression>* y) const override {
+    DoEvalGeneric<symbolic::Expression>(x.cast<symbolic::Expression>(), y);
   }
 };
 
@@ -515,43 +548,79 @@ int main() {
 
   simulator_->set_target_realtime_rate(1.0);
   simulator_->Initialize();
-  meshcat->StartRecording();
-  simulator_->AdvanceTo(0.1);
-  meshcat->StopRecording();
-  meshcat->PublishRecording();
+  // meshcat->StartRecording();
+  // simulator_->AdvanceTo(0.01);
+  // meshcat->StopRecording();
+  // meshcat->PublishRecording();
 
-  systems::PrintSimulatorStatistics(*simulator_);
+  // systems::PrintSimulatorStatistics(*simulator_);
 
-  const std::string html_filename("meshcat_static.html");
-  std::ofstream html_file(html_filename);
-  html_file << meshcat->StaticHtml();
-  html_file.close();
+  // const std::string html_filename("meshcat_static.html");
+  // std::ofstream html_file(html_filename);
+  // html_file << meshcat->StaticHtml();
+  // html_file.close();
 
-  const drake::multibody::ContactResults<double>& contact_results =
-      plant_->get_contact_results_output_port()
-          .Eval<drake::multibody::ContactResults<double>>(
-              diagram_->GetMutableSubsystemContext(*plant_, &root_context));
+  // const drake::multibody::ContactResults<double>& contact_results =
+  //     plant_->get_contact_results_output_port()
+  //         .Eval<drake::multibody::ContactResults<double>>(
+  //             diagram_->GetMutableSubsystemContext(*plant_, &root_context));
 
-  std::cout << "num pair contacts: "
-            << contact_results.num_point_pair_contacts() << std::endl;
-  std::cout << "num hydro contacts: "
-            << contact_results.num_hydroelastic_contacts() << std::endl;
+  // std::cout << "num pair contacts: "
+  //           << contact_results.num_point_pair_contacts() << std::endl;
+  // std::cout << "num hydro contacts: "
+  //           << contact_results.num_hydroelastic_contacts() << std::endl;
 
-  for (std::size_t i = 0; i < contact_results.num_point_pair_contacts(); ++i) {
-    const auto& contact_info = contact_results.point_pair_contact_info(i);
-    printContactInfo(plant_, contact_info);
-  }
+  // for (std::size_t i = 0; i < contact_results.num_point_pair_contacts(); ++i)
+  // {
+  //   const auto& contact_info = contact_results.point_pair_contact_info(i);
+  //   printContactInfo(plant_, contact_info);
+  // }
 
   // ======================
   // OPTIMIZATION
   // ======================
+  SnoptSolver test_solver;
+  drake::solvers::MathematicalProgram test_program;
+  auto x_var = test_program.NewContinuousVariables<2>();
+
+  test_program.AddBoundingBoxConstraint(
+      0, std::numeric_limits<double>::infinity(), x_var);
+  // test_program.AddCost(std::make_shared<DummyCost>(),
+  //                      Vector3<symbolic::Variable>(x_(0), x_(1), x_(1)));
+  // test_program.AddConstraint(std::make_shared<DummyConstraint>(), x_var);
+
+  test_program.AddCost(
+      std::make_shared<DummyCost>(),
+      Vector3<symbolic::Variable>(x_var(0), x_var(1), x_var(1)));
+  test_program.AddConstraint(
+      std::make_shared<DummyConstraint>(),
+      Vector3<symbolic::Variable>(x_var(0), x_var(0), x_var(1)));
+
+  auto test_result = test_solver.Solve(test_program, {}, {});
+
+  if (test_result.is_success()) {
+    std::cout << "Solution found!" << std::endl;
+    for (int i = 0; i < 3; i++) {
+      std::cout << "x" << i + 1 << " = " << test_result.GetSolution(x_var[i])
+                << std::endl;
+    }
+  } else {
+    std::cout << "Failed to find a solution." << std::endl;
+  }
+
+  return 0;
 
   // NloptSolver solver;
-  // SnoptSolver solver;
-  solvers::GurobiSolver solver;
+  SnoptSolver solver;
+  // solvers::GurobiSolver solver;
 
   drake::solvers::MathematicalProgram prog;
-  auto q_var = prog.NewContinuousVariables<7>();
+  auto q_var = prog.NewContinuousVariables<7>("q");
+
+  Eigen::Matrix<double, 7, 1> q_guess;
+  q_guess << -2.02408, -1.06383, 1.8716, -1.80128, 0.00569006, 0.713265,
+      -0.0827766;
+  prog.SetInitialGuess(q_var, q_guess);
 
   Eigen::Matrix<double, 7, 1> q_lower, q_upper;
   q_lower << -2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973;
@@ -563,10 +632,14 @@ int main() {
 
   const ProgramType prog_type = GetProgramType(prog);
   std::cout << "prog_type: " << prog_type << std::endl;
-
+  SolverOptions options;
+  // options.SetOption(CommonSolverOption::kPrintToConsole, 1);
+  options.SetOption(CommonSolverOption::kPrintFileName, "solver.txt");
   // auto result = Solve(prog, {}, {});
 
-  MathematicalProgramResult result = solver.Solve(prog, {}, {});
+  MathematicalProgramResult result = solver.Solve(prog, {}, options);
+
+  std::vector<std::string> names = result.GetInfeasibleConstraintNames(prog);
 
   const auto q_res = result.GetSolution(q_var);
 
