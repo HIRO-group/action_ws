@@ -27,6 +27,7 @@
 #include "drake/multibody/tree/rigid_body.h"
 #include "drake/solvers/get_program_type.h"
 #include "drake/solvers/gurobi_solver.h"
+#include "drake/solvers/ipopt_solver.h"
 #include "drake/solvers/mathematical_program_result.h"
 #include "drake/solvers/nlopt_solver.h"
 #include "drake/solvers/snopt_solver.h"
@@ -242,8 +243,9 @@ class ContactCost : public Cost {
 class ContactConstraint : public Constraint {
  public:
   ContactConstraint()
-      : Constraint(3, 7, Eigen::Vector3d(0.0, 0.0, 0.0),
-                   Eigen::Vector3d(0.0, 0.0, 0.0)) {}
+      // : Constraint(3, 7, Eigen::Vector3d(0.0, 0.0, 0.0),
+      //              Eigen::Vector3d(0.0, 0.0, 0.0)){}
+      : Constraint(1, 7, Vector1d(0.0), Vector1d(0.0)) {}
 
  private:
   std::size_t dim_ = 7;
@@ -251,13 +253,15 @@ class ContactConstraint : public Constraint {
   template <typename T, typename S>
   void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
                      VectorX<S>* y) const {
-    y->resize(3);
+    // y->resize(3);
+    y->resize(1);
 
     Eigen::VectorXd joint_position(dim_);
     for (std::size_t i = 0; i < dim_; i++) {
       joint_position[i] = x(i);
     }
-    std::cout << "joint_position: " << joint_position.transpose() << std::endl;
+    // std::cout << "joint_position: " << joint_position.transpose() <<
+    // std::endl;
 
     systems::Context<double>& root_context = simulator_->get_mutable_context();
     plant_->SetPositions(
@@ -274,11 +278,14 @@ class ContactConstraint : public Constraint {
         diagram_->GetMutableSubsystemContext(*plant_, &root_context), frame_e,
         frame_c);
 
-    std::cout << "X_AB: " << X_AB.translation().transpose() << std::endl;
+    // std::cout << "X_AB: " << X_AB.translation().transpose() << std::endl;
 
-    (*y)(0) = static_cast<double>(X_AB.translation().x());
-    (*y)(1) = static_cast<double>(X_AB.translation().y());
-    (*y)(2) = static_cast<double>(X_AB.translation().z());
+    // (*y)(0) = static_cast<double>(X_AB.translation().x());
+    // (*y)(1) = static_cast<double>(X_AB.translation().y());
+    // (*y)(2) = static_cast<double>(X_AB.translation().z());
+    double dist = X_AB.translation().norm();
+    std::cout << "dist: " << dist << std::endl;
+    (*y)(0) = dist;
   }
 
   void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
@@ -295,65 +302,6 @@ class ContactConstraint : public Constraint {
   void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
               VectorX<symbolic::Expression>* y) const override {
     throw std::runtime_error("error");
-  }
-};
-
-class DummyConstraint : public Constraint {
-  // 0.5x² + 0.5*y² + z² = 1
- public:
-  DummyConstraint() : Constraint(1, 3, Vector1d(1), Vector1d(1)) {}
-
- protected:
-  template <typename T>
-  void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
-                     VectorX<T>* y) const {
-    y->resize(1);
-    (*y)(0) = 0.5 * x(0) * x(0) + 0.5 * x(1) * x(1) + x(2) * x(2);
-  }
-
-  void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
-              Eigen::VectorXd* y) const override {
-    DoEvalGeneric<double>(x, y);
-  }
-
-  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
-              AutoDiffVecXd* y) const override {
-    DoEvalGeneric<AutoDiffXd>(x, y);
-  }
-
-  void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
-              VectorX<symbolic::Expression>* y) const override {
-    DoEvalGeneric<symbolic::Expression>(x.cast<symbolic::Expression>(), y);
-  }
-};
-
-class DummyCost : public Cost {
-  // -x²-2xy - 2xz - y² - 3z²
- public:
-  DummyCost() : Cost(3) {}
-
- protected:
-  template <typename T>
-  void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
-                     VectorX<T>* y) const {
-    y->resize(1);
-    (*y)(0) = -x(0) * x(0) - 2 * x(0) * x(1) - 2 * x(0) * x(2) - x(1) * x(1) -
-              3 * x(2) * x(2);
-  }
-
-  void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
-              Eigen::VectorXd* y) const override {
-    DoEvalGeneric<double>(x, y);
-  }
-
-  void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
-              AutoDiffVecXd* y) const override {
-    DoEvalGeneric<AutoDiffXd>(x, y);
-  }
-
-  void DoEval(const Eigen::Ref<const VectorX<symbolic::Variable>>& x,
-              VectorX<symbolic::Expression>* y) const override {
-    DoEvalGeneric<symbolic::Expression>(x.cast<symbolic::Expression>(), y);
   }
 };
 
@@ -579,39 +527,11 @@ int main() {
   // ======================
   // OPTIMIZATION
   // ======================
-  SnoptSolver test_solver;
-  drake::solvers::MathematicalProgram test_program;
-  auto x_var = test_program.NewContinuousVariables<2>();
 
-  test_program.AddBoundingBoxConstraint(
-      0, std::numeric_limits<double>::infinity(), x_var);
-  // test_program.AddCost(std::make_shared<DummyCost>(),
-  //                      Vector3<symbolic::Variable>(x_(0), x_(1), x_(1)));
-  // test_program.AddConstraint(std::make_shared<DummyConstraint>(), x_var);
-
-  test_program.AddCost(
-      std::make_shared<DummyCost>(),
-      Vector3<symbolic::Variable>(x_var(0), x_var(1), x_var(1)));
-  test_program.AddConstraint(
-      std::make_shared<DummyConstraint>(),
-      Vector3<symbolic::Variable>(x_var(0), x_var(0), x_var(1)));
-
-  auto test_result = test_solver.Solve(test_program, {}, {});
-
-  if (test_result.is_success()) {
-    std::cout << "Solution found!" << std::endl;
-    for (int i = 0; i < 3; i++) {
-      std::cout << "x" << i + 1 << " = " << test_result.GetSolution(x_var[i])
-                << std::endl;
-    }
-  } else {
-    std::cout << "Failed to find a solution." << std::endl;
-  }
-
-  return 0;
+  IpoptSolver solver;
 
   // NloptSolver solver;
-  SnoptSolver solver;
+  // SnoptSolver solver;
   // solvers::GurobiSolver solver;
 
   drake::solvers::MathematicalProgram prog;
@@ -635,8 +555,8 @@ int main() {
   SolverOptions options;
   // options.SetOption(CommonSolverOption::kPrintToConsole, 1);
   options.SetOption(CommonSolverOption::kPrintFileName, "solver.txt");
-  // auto result = Solve(prog, {}, {});
 
+  // auto result = Solve(prog, {}, {});
   MathematicalProgramResult result = solver.Solve(prog, {}, options);
 
   std::vector<std::string> names = result.GetInfeasibleConstraintNames(prog);
