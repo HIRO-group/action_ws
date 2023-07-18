@@ -16,7 +16,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/link0_simple.obj"/>
+        <mesh filename="../meshes/visual/link0.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -25,9 +25,9 @@
         <mesh filename="../meshes/visual/link0_simple.obj"/>
       </geometry>
       <drake:proximity_properties>
-          <drake:rigid_hydroelastic/>
-          <drake:mesh_resolution_hint value="1.5"/>
-          <drake:hunt_crossley_dissipation value="1.25"/>
+        <drake:rigid_hydroelastic/>
+        <drake:mesh_resolution_hint value="1.5"/>
+        <drake:hunt_crossley_dissipation value="1.25"/>
       </drake:proximity_properties>
     </collision>
   </link>
@@ -40,7 +40,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/link1_simple.obj"/>
+        <mesh filename="../meshes/visual/link1.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -71,7 +71,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/link2_simple.obj"/>
+        <mesh filename="../meshes/visual/link2.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -102,7 +102,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/link3_simple.obj"/>
+        <mesh filename="../meshes/visual/link3.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -133,7 +133,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/link4_simple.obj"/>
+        <mesh filename="../meshes/visual/link4.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -164,7 +164,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/link5_simple.obj"/>
+        <mesh filename="../meshes/visual/link5.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -195,7 +195,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/link6_simple.obj"/>
+        <mesh filename="../meshes/visual/link6.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -226,7 +226,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/link7_simple.obj"/>
+        <mesh filename="../meshes/visual/link7.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -248,15 +248,20 @@
     <axis xyz="0 0 1"/>
     <limit effort="12" lower="-2.8973" upper="2.8973" velocity="2.610"/>
   </joint>
-  <link name="panda_link8">
+  <!-- <link name="panda_link8">
     <collision>
       <origin rpy="0 0 0" xyz="0.042 0.042 -0.02"/>
       <geometry>
         <sphere radius="0.04"/>
       </geometry>
+            <drake:proximity_properties>
+        <drake:rigid_hydroelastic/>
+        <drake:mesh_resolution_hint value="1.5"/>
+        <drake:hunt_crossley_dissipation value="1.25"/>
+      </drake:proximity_properties>
     </collision>
-  </link>
-  <joint name="panda_joint8" type="fixed">
+  </link> -->
+  <!-- <joint name="panda_joint8" type="fixed">
     <origin rpy="0 0 0" xyz="0 0 0.107"/>
     <parent link="panda_link7"/>
     <child link="panda_link8"/>
@@ -265,7 +270,17 @@
     <parent link="panda_link8"/>
     <child link="panda_hand"/>
     <origin rpy="0 0 -0.785398163397" xyz="0 0 0"/>
+  </joint> -->
+  <joint name="panda_hand_joint" type="fixed">
+    <origin rpy="0 0 -0.785398163397" xyz="0 0 0.107"/>
+    <parent link="panda_link7"/>
+    <child link="panda_hand"/>
   </joint>
+  <!-- <joint name="panda_hand_joint" type="fixed">
+    <parent link="panda_link8"/>
+    <child link="panda_hand"/>
+    <origin rpy="0 0 -0.785398163397" xyz="0 0 0"/>
+  </joint> -->
   <transmission name="panda_tran1">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="panda_joint1">
@@ -359,7 +374,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/hand_simple.obj"/>
+        <mesh filename="../meshes/visual/hand.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -383,7 +398,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/finger_simple.obj"/>
+        <mesh filename="../meshes/visual/finger.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -407,7 +422,7 @@
     <visual>
       <origin rpy="1.57079632679 0 3.14159265359" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="../meshes/visual/finger_simple.obj"/>
+        <mesh filename="../meshes/visual/finger.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -456,14 +471,29 @@
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission> -->
-  <drake:collision_filter_group name="group_link57">
+  <!-- <drake:collision_filter_group name="group_link57">
     <drake:member link="panda_link5"/>
     <drake:member link="panda_link7"/>
     <drake:ignored_collision_filter_group name="group_link57"/>
-  </drake:collision_filter_group>
-  <drake:collision_filter_group name="group_link68">
+  </drake:collision_filter_group> -->
+  <!-- <drake:collision_filter_group name="group_link68">
     <drake:member link="panda_link6"/>
     <drake:member link="panda_link8"/>
     <drake:ignored_collision_filter_group name="group_link68"/>
+  </drake:collision_filter_group> -->
+  <drake:collision_filter_group name="all">
+    <drake:member link="panda_link0"/>
+    <drake:member link="panda_link1"/>
+    <drake:member link="panda_link2"/>
+    <drake:member link="panda_link3"/>
+    <drake:member link="panda_link4"/>
+    <drake:member link="panda_link5"/>
+    <drake:member link="panda_link6"/>
+    <drake:member link="panda_link7"/>
+    <drake:member link="panda_hand"/>
+    <drake:member link="panda_rightfinger"/>
+    <drake:member link="panda_leftfinger"/>
+    <drake:ignored_collision_filter_group name="all"/>
   </drake:collision_filter_group>
+
 </robot>

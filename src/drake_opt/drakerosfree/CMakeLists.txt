@@ -15,8 +15,9 @@ find_package(drake CONFIG REQUIRED)
 add_executable(franka_sim src/franka_sim.cpp)
 target_link_libraries(franka_sim drake::drake)
 
-add_executable(opt_test src/opt_test.cpp)
-target_link_libraries(opt_test drake::drake)
+
+# add_executable(opt_test src/opt_test.cpp)
+# target_link_libraries(opt_test drake::drake)
 
 # target_link_libraries(drake_test drake::drake ${GUROBI_LIBRARY})
 

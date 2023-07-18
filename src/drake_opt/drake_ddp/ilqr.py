@@ -17,7 +17,7 @@ class IterativeLinearQuadraticRegulator():
 
     using iLQR.
     """
-    def __init__(self, system, num_timesteps, 
+    def __init__(self, system, num_timesteps,
             input_port_index=0, delta=1e-2, beta=0.95, gamma=0.0):
         """
         Args:
@@ -25,11 +25,11 @@ class IterativeLinearQuadraticRegulator():
                                  x_{t+1} = f(x_t,u_t). Must be discrete-time.
             num_timesteps:      Number of timesteps to consider in the optimization.
             input_port_index:   InputPortIndex for the control input u_t. Default is to
-                                 use the first port. 
+                                 use the first port.
             delta:              Termination criterion - the algorithm ends when the improvement
-                                 in the total cost is less than delta. 
+                                 in the total cost is less than delta.
             beta:               Linesearch parameter in (0,1). Higher values lead to smaller
-                                 linesearch steps. 
+                                 linesearch steps.
             gamma:              Linesearch parameter in [0,1). Higher values mean linesearch
                                  is performed more often in hopes of larger cost reductions.
         """
@@ -45,7 +45,7 @@ class IterativeLinearQuadraticRegulator():
         self.system_ad = system.ToAutoDiffXd()
         self.context_ad = self.system_ad.CreateDefaultContext()
         self.input_port_ad = self.system_ad.get_input_port(input_port_index)
-       
+
         # Set some parameters
         self.N = num_timesteps
         self.delta = delta
@@ -77,7 +77,7 @@ class IterativeLinearQuadraticRegulator():
         self.kappa = np.zeros((self.m,self.N-1))
         self.K = np.zeros((self.m,self.n,self.N-1))
 
-        # Coefficents Qu'*Quu^{-1}*Qu for computing the expected 
+        # Coefficents Qu'*Quu^{-1}*Qu for computing the expected
         # reduction in cost dV = sum_t eps*(1-eps/2)*Qu'*Quu^{-1}*Qu
         self.dV_coeff = np.zeros(self.N-1)
 
@@ -126,7 +126,7 @@ class IterativeLinearQuadraticRegulator():
         """
         assert Qf.shape == (self.n, self.n)
         self.Qf = Qf
-    
+
     def SetInitialGuess(self, u_guess):
         """
         Set the initial guess of control tape.
@@ -173,7 +173,7 @@ class IterativeLinearQuadraticRegulator():
 
             lf = x'Qfx
 
-        for the given state values. 
+        for the given state values.
 
         Args:
             x: numpy array representing state
@@ -186,15 +186,15 @@ class IterativeLinearQuadraticRegulator():
         lf_xx = 2*self.Qf
 
         return (lf_x, lf_xx)
-    
+
     def _calc_dynamics(self, x, u):
         """
         Given a system state (x) and a control input (u),
-        compute the next state 
+        compute the next state
 
             x_next = f(x,u)
 
-        Args:   
+        Args:
             x:  An (n,) numpy array representing the state
             u:  An (m,) numpy array representing the control input
 
@@ -204,10 +204,11 @@ class IterativeLinearQuadraticRegulator():
         # Set input and state variables in our stored model accordingly
         self.context.SetDiscreteState(x)
         self.input_port.FixValue(self.context, u)
-
         # Compute the forward dynamics x_next = f(x,u)
         state = self.context.get_discrete_state()
+
         self.system.CalcForcedDiscreteVariableUpdate(self.context, state)
+
         x_next = state.get_vector().value().flatten()
 
         return x_next
@@ -220,15 +221,15 @@ class IterativeLinearQuadraticRegulator():
             x_next = f(x,u)
             fx = partial f(x,u) / partial x
             fu = partial f(x,u) / partial u
-        
-        Args:   
+
+        Args:
             x:  An (n,) numpy array representing the state
             u:  An (m,) numpy array representing the control input
 
         Returns:
-            fx:     A (n,n) numpy array representing the partial derivative 
+            fx:     A (n,n) numpy array representing the partial derivative
                     of f with respect to x.
-            fu:     A (n,m) numpy array representing the partial derivative 
+            fu:     A (n,m) numpy array representing the partial derivative
                     of f with respect to u.
         """
         # Create autodiff versions of x and u
@@ -245,7 +246,7 @@ class IterativeLinearQuadraticRegulator():
         state = self.context_ad.get_discrete_state()
         self.system_ad.CalcForcedDiscreteVariableUpdate(self.context_ad, state)
         x_next = state.get_vector().CopyToVector()
-       
+
         # Compute partial derivatives
         G = ExtractGradient(x_next)
         fx = G[:,:self.n]
@@ -256,7 +257,7 @@ class IterativeLinearQuadraticRegulator():
     def _linesearch(self, L_last):
         """
         Determine a value of eps in (0,1] that results in a suitably
-        reduced cost, based on forward simulations of the system. 
+        reduced cost, based on forward simulations of the system.
 
         This involves simulating the system according to the control law
 
@@ -292,12 +293,17 @@ class IterativeLinearQuadraticRegulator():
 
             x[:,0] = self.x0
             for t in range(0,self.N-1):
+                # print("self.u_bar[:,t]\n", self.u_bar[:,t])
+                # print("eps*self.kappa[:,t]\n", eps*self.kappa[:,t])
+                # print("self.K[:,:,t]@(x[:,t]\n", self.K[:,:,t])
+                # print("self.x_bar[:,t]\n", self.x_bar[:,t])
+
                 u[:,t] = self.u_bar[:,t] - eps*self.kappa[:,t] - self.K[:,:,t]@(x[:,t] - self.x_bar[:,t])
-                   
+
                 try:
                     x[:,t+1] = self._calc_dynamics(x[:,t], u[:,t])
                 except RuntimeError as e:
-                    # If dynamics are infeasible, consider the loss to be infinite 
+                    # If dynamics are infeasible, consider the loss to be infinite
                     # and stop simulating. This will lead to a reduction in eps
                     print("Warning: encountered infeasible simulation in linesearch")
                     #print(e)
@@ -317,7 +323,7 @@ class IterativeLinearQuadraticRegulator():
             eps *= self.beta
 
         raise RuntimeError("linesearch failed after %s iterations"%n_iters)
-    
+
     def _forward_pass(self, L_last):
         """
         Simulate the system forward in time using the local feedback
@@ -325,8 +331,8 @@ class IterativeLinearQuadraticRegulator():
 
             u = u_bar - eps*kappa - K*(x-x_bar).
 
-        Performs a linesearch on eps to (approximately) determine the 
-        largest value in (0,1] that results in a reduced cost. 
+        Performs a linesearch on eps to (approximately) determine the
+        largest value in (0,1] that results in a reduced cost.
 
         Args:
             L_last: Total loss from last iteration, used for linesearch
@@ -354,12 +360,12 @@ class IterativeLinearQuadraticRegulator():
         self.x_bar = x
 
         return L, eps, ls_iters
-    
+
     def _backward_pass(self):
         """
         Compute a quadratic approximation of the optimal cost-to-go
-        by simulating the system backward in time. Use this quadratic 
-        approximation and a first-order approximation of the system 
+        by simulating the system backward in time. Use this quadratic
+        approximation and a first-order approximation of the system
         dynamics to compute the feedback controller
 
             u = u_bar - eps*kappa - K*(x-x_bar).
@@ -404,7 +410,7 @@ class IterativeLinearQuadraticRegulator():
     def Solve(self):
         """
         Solve the optimization problem and return the (locally) optimal
-        state and input trajectories. 
+        state and input trajectories.
 
         Return:
             x:              (n,N) numpy array containing optimal state trajectory

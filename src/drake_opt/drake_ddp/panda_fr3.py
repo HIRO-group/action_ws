@@ -15,19 +15,19 @@ from ilqr import IterativeLinearQuadraticRegulator
 # Choose what to do
 simulate = True   # Run a simple simulation with fixed input
 optimize = False    # Find an optimal trajectory using ilqr
-playback = False    # Visualize the optimal trajectory by playing it back.
+playback = True    # Visualize the optimal trajectory by playing it back.
 # If optimize=False, attempts to load a previously saved
 # trajectory from a file.
 
 scenario = "lift"   # "lift", "forward", or "side"
-save_file = scenario + ".npz"
+save_file = "panda_" + scenario + ".npz"
 
 ####################################
 # Parameters
 ####################################
 
 T = 0.5
-dt = 1e-2
+dt = 0.002
 playback_rate = 0.125
 
 # Some useful joint angle definitions
@@ -90,7 +90,7 @@ mu_static = 0.3
 mu_dynamic = 0.2
 
 # Hydroelastic, Point, or HydroelasticWithFallback
-contact_model = ContactModel.kHydroelasticWithFallback
+contact_model = ContactModel.kHydroelastic
 mesh_type = HydroelasticContactRepresentation.kTriangle  # Triangle or Polygon
 
 ####################################
@@ -191,6 +191,13 @@ diagram = builder.Build()
 diagram_context = diagram.CreateDefaultContext()
 plant_context = diagram.GetMutableSubsystemContext(plant, diagram_context)
 
+# debug: check geomtry of objects
+# inspector = scene_graph.model_inspector()
+# for geometry_id in inspector.GetAllGeometryIds():
+#     frame_id = inspector.GetFrameId(geometry_id)
+#     body = plant.GetBodyFromFrameId(frame_id)
+#     source_name = inspector.GetOwningSourceName(frame_id)
+#     shape = inspector.GetShape(geometry_id)
 
 ####################################
 # Solve Trajectory Optimization
@@ -203,14 +210,6 @@ if optimize:
     plant_, scene_graph_ = create_system_model(plant_, scene_graph_)
     builder_.ExportInput(plant_.get_actuation_input_port(), "control")
     system_ = builder_.Build()
-
-    # check geomtry of objects
-    inspector = scene_graph_.model_inspector()
-    for geometry_id in inspector.GetAllGeometryIds():
-        frame_id = inspector.GetFrameId(geometry_id)
-        shape = inspector.GetShape(geometry_id)
-        if isinstance(shape, Convex):
-            print(frame_id)
 
     # Set up the optimizer
     num_steps = int(T/dt)

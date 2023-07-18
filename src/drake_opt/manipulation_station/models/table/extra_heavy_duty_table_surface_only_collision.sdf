@@ -151,7 +151,7 @@
         <pose>0 0 0.736 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.7112 0.762 0.057</size>
+            <size>1.7112 1.762 0.057</size>
           </box>
         </geometry>
         <material>
@@ -166,9 +166,14 @@
         <pose>0 0 0.736 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.7112 0.762 0.057</size>
+            <size>1.7112 1.762 0.057</size>
           </box>
         </geometry>
+        <drake:proximity_properties>
+          <drake:rigid_hydroelastic/>
+          <drake:mesh_resolution_hint value="1.5"/>
+          <drake:hunt_crossley_dissipation value="1.25"/>
+        </drake:proximity_properties>
         <surface>
           <friction>
             <ode>

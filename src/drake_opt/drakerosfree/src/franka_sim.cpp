@@ -20,6 +20,7 @@
 #include "drake/math/rotation_matrix.h"
 #include "drake/multibody/inverse_kinematics/distance_constraint.h"
 #include "drake/multibody/meshcat/contact_visualizer.h"
+#include "drake/multibody/optimization/contact_wrench_evaluator.h"
 #include "drake/multibody/parsing/parser.h"
 #include "drake/multibody/plant/contact_results_to_lcm.h"
 #include "drake/multibody/plant/multibody_plant.h"
@@ -98,15 +99,21 @@ void SetPidGains(Eigen::VectorXd* kp, Eigen::VectorXd* ki,
 MultibodyPlantConfig plant_config_;
 
 multibody::MultibodyPlant<double>* controller_plant_;
-
 multibody::MultibodyPlant<double>* plant_;
 systems::DiagramBuilder<double>* builder_(
     new systems::DiagramBuilder<double>());
 geometry::SceneGraph<double>* scene_graph_;
 std::unique_ptr<drake::systems::Diagram<double>> diagram_;
 std::vector<multibody::ModelInstanceIndex> robot_idx_;
-
 systems::Simulator<double>* simulator_;
+
+std::unique_ptr<systems::System<AutoDiffXd>> system_ad_;
+systems::Diagram<AutoDiffXd>* diagram_ad_;
+std::unique_ptr<systems::Context<AutoDiffXd>> root_context_ad_;
+
+// multibody::MultibodyPlant<AutoDiffXd>* plant_ad_;
+
+systems::Context<AutoDiffXd>* plant_context_ad_;
 
 // ======================
 // PRINT HELPERS
@@ -184,9 +191,6 @@ class ContactCost : public Cost {
               AutoDiffVecXd* y) const override {
     y->resize(1);
 
-    // simulator_->Initialize(); // this adds significant time, and not sure is
-    // needed simulator_->get_mutable_context().SetTime(0);
-
     auto x_vec = drake::math::ExtractValue(x);
     std::cout << "x_vec: " << x_vec.transpose() << std::endl;
 
@@ -242,10 +246,7 @@ class ContactCost : public Cost {
 
 class ContactConstraint : public Constraint {
  public:
-  ContactConstraint()
-      // : Constraint(3, 7, Eigen::Vector3d(0.0, 0.0, 0.0),
-      //              Eigen::Vector3d(0.0, 0.0, 0.0)){}
-      : Constraint(1, 7, Vector1d(0.0), Vector1d(0.0)) {}
+  ContactConstraint() : Constraint(1, 7, Vector1d(0.0), Vector1d(0.0)) {}
 
  private:
   std::size_t dim_ = 7;
@@ -253,7 +254,6 @@ class ContactConstraint : public Constraint {
   template <typename T, typename S>
   void DoEvalGeneric(const Eigen::Ref<const VectorX<T>>& x,
                      VectorX<S>* y) const {
-    // y->resize(3);
     y->resize(1);
 
     Eigen::VectorXd joint_position(dim_);
@@ -274,24 +274,51 @@ class ContactConstraint : public Constraint {
     const multibody::Frame<double>& frame_c =
         plant_->GetFrameByName("cylinder_base");
 
-    math::RigidTransform<double> X_AB = plant_->CalcRelativeTransform(
-        diagram_->GetMutableSubsystemContext(*plant_, &root_context), frame_e,
-        frame_c);
+    math::RigidTransform<double> X_WF = plant_->CalcRelativeTransform(
+        diagram_->GetMutableSubsystemContext(*plant_, &root_context),
+        plant_->world_frame(), frame_e);
 
-    // std::cout << "X_AB: " << X_AB.translation().transpose() << std::endl;
+    math::RigidTransform<double> X_WC = plant_->CalcRelativeTransform(
+        diagram_->GetMutableSubsystemContext(*plant_, &root_context),
+        plant_->world_frame(), frame_c);
 
-    // (*y)(0) = static_cast<double>(X_AB.translation().x());
-    // (*y)(1) = static_cast<double>(X_AB.translation().y());
-    // (*y)(2) = static_cast<double>(X_AB.translation().z());
-    double dist = X_AB.translation().norm();
-    std::cout << "dist: " << dist << std::endl;
-    (*y)(0) = dist;
+    auto p_TL7 = X_WF.translation() - X_WC.translation();
+    (*y)(0) = p_TL7.dot(p_TL7);
   }
 
   void DoEval(const Eigen::Ref<const AutoDiffVecXd>& x,
               AutoDiffVecXd* y) const override {
-    Eigen::Ref<const VectorX<double>> x_vec = drake::math::ExtractValue(x);
-    DoEvalGeneric(x_vec, y);
+    y->resize(1);
+
+    const auto& plant_ad =
+        dynamic_cast<const multibody::MultibodyPlant<AutoDiffXd>&>(
+            diagram_ad_->GetSubsystemByName(plant_->get_name()));
+
+    plant_context_ad_ = &(diagram_ad_->GetMutableSubsystemContext(
+        plant_ad, root_context_ad_.get()));
+
+    systems::Context<double>& root_context = simulator_->get_mutable_context();
+
+    // root_context_ad_->SetTimeStateAndParametersFrom(root_context);
+    // plant_ad.FixInputPortsFrom(*plant_, root_context,
+    // root_context_ad_.get());
+
+    plant_ad.SetPositions(plant_context_ad_, robot_idx_.at(0), x);
+
+    const multibody::Frame<AutoDiffXd>& frame_e =
+        plant_ad.GetFrameByName("panda_leftfinger");
+
+    const multibody::Frame<AutoDiffXd>& frame_c =
+        plant_ad.GetFrameByName("cylinder_base");
+
+    math::RigidTransform<AutoDiffXd> X_WF = plant_ad.CalcRelativeTransform(
+        *plant_context_ad_, plant_ad.world_frame(), frame_e);
+
+    math::RigidTransform<AutoDiffXd> X_WC = plant_ad.CalcRelativeTransform(
+        *plant_context_ad_, plant_ad.world_frame(), frame_c);
+
+    auto p_TL7 = X_WF.translation() - X_WC.translation();
+    (*y)(0) = p_TL7.dot(p_TL7);
   }
 
   void DoEval(const Eigen::Ref<const Eigen::VectorXd>& x,
@@ -411,7 +438,6 @@ int main() {
   builder_->Connect(plant_->get_state_output_port(robot_idx_.at(0)),
                     idc_controller->get_input_port_estimated_state());
 
-  // std::cout << "here 2" << std::endl;
   // builder_->Connect(plant_->get_state_output_port(),
   //                   idc_controller->get_input_port_estimated_state());
 
@@ -525,11 +551,34 @@ int main() {
   // }
 
   // ======================
+  // AUTODIFF
+  // ======================
+
+  // Convert the plant and its context to use AutoDiff.
+  // auto context = plant_->CreateDefaultContext();
+  // plant_ad_ = drake::systems::System<double>::ToAutoDiffXd(*plant_);
+  // context_ad_ = plant_ad_->CreateDefaultContext();
+
+  system_ad_ = diagram_->ToAutoDiffXd();
+  diagram_ad_ = dynamic_cast<systems::Diagram<AutoDiffXd>*>(system_ad_.get());
+  root_context_ad_ = diagram_ad_->CreateDefaultContext();
+
+  const auto& plant_ad =
+      dynamic_cast<const multibody::MultibodyPlant<AutoDiffXd>&>(
+          diagram_ad_->GetSubsystemByName(plant_->get_name()));
+
+  // systems::Context<AutoDiffXd>& plant_context_ad =
+  plant_context_ad_ = &(diagram_ad_->GetMutableSubsystemContext(
+      plant_ad, root_context_ad_.get()));
+
+  root_context_ad_->SetTimeStateAndParametersFrom(root_context);
+  plant_ad.FixInputPortsFrom(*plant_, root_context, root_context_ad_.get());
+
+  // ======================
   // OPTIMIZATION
   // ======================
 
-  IpoptSolver solver;
-
+  // IpoptSolver solver;
   // NloptSolver solver;
   // SnoptSolver solver;
   // solvers::GurobiSolver solver;
@@ -553,13 +602,43 @@ int main() {
   const ProgramType prog_type = GetProgramType(prog);
   std::cout << "prog_type: " << prog_type << std::endl;
   SolverOptions options;
-  // options.SetOption(CommonSolverOption::kPrintToConsole, 1);
+  options.SetOption(CommonSolverOption::kPrintToConsole, 1);
   options.SetOption(CommonSolverOption::kPrintFileName, "solver.txt");
 
-  // auto result = Solve(prog, {}, {});
-  MathematicalProgramResult result = solver.Solve(prog, {}, options);
+  // const auto& query_port = plant_->get_geometry_query_input_port();
+  // const auto& query_object = query_port.Eval<geometry::QueryObject<double>>(
+  //     diagram_->GetMutableSubsystemContext(*plant_, &root_context));
+  // const std::set<std::pair<geometry::GeometryId, geometry::GeometryId>>
+  //     collision_candidate_pairs =
+  //         query_object.inspector().GetCollisionCandidates();
 
-  std::vector<std::string> names = result.GetInfeasibleConstraintNames(prog);
+  // const auto& plant = plnat_;
+  // q_vars = prog.NewContinuousVariables(plant.num_positions(), "q");
+
+  // int geometry_pair_count = 0;
+  // std::vector<
+  //     std::pair<std::shared_ptr<drake::multibody::ContactWrenchEvaluator>,
+  //               VectorX<symbolic::Variable>>>
+  //     contact_wrench_evaluators_and_lambda_;
+
+  // for (const auto& geometry_pair : collision_candidate_pairs) {
+  //   auto wrench_evaluator = std::make_shared<
+  //       drake::multibody::ContactWrenchFromForceInWorldFrameEvaluator>(
+  //       plant_, diagram_->GetMutableSubsystemContext(*plant_, &root_context),
+  //       SortedPair<geometry::GeometryId>(geometry_pair.first,
+  //                                        geometry_pair.second));
+  //   auto lambda_i = prog.NewContinuousVariables(
+  //       wrench_evaluator->num_lambda(),
+  //       "lambda" + std::to_string(geometry_pair_count));
+  //   contact_wrench_evaluators_and_lambda_.push_back(
+  //       std::make_pair(wrench_evaluator, lambda_i));
+  //   geometry_pair_count++;
+  // }
+
+  auto result = Solve(prog, {}, {});
+  // MathematicalProgramResult result = solver.Solve(prog, {}, options);
+
+  // std::vector<std::string> names = result.GetInfeasibleConstraintNames(prog);
 
   const auto q_res = result.GetSolution(q_var);
 

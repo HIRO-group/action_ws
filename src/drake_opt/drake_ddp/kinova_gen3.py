@@ -13,14 +13,14 @@ from pydrake.all import *
 from ilqr import IterativeLinearQuadraticRegulator
 
 # Choose what to do
-simulate = False   # Run a simple simulation with fixed input
+simulate = True   # Run a simple simulation with fixed input
 optimize = True    # Find an optimal trajectory using ilqr
 playback = True    # Visualize the optimal trajectory by playing it back.
 # If optimize=False, attempts to load a previously saved
 # trajectory from a file.
 
 scenario = "lift"   # "lift", "forward", or "side"
-save_file = scenario + ".npz"
+save_file = "kinova_" + scenario + ".npz"
 
 ####################################
 # Parameters
@@ -32,15 +32,14 @@ playback_rate = 0.125
 
 # Some useful joint angle definitions
 q_home = np.pi/180*np.array([0, 15, 180, 230, 0, 55, 90])
-q_retract = np.array([0, 5.93-2*np.pi, np.pi, 3.734-2 *
-                     np.pi, 0, 5.408-2*np.pi, np.pi/2])
+q_retract = np.array([0, 5.93-2*np.pi, np.pi, 3.734-2*np.pi, 0, 5.408-2*np.pi, np.pi/2])
 q_push = np.array([0.0, np.pi/4+0.13, np.pi, 4.4-2*np.pi, 0, 1.2, np.pi/2])
 q_wrap = np.pi/180*np.array([55, 125, 114, 244, 217, 45, 8])
 
 # Some useful ball pose definitions
 radius = 0.1   # of ball
-q_ball_start = np.array([0, 0, 0, 1, 0.6, 0.0, radius])
-q_ball_target = np.array([0, 0, 0, 1, 0.6, 0.0, radius])
+q_ball_start = np.array([0,0,0,1,0.6,0.0,radius])
+q_ball_target = np.array([0,0,0,1,0.6,0.0,radius])
 if scenario == "lift":
     q_ball_start[4] = 0.155  # ball starts close to the base
     q_ball_target[6] += 0.2   # goal is to lift it in the air
@@ -49,7 +48,8 @@ elif scenario == "forward":
 elif scenario == "side":
     q_ball_target[5] += 0.15  # goal is to move the ball to the side
 else:
-    raise RuntimeError("Unknown scenario %s" % scenario)
+    raise RuntimeError("Unknown scenario %s"%scenario)
+
 
 # Initial state
 q_start = q_push
