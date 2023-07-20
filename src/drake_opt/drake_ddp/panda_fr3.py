@@ -20,7 +20,7 @@ playback = True    # Visualize the optimal trajectory by playing it back.
 # trajectory from a file.
 
 scenario = "lift"   # "lift", "forward", or "side"
-save_file = "panda_" + scenario + ".npz"
+save_file = "panda_" + scenario + "1.npz"
 
 ####################################
 # Parameters
