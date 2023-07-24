@@ -45,8 +45,8 @@ int main(int argc, char **argv) {
 
   std::vector<std::vector<double>> knots;
   knots.emplace_back(start);
-  knots.emplace_back(wp1);
-  knots.emplace_back(wp2);
+  // knots.emplace_back(wp1);
+  // knots.emplace_back(wp2);
   knots.emplace_back(goal);
 
   std::size_t num_jnts =
@@ -58,37 +58,37 @@ int main(int argc, char **argv) {
     cons1.joint_constraints[i].joint_name =
         planner->getJointModelGroup()->getVariableNames()[i];
     cons1.joint_constraints[i].position = knots[1].at(i);
-    cons1.joint_constraints[i].tolerance_above = 0.001;
-    cons1.joint_constraints[i].tolerance_below = 0.001;
+    cons1.joint_constraints[i].tolerance_above = 0.05;
+    cons1.joint_constraints[i].tolerance_below = 0.05;
     cons1.joint_constraints[i].weight = 1.0;
   }
 
-  moveit_msgs::Constraints cons2;
-  cons2.joint_constraints.resize(num_jnts);
-  for (std::size_t i = 0; i < num_jnts; ++i) {
-    cons2.joint_constraints[i].joint_name =
-        planner->getJointModelGroup()->getVariableNames()[i];
-    cons2.joint_constraints[i].position = knots[2].at(i);
-    cons2.joint_constraints[i].tolerance_above = 0.001;
-    cons2.joint_constraints[i].tolerance_below = 0.001;
-    cons2.joint_constraints[i].weight = 1.0;
-  }
+  // moveit_msgs::Constraints cons2;
+  // cons2.joint_constraints.resize(num_jnts);
+  // for (std::size_t i = 0; i < num_jnts; ++i) {
+  //   cons2.joint_constraints[i].joint_name =
+  //       planner->getJointModelGroup()->getVariableNames()[i];
+  //   cons2.joint_constraints[i].position = knots[2].at(i);
+  //   cons2.joint_constraints[i].tolerance_above = 0.001;
+  //   cons2.joint_constraints[i].tolerance_below = 0.001;
+  //   cons2.joint_constraints[i].weight = 1.0;
+  // }
 
-  moveit_msgs::Constraints cons3;
-  cons3.joint_constraints.resize(num_jnts);
-  for (std::size_t i = 0; i < num_jnts; ++i) {
-    cons3.joint_constraints[i].joint_name =
-        planner->getJointModelGroup()->getVariableNames()[i];
-    cons3.joint_constraints[i].position = knots[3].at(i);
-    cons3.joint_constraints[i].tolerance_above = 0.001;
-    cons3.joint_constraints[i].tolerance_below = 0.001;
-    cons3.joint_constraints[i].weight = 1.0;
-  }
+  // moveit_msgs::Constraints cons3;
+  // cons3.joint_constraints.resize(num_jnts);
+  // for (std::size_t i = 0; i < num_jnts; ++i) {
+  //   cons3.joint_constraints[i].joint_name =
+  //       planner->getJointModelGroup()->getVariableNames()[i];
+  //   cons3.joint_constraints[i].position = knots[3].at(i);
+  //   cons3.joint_constraints[i].tolerance_above = 0.001;
+  //   cons3.joint_constraints[i].tolerance_below = 0.001;
+  //   cons3.joint_constraints[i].weight = 1.0;
+  // }
 
   std::vector<moveit_msgs::Constraints> constraints;
   constraints.emplace_back(cons1);
-  constraints.emplace_back(cons2);
-  constraints.emplace_back(cons3);
+  // constraints.emplace_back(cons2);
+  // constraints.emplace_back(cons3);
 
   std::vector<planning_interface::MotionPlanResponse> responses;
   for (std::size_t i = 0; i < constraints.size(); i++) {

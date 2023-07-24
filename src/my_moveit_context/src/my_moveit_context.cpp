@@ -91,7 +91,7 @@ void MyMoveitContext::setSimplifySolution(bool simplify_solution) {
 
 void MyMoveitContext::setPlanningContextParams(
     ompl_interface::ModelBasedPlanningContextPtr& context) {
-  unsigned int max_goal_samples_ = 10;
+  unsigned int max_goal_samples_ = 100;
   unsigned int max_state_sampling_attempts_ = 4;
   unsigned int max_goal_sampling_attempts_ = 1000;
   unsigned int max_planning_threads_ = 10;

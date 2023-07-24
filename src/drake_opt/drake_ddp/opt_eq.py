@@ -16,7 +16,7 @@ class OptEq():
 
     """
 
-    def __init__(self, system, arm_idx):
+    def __init__(self, system, scene_graph):
         """
         Args:
             system:             Drake System describing the discrete-time dynamics
@@ -24,6 +24,9 @@ class OptEq():
         """
         assert system.IsDifferenceEquationSystem(
         )[0],  "must be a discrete-time system"
+
+        self.scene_graph = scene_graph
+        self.inspector = scene_graph.model_inspector()
 
         # float-type copy of the system and context for linesearch.
         # Computations using this system are fast but don't support gradients
@@ -54,12 +57,15 @@ class OptEq():
         # Define state and input sizes
         self.n = self.context.get_discrete_state_vector().size()
         print("self.n: ", self.n)
+        self.m = self.input_port.size()
+        print("self.m: ", self.m)
 
         # Initial and target states
         self.x0 = np.zeros(self.n)
         self.x_xom = np.zeros(self.n)
 
         self.panda_idx = self.plant.GetModelInstanceByName("panda")
+        self.ball_idx = self.plant.GetModelInstanceByName("ball")
 
     def SetInitialState(self, q0):
         """
@@ -85,11 +91,16 @@ class OptEq():
 
         prog.AddConstraint(
             self.contact_constraint,
-            lb=[0.0], ub=[0.01], vars=q)
+            lb=[0.004], ub=[0.005], vars=q)
+
+        solver = SnoptSolver()
+        assert (solver.available())
+        # result = solver.Solve(prog)
 
         result = Solve(prog, initial_guess=self.q0)
 
-        # result = Solve(prog)
+        solver = result.get_solver_id()
+        print("Solver: ", solver.name())
 
         print(f"Success? {result.is_success()}")
         print(result.get_solution_result())
@@ -98,39 +109,197 @@ class OptEq():
 
         return q_sol
 
+    def set_xu(self, q):
+        obj_pos = np.array([0.2, 0., 0.05])
+        obj_ori = np.array([0., 0., 0., 1])
+        q_full0 = np.hstack(
+            [q, obj_ori, obj_pos, np.zeros(9), np.zeros(4)])
+
+        x = q_full0
+        u = np.zeros(7)
+        xu = np.hstack([x, u])
+        return xu
+
     def contact_constraint(self, q):
+
         if q.dtype == float:
-            print("float")
+            print("float: ", q)
+            xu = self.set_xu(q)
+            x_ad = xu[:self.n]
+            u_ad = xu[self.n:]
+            self.context.SetDiscreteState(x_ad)
+            x_start = self.context.get_discrete_state().get_vector().CopyToVector()
+            state = self.context.get_discrete_state()
+            self.input_port.FixValue(self.context, np.zeros(7))
+            self.system.CalcForcedDiscreteVariableUpdate(
+                self.context, state)
+            x_next = state.get_vector().CopyToVector()
+
+            x_ball_diff = np.array([x_start[13]-x_next[13]])
+            # print(x_ball_diff)
+            # out = next[13]
+
             plant = self.plant
             context = plant.GetMyMutableContextFromRoot(
                 root_context=self.context)
+            contact_results = (
+                plant.get_contact_results_output_port().Eval(context))
+            num_pp = contact_results.num_point_pair_contacts()
+            num_hydro = contact_results.num_hydroelastic_contacts()
+            print("num point contacts = ", num_pp)
+            print("num hydroelastic contacts = ", num_hydro)
+
+            total_area = 0
+            for i in range(num_hydro):
+                contact = contact_results.hydroelastic_contact_info(i)
+                contact_surface = contact.contact_surface()
+                centroid = contact_surface.centroid()
+                # print(centroid)
+                # print(ExtractValue(centroid))
+                # print(ExtractGradient(centroid))
+
+                geometry_id_m = contact_surface.id_M()
+                geometry_id_n = contact_surface.id_N()
+
+                frame_id_m = self.inspector.GetFrameId(geometry_id_m)
+                frame_id_n = self.inspector.GetFrameId(geometry_id_n)
+
+                print(plant.GetBodyFromFrameId(frame_id_m).name())
+                print(plant.GetBodyFromFrameId(frame_id_n).name())
+
+                total_area += contact_surface.total_area()
+                print("total_area: ", total_area)
+
+            return np.array([total_area])
+
         else:
-            print("autodiff")
+            qval = ExtractValue(q)
+            print("autodiff: ", qval[:, 0])
+            xu = self.set_xu(qval[:, 0])
+            xu_ad = InitializeAutoDiff(xu)
+            x_ad = xu_ad[:self.n]
+            u_ad = xu_ad[self.n:]
+            self.context_ad.SetDiscreteState(x_ad)
+            x_start = self.context_ad.get_discrete_state().get_vector().CopyToVector()
+            state = self.context_ad.get_discrete_state()
+            self.system_ad.CalcForcedDiscreteVariableUpdate(
+                self.context_ad, state)
+            x_next = state.get_vector().CopyToVector()
+            x_ball_diff = x_start[13]-x_next[13]
+            print("x_ball_diff: ", x_ball_diff)
+            print("x_start[13]: ", x_start[13].value())
+            print("x_next[13]: ", x_next[13].value())
+
+            G = ExtractGradient(x_next)
+
+            out = InitializeAutoDiff(
+                np.array([x_start[13].value()]), np.array([G[13, 26]]))
+
             plant = self.plant_ad
             context = plant.GetMyMutableContextFromRoot(
                 root_context=self.context_ad)
+            contact_results = (
+                plant.get_contact_results_output_port().Eval(context))
+            num_pp = contact_results.num_point_pair_contacts()
+            num_hydro = contact_results.num_hydroelastic_contacts()
+            print("num point contacts = ", num_pp)
+            print("num hydroelastic contacts = ", num_hydro)
+
+            total_area = InitializeAutoDiff(np.array([0]), num_derivatives=34)
+            for i in range(num_hydro):
+                contact = contact_results.hydroelastic_contact_info(i)
+                contact_surface = contact.contact_surface()
+                centroid = contact_surface.centroid()
+                # print(centroid)
+                # print(ExtractValue(centroid))
+                # print(ExtractGradient(centroid))
+
+                geometry_id_m = contact_surface.id_M()
+                geometry_id_n = contact_surface.id_N()
+
+                frame_id_m = self.inspector.GetFrameId(geometry_id_m)
+                frame_id_n = self.inspector.GetFrameId(geometry_id_n)
+
+                print(plant.GetBodyFromFrameId(frame_id_m).name())
+                print(plant.GetBodyFromFrameId(frame_id_n).name())
+
+                total_area += contact_surface.total_area()
+                print("total_area: ", total_area)
+
+            return total_area
 
         # Do forward kinematics.
-        plant.SetPositions(context, self.panda_idx, q)
 
-        contact_results = (
-            plant.get_contact_results_output_port().Eval(context))
+        # print("before")
 
-        num_pp = contact_results.num_point_pair_contacts()
-        num_hydro = contact_results.num_hydroelastic_contacts()
+        # print(ExtractValue(state_before))
 
-        print("num point contacts = ", num_pp)
-        print("num hydroelastic contacts = ", num_hydro)
+        # print("after")
+        # self.input_port_ad.FixValue(self.context_ad, u_ad)
 
-        out = InitializeAutoDiff(np.ones((3, 3)))
-        for i in range(num_hydro):
-            contact = contact_results.hydroelastic_contact_info(i)
-            centroid = contact.contact_surface().centroid()
-            print("centroid: ", centroid)
-            out = out.dot(centroid)
-        print("out: ", out)
+        # plant.SetPositions(context, self.panda_idx, q)
+        # ball_pos = InitializeAutoDiff(np.ones(7))
+        # plant.SetPositions(context, self.ball_idx, ball_pos)
 
-        return out
+        # Compute the forward dynamics x_next = f(x,u)
+
+        # contact_results = (
+        #     plant.get_contact_results_output_port().Eval(context))
+        # num_pp = contact_results.num_point_pair_contacts()
+        # num_hydro = contact_results.num_hydroelastic_contacts()
+        # print("num point contacts = ", num_pp)
+        # print("num hydroelastic contacts = ", num_hydro)
+
+        # frame_A = plant.GetFrameByName("ball")
+        # print(frame_A.name())
+        # vel = frame_A.CalcSpatialVelocityInWorld(context)
+        # print("vel")
+        # print(vel)
+
+        # print(frame_A.CalcPoseInWorld(context))
+
+        # out = InitializeAutoDiff(np.zeros((1, 3)), num_derivatives=7)
+        # print(ExtractValue(out))
+        # print(ExtractGradient(out))
+        # for i in range(num_hydro):
+        #     contact = contact_results.hydroelastic_contact_info(i)
+        #     contact_surface = contact.contact_surface()
+        #     centroid = contact_surface.centroid()
+        #     # print(centroid)
+        #     # print(ExtractValue(centroid))
+        #     # print(ExtractGradient(centroid))
+
+        #     geometry_id_m = contact_surface.id_M()
+        #     geometry_id_n = contact_surface.id_N()
+
+        #     frame_id_m = self.inspector.GetFrameId(geometry_id_m)
+        #     frame_id_n = self.inspector.GetFrameId(geometry_id_n)
+
+        #     print(plant.GetBodyFromFrameId(frame_id_m).name())
+        #     print(plant.GetBodyFromFrameId(frame_id_n).name())
+
+        #     force = contact.F_Ac_W()
+
+        #     trans = force.translational()
+        #     rot = force.rotational()
+
+        #     print(ExtractValue(trans))
+        #     print(ExtractGradient(trans))
+
+        #     out += trans
+        #     print("here")
+        #     print(out)
+
+        # print("value")
+        # print(ExtractValue(out))
+        # print("gradient")
+        # print(ExtractGradient(out))
+        # print("dot")
+
+        # out = np.dot(out, out)
+        # print(out)
+
+        # return out
 
     def SolveSampleIK(self):
         prog = MathematicalProgram()
@@ -185,6 +354,8 @@ class OptEq():
             plant = self.plant_ad
             context = plant.GetMyMutableContextFromRoot(
                 root_context=self.context_ad)
+            # print(ExtractValue(q))
+            # print(ExtractGradient(q))
 
         # Do forward kinematics.
         plant.SetPositions(context, self.panda_idx, q)
@@ -192,6 +363,11 @@ class OptEq():
         X_WL7 = plant.CalcRelativeTransform(
             context, self.resolve_frame(plant, W), self.resolve_frame(plant, L7))
         p_TL7 = X_WL7.translation() - p_WT
+
+        # print(p_TL7)
+        # print(ExtractValue(p_TL7))
+        # print(ExtractGradient(p_TL7))
+        # print(p_TL7.dot(p_TL7))
 
         return p_TL7.dot(p_TL7)
 

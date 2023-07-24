@@ -33,13 +33,16 @@ contact_model = ContactModel.kHydroelasticWithFallback
 mesh_type = HydroelasticContactRepresentation.kTriangle  # Triangle or Polygon
 
 # Some useful joint angle definitions
-q_home = np.array([0., -0.785, 0., -2.356, 0., 1.570, 0.785])
+q_home = np.array([0., 0.2, 0., -2.756, 0., 1.570, 0.785])
+# q_home = np.array([0., -0.785, 0., -2.356, 0., 1.570, 0.785])
+
 q_home0 = np.hstack([q_home, np.zeros(7)])
 x0 = np.hstack([q_home, np.zeros(7)])
 
-obj_pos = np.array([0.2, 0., 0.2])
+obj_pos = np.array([0.3, 0., 0.05])
 obj_ori = np.array([0., 0., 0., 1])
-q_full0 = np.hstack([q_home, obj_ori, obj_pos, np.zeros(13)])
+q_full0 = np.hstack([q_home, obj_ori, obj_pos, np.zeros(9), np.zeros(4)])
+print("q_full0.size: ", q_full0.size)
 
 
 def get_proximity_properties():
@@ -179,16 +182,15 @@ if optimize:
 
     arm_idx = add_robot(plant_)
     add_ground(plant_)
-    add_ball(plant_)
+    ball_idx = add_ball(plant_)
     finalize_plant(plant_)
 
     builder_.ExportInput(plant_.get_actuation_input_port(), "control")
     system_ = builder_.Build()
 
-    optEq = OptEq(system_, arm_idx)
+    optEq = OptEq(system_, scene_graph_)
     optEq.SetInitialState(q_home)
     # q = optEq.SolveSampleIK()
-    # q = optEq.SolveStaticEquilibriumProblem()
     q = optEq.SolveContactProblem()
     x0 = np.hstack([q, np.zeros(7)])
 
