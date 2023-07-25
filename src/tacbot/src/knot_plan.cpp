@@ -58,8 +58,8 @@ int main(int argc, char **argv) {
     cons1.joint_constraints[i].joint_name =
         planner->getJointModelGroup()->getVariableNames()[i];
     cons1.joint_constraints[i].position = knots[1].at(i);
-    cons1.joint_constraints[i].tolerance_above = 0.05;
-    cons1.joint_constraints[i].tolerance_below = 0.05;
+    cons1.joint_constraints[i].tolerance_above = 0.3;
+    cons1.joint_constraints[i].tolerance_below = 0.3;
     cons1.joint_constraints[i].weight = 1.0;
   }
 

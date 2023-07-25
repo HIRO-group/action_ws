@@ -14,13 +14,13 @@ from ilqr import IterativeLinearQuadraticRegulator
 
 # Choose what to do
 simulate = True   # Run a simple simulation with fixed input
-optimize = False    # Find an optimal trajectory using ilqr
+optimize = True    # Find an optimal trajectory using ilqr
 playback = True    # Visualize the optimal trajectory by playing it back.
 # If optimize=False, attempts to load a previously saved
 # trajectory from a file.
 
-scenario = "lift"   # "lift", "forward", or "side"
-save_file = "panda_" + scenario + "1.npz"
+scenario = "forward"   # "lift", "forward", or "side"
+save_file = "panda_" + scenario + ".npz"
 
 ####################################
 # Parameters
@@ -213,8 +213,9 @@ if optimize:
 
     # Set up the optimizer
     num_steps = int(T/dt)
+    # delta=1e-3
     ilqr = IterativeLinearQuadraticRegulator(system_, num_steps,
-                                             beta=0.5, delta=1e-3, gamma=0)
+                                             beta=0.5, delta=0.01, gamma=0)
 
     # Define the optimization problem
     ilqr.SetInitialState(x0)
