@@ -38,6 +38,8 @@ class Visualizer {
   */
   void visualizeRepulseOrigin(std::size_t state_num);
 
+  void visualizePoints(const std::vector<geometry_msgs::Point>& points);
+
   /** \brief Visualize the obstacle in the scne.
       @param obstacle_pos The vecetor of obstacle positions in cartesian space.
   */

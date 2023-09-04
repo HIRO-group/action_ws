@@ -24,6 +24,7 @@ void BasePlanner::setCurToStartState(
 
   std::vector<double> start_joint_values;
   robot_state->copyJointGroupPositions(joint_model_group_, start_joint_values);
+
   req.start_state.joint_state.position = start_joint_values;
 
   start_joint_values.clear();
@@ -71,12 +72,17 @@ void BasePlanner::setStartState(planning_interface::MotionPlanRequest& req,
 }
 
 moveit_msgs::Constraints BasePlanner::createJointGoal() {
+  return createJointGoal(joint_goal_pos_);
+}
+
+moveit_msgs::Constraints BasePlanner::createJointGoal(
+    std::vector<double> joint_goal_pos) {
   moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
       planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
 
   moveit::core::RobotState goal_state(*robot_state);
 
-  goal_state.setJointGroupPositions(joint_model_group_, joint_goal_pos_);
+  goal_state.setJointGroupPositions(joint_model_group_, joint_goal_pos);
 
   double tolerance = 0.001;
 
@@ -213,6 +219,52 @@ void BasePlanner::init() {
   ROS_INFO_NAMED(LOGNAME, "vis_data_");
   vis_data_ = std::make_shared<VisualizerData>();
   ROS_INFO_NAMED(LOGNAME, "init done");
+}
+
+bool BasePlanner::solveIK(const geometry_msgs::Pose& ik_pose,
+                          const std::vector<double>& ik_seed_state,
+                          std::vector<double>& solution) {
+  const kinematics::KinematicsBaseConstPtr ik_solver =
+      joint_model_group_->getSolverInstance();
+
+  // std::vector<std::string> link_names;
+  // link_names.emplace_back("panda_link8");
+  // std::vector<geometry_msgs::Pose> poses;
+  // std::vector<double> start_joint_values;
+
+  // moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
+  //     planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
+  // robot_state->setToDefaultValues(joint_model_group_, "ready");
+
+  // robot_state->copyJointGroupPositions(joint_model_group_,
+  // start_joint_values); bool status = ik_solver->getPositionFK(link_names,
+  // start_joint_values, poses);
+
+  // std::cout << "fk status: " << status << std::endl;
+
+  // for (std::size_t i = 0; i < poses.size(); i++) {
+  //   geometry_msgs::Pose pose = poses[i];
+  //   std::cout << "pose.position.x: " << pose.position.x << std::endl;
+  //   std::cout << "pose.position.y: " << pose.position.y << std::endl;
+  //   std::cout << "pose.position.z: " << pose.position.z << std::endl;
+  //   std::cout << "pose.orientation.x: " << pose.orientation.x << std::endl;
+  //   std::cout << "pose.orientation.y: " << pose.orientation.y << std::endl;
+  //   std::cout << "pose.orientation.z: " << pose.orientation.z << std::endl;
+  //   std::cout << "pose.orientation.w: " << pose.orientation.w << std::endl;
+  // }
+
+  moveit_msgs::MoveItErrorCodes error_code;
+  bool is_valid =
+      ik_solver->getPositionIK(ik_pose, ik_seed_state, solution, error_code);
+
+  if (error_code.val != error_code.SUCCESS) {
+    ROS_ERROR_STREAM_NAMED(
+        LOGNAME,
+        "IK solution callback failed with with error code: " << error_code.val);
+    return false;
+  }
+
+  return true;
 }
 
 std::string BasePlanner::getGroupName() { return group_name_; }

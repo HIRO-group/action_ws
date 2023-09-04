@@ -24,7 +24,6 @@ int main(int argc, char **argv) {
       std::make_shared<PerceptionPlanner>();
   ROS_DEBUG_NAMED(LOGNAME, "planner->init()");
   planner->init();
-  planner->setObstacleScene(0);
 
   ROS_DEBUG_NAMED(LOGNAME, "planner->getVisualizerData()");
   std::shared_ptr<Visualizer> visualizer =
@@ -35,73 +34,61 @@ int main(int argc, char **argv) {
       planner->getPlanningSceneMonitor(), planner->getRobotModel());
   context->setSimplifySolution(true);
 
-  std::vector<geometry_msgs::Point> waypoint_grid;
-
-  double start_x = 0.4;
-  double start_y = 0.0;
-  double start_z = 0.3;
-
-  double x_offset = 0.1;
-  double y_offset = 0.1;
-  double z_offset = 0.1;
-
-  double num_x_pts = 2;
-  double num_y_pts = 2;
-
-  for (std::size_t i = 0; i < num_x_pts; i++) {
-    for (std::size_t j = 0; j < num_y_pts; j++) {
-      geometry_msgs::Point pt1;
-      pt1.x = start_x + x_offset * i;
-      pt1.y = start_y + y_offset * j;
-      pt1.z = start_z + z_offset + 0.0584;
-      waypoint_grid.emplace_back(pt1);
-
-      geometry_msgs::Point pt2 = pt1;
-      pt2.z = pt1.z - z_offset;
-      waypoint_grid.emplace_back(pt2);
-
-      waypoint_grid.emplace_back(pt1);
-    }
-  }
-
-  visualizer->visualizePoints(waypoint_grid);
-  bool status = utilities::promptUserInput();
-  if (!status) {
-    return 0;
-  }
-
-  std::size_t num_waypoints = waypoint_grid.size();
-  ROS_DEBUG_NAMED(LOGNAME, "num_waypoints: %ld", num_waypoints);
-  std::vector<std::vector<double>> knots;
   std::vector<double> start{
       0, -0.785398163, 0, -2.35619449, 0, 1.57079632679, 0.785398163397};
+  std::vector<double> wp1{-1.80753,  -1.22744, 1.94936,  -1.356,
+                          -0.440299, 2.34236,  -0.313631};
+  std::vector<double> wp2{-2.02094,  -1.10387, 1.9391,   -1.61801,
+                          -0.440085, 1.69906,  -0.295163};
+  std::vector<double> goal{-2.02408,   -1.06383, 1.8716,    -1.80128,
+                           0.00569006, 0.713265, -0.0827766};
+
+  std::vector<std::vector<double>> knots;
   knots.emplace_back(start);
-  visualizer->visualizeGoalState(planner->getJointNames(), knots[0]);
-  for (std::size_t i = 0; i < num_waypoints; i++) {
-    geometry_msgs::Point pt = waypoint_grid[i];
-    geometry_msgs::Pose ik_pose;
+  // knots.emplace_back(wp1);
+  // knots.emplace_back(wp2);
+  knots.emplace_back(goal);
 
-    ik_pose.position.x = pt.x;
-    ik_pose.position.y = pt.y;
-    ik_pose.position.z = pt.z;
-    ik_pose.orientation.x = 0.92388;
-    ik_pose.orientation.y = -0.382683;
-    ik_pose.orientation.z = 0.0;
-    ik_pose.orientation.w = 0.0;
+  std::size_t num_jnts =
+      planner->getJointModelGroup()->getActiveVariableCount();
 
-    std::vector<double> state;
-    if (!planner->solveIK(ik_pose, start, state)) {
-      return 0;
-    }
-    knots.emplace_back(state);
+  moveit_msgs::Constraints cons1;
+  cons1.joint_constraints.resize(num_jnts);
+  for (std::size_t i = 0; i < num_jnts; ++i) {
+    cons1.joint_constraints[i].joint_name =
+        planner->getJointModelGroup()->getVariableNames()[i];
+    cons1.joint_constraints[i].position = knots[1].at(i);
+    cons1.joint_constraints[i].tolerance_above = 0.3;
+    cons1.joint_constraints[i].tolerance_below = 0.3;
+    cons1.joint_constraints[i].weight = 1.0;
   }
+
+  // moveit_msgs::Constraints cons2;
+  // cons2.joint_constraints.resize(num_jnts);
+  // for (std::size_t i = 0; i < num_jnts; ++i) {
+  //   cons2.joint_constraints[i].joint_name =
+  //       planner->getJointModelGroup()->getVariableNames()[i];
+  //   cons2.joint_constraints[i].position = knots[2].at(i);
+  //   cons2.joint_constraints[i].tolerance_above = 0.001;
+  //   cons2.joint_constraints[i].tolerance_below = 0.001;
+  //   cons2.joint_constraints[i].weight = 1.0;
+  // }
+
+  // moveit_msgs::Constraints cons3;
+  // cons3.joint_constraints.resize(num_jnts);
+  // for (std::size_t i = 0; i < num_jnts; ++i) {
+  //   cons3.joint_constraints[i].joint_name =
+  //       planner->getJointModelGroup()->getVariableNames()[i];
+  //   cons3.joint_constraints[i].position = knots[3].at(i);
+  //   cons3.joint_constraints[i].tolerance_above = 0.001;
+  //   cons3.joint_constraints[i].tolerance_below = 0.001;
+  //   cons3.joint_constraints[i].weight = 1.0;
+  // }
 
   std::vector<moveit_msgs::Constraints> constraints;
-  std::size_t num_knots = knots.size();
-  for (std::size_t i = 1; i < num_knots; i++) {
-    moveit_msgs::Constraints goal = planner->createJointGoal(knots[i]);
-    constraints.emplace_back(goal);
-  }
+  constraints.emplace_back(cons1);
+  // constraints.emplace_back(cons2);
+  // constraints.emplace_back(cons3);
 
   std::vector<planning_interface::MotionPlanResponse> responses;
   for (std::size_t i = 0; i < constraints.size(); i++) {
@@ -109,8 +96,7 @@ int main(int argc, char **argv) {
     planning_interface::MotionPlanResponse res;
 
     ROS_DEBUG_NAMED(LOGNAME, "setStartState");
-    std::vector<double> start_state = knots[i];
-    planner->setStartState(req, start_state);
+    planner->setStartState(req, knots[i]);
 
     ROS_DEBUG_NAMED(LOGNAME, "req.goal_constraints");
     req.goal_constraints.push_back(constraints[i]);
@@ -122,7 +108,8 @@ int main(int argc, char **argv) {
     req.max_velocity_scaling_factor = 0.5;
 
     ROS_DEBUG_NAMED(LOGNAME, "visualizeGoalState");
-    visualizer->visualizeGoalState(planner->getJointNames(), knots[i]);
+    visualizer->visualizeGoalState(planner->getJointNames(),
+                                   planner->getJointGoalPos());
 
     ROS_DEBUG_NAMED(LOGNAME, "visualizeObstacleMarker");
     visualizer->visualizeObstacleMarker(planner->getObstacles());
@@ -134,8 +121,7 @@ int main(int argc, char **argv) {
     planner->setPlanningContext(context->getPlanningContext());
 
     ROS_DEBUG_NAMED(LOGNAME, "planner->changePlanner()");
-    const std::string PLANNER_NAME =
-        "RRTConnect";  //"BITstar, QRRTStar, RRTConnect"
+    const std::string PLANNER_NAME = "BITstar";  //"BITstar, QRRTStar"
     planner->setPlannerName(PLANNER_NAME);
     planner->changePlanner();
 
@@ -161,10 +147,10 @@ int main(int argc, char **argv) {
     responses.emplace_back(res);
 
     context->getPlanningContext()->clear();
-    status = utilities::promptUserInput();
-    if (!status) {
-      return 0;
-    }
+    // bool status = utilities::promptUserInput();
+    // if (!status) {
+    //   return 0;
+    // }
   }
 
   ROS_INFO_NAMED(LOGNAME, "Press continue to execute trajectory.");

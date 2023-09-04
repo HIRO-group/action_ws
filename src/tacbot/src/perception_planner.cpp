@@ -4,12 +4,14 @@
 #include <ompl/base/objectives/MinimizeContactObjective.h>
 #include <ompl/base/objectives/VFMagnitudeOptimizationObjective.h>
 #include <ompl/geometric/planners/informedtrees/ABITstar.h>
+#include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/multilevel/datastructures/Projection.h>
 #include <ompl/multilevel/datastructures/ProjectionTypes.h>
 #include <ompl/multilevel/datastructures/projections/ModelBased_RN_RM.h>
 #include <ompl/multilevel/planners/qmp/QMPStar.h>
 #include <ompl/multilevel/planners/qrrt/QRRTStar.h>
 
+#include "ompl/base/objectives/PathLengthOptimizationObjective.h"
 #include "ompl/geometric/planners/informedtrees/BITstar.h"
 #include "ompl/geometric/planners/rrt/ContactTRRT.h"
 #include "ompl/geometric/planners/rrt/InformedRRTstar.h"
@@ -54,6 +56,10 @@ void PerceptionPlanner::setObstacleScene(std::size_t option) {
   obstacles_.clear();
   ROS_INFO_NAMED(LOGNAME, "Obstacle scene option selected: %ld", option);
   switch (option) {
+    case 0: {
+      ROS_INFO_NAMED(LOGNAME, "No additional obstacles added to the scene.");
+      break;
+    }
     case 1: {
       tacbot::ObstacleGroup sphere_1;
       sphere_1.name = "sphere_1";
@@ -142,7 +148,11 @@ void PerceptionPlanner::changePlanner() {
                         std::placeholders::_1);
     optimization_objective_ =
         std::make_shared<ompl::base::MinimizeContactObjective>(si, optFunc);
-    simple_setup->setOptimizationObjective(optimization_objective_);
+
+    // simple_setup->setOptimizationObjective(optimization_objective_);
+
+    simple_setup->setOptimizationObjective(
+        std::make_shared<ompl::base::PathLengthOptimizationObjective>(si));
 
     planner = std::make_shared<ompl::geometric::BITstar>(si);
 
@@ -218,14 +228,17 @@ void PerceptionPlanner::changePlanner() {
     simple_setup->setOptimizationObjective(optimization_objective_);
     planner = std::make_shared<ompl::geometric::ContactTRRT>(si, vFieldFuncDuo);
 
+  } else if (planner_name_ == "RRTConnect") {
+    ROS_INFO_NAMED(LOGNAME, "Using planner: RRTConnect.");
+    planner = std::make_shared<ompl::geometric::RRTConnect>(si);
   } else {
     ROS_ERROR_NAMED(LOGNAME, "The following planner is not supported: %s",
                     planner_name_.c_str());
     throw std::invalid_argument(planner_name_);
   }
 
-  optimization_objective_->setCostToGoHeuristic(
-      &ompl::base::goalRegionCostToGo);
+  // optimization_objective_->setCostToGoHeuristic(
+  //     &ompl::base::goalRegionCostToGo);
   simple_setup->setPlanner(planner);
 }
 

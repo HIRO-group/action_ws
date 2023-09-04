@@ -82,6 +82,7 @@ class BasePlanner {
      specified by the moveit message.
   */
   moveit_msgs::Constraints createJointGoal();
+  moveit_msgs::Constraints createJointGoal(std::vector<double> joint_goal_pos);
 
   /** \brief Getter function for the group name of the robot. Usually based on
      the robot_description loaded into the parameter server as the urdf.
@@ -125,6 +126,10 @@ class BasePlanner {
   const moveit::core::JointModelGroup* getJointModelGroup() {
     return joint_model_group_;
   }
+
+  bool solveIK(const geometry_msgs::Pose& ik_pose,
+               const std::vector<double>& ik_seed_state,
+               std::vector<double>& solution);
 
  protected:
   ros::NodeHandle nh_;

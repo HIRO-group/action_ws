@@ -230,6 +230,50 @@ void Visualizer::visualizeNearRandVec(std::size_t state_num) {
   nearrand_pub_.publish(marker_array);
 }
 
+void Visualizer::visualizePoints(
+    const std::vector<geometry_msgs::Point>& points) {
+  visualization_msgs::MarkerArray marker_array;
+
+  std::size_t num_pts = points.size();
+  for (std::size_t i = 0; i < num_pts; i++) {
+    geometry_msgs::Point pt = points[i];
+
+    uint32_t shape = visualization_msgs::Marker::SPHERE;
+
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "world";
+    marker.header.stamp = ros::Time::now();
+    // marker.ns = "basic_shapes";
+    marker.id = i;
+    marker.type = shape;
+
+    // Set the marker action.  Options are ADD, DELETE, and DELETEALL
+    marker.action = visualization_msgs::Marker::ADD;
+
+    marker.pose.position.x = pt.x;
+    marker.pose.position.y = pt.y;
+    marker.pose.position.z = pt.z;
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    marker.scale.x = 0.025;
+    marker.scale.y = 0.025;
+    marker.scale.z = 0.025;
+
+    marker.color.r = 0.0f;
+    marker.color.g = 1.0f;
+    marker.color.b = 0.0f;
+    marker.color.a = 1.0;
+
+    marker.lifetime = ros::Duration();
+
+    marker_array.markers.push_back(marker);
+  }
+  robot_repulse_origin_pub_.publish(marker_array);
+}
+
 void Visualizer::visualizeRepulseOrigin(std::size_t state_num) {
   if (vis_data_->sample_joint_angles_.size() <= state_num) {
     ROS_INFO_NAMED(LOGNAME,
