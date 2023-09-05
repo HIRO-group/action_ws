@@ -26,6 +26,10 @@ int main(int argc, char **argv) {
   planner->init();
   planner->setObstacleScene(0);
 
+  std::vector<double> pos{
+      -0.00015798826144131084, -0.7855155831866529, 4.077083616493837e-05, -2.356070629900656, 3.513825316048269e-05, 1.5712720386575345, 0.7853804904391213};
+  planner->solveFK(pos);
+
   ROS_DEBUG_NAMED(LOGNAME, "planner->getVisualizerData()");
   std::shared_ptr<Visualizer> visualizer =
       std::make_shared<Visualizer>(planner->getVisualizerData());
@@ -37,13 +41,13 @@ int main(int argc, char **argv) {
 
   std::vector<geometry_msgs::Point> waypoint_grid;
 
-  double start_x = 0.4;
+  double start_x = 0.306891;
   double start_y = 0.0;
-  double start_z = 0.3;
+  double start_z = 0.244;
 
-  double x_offset = 0.1;
-  double y_offset = 0.1;
-  double z_offset = 0.1;
+  double x_offset = 0.01;
+  double y_offset = 0.01;
+  double z_offset = 0.05;
 
   double num_x_pts = 2;
   double num_y_pts = 2;
@@ -65,10 +69,10 @@ int main(int argc, char **argv) {
   }
 
   visualizer->visualizePoints(waypoint_grid);
-  bool status = utilities::promptUserInput();
-  if (!status) {
-    return 0;
-  }
+  // bool status = utilities::promptUserInput();
+  // if (!status) {
+  //   return 0;
+  // }
 
   std::size_t num_waypoints = waypoint_grid.size();
   ROS_DEBUG_NAMED(LOGNAME, "num_waypoints: %ld", num_waypoints);
@@ -161,23 +165,25 @@ int main(int argc, char **argv) {
     responses.emplace_back(res);
 
     context->getPlanningContext()->clear();
-    status = utilities::promptUserInput();
-    if (!status) {
-      return 0;
-    }
+    // status = utilities::promptUserInput();
+    // if (!status) {
+    //   return 0;
+    // }
   }
 
-  ROS_INFO_NAMED(LOGNAME, "Press continue to execute trajectory.");
+
   bool execute = utilities::promptUserInput();
   if (!execute) {
     return 0;
   }
 
+
   PandaInterface panda_interface;
   panda_interface.init();
   panda_interface.move_to_default_pose(panda_interface.robot_.get());
 
-  sleep(0.1);
+  sleep(1.1);
+
 
   for (std::size_t i = 0; i < responses.size(); i++) {
     planning_interface::MotionPlanResponse res = responses[i];
@@ -189,6 +195,11 @@ int main(int argc, char **argv) {
 
     panda_interface.follow_joint_velocities(panda_interface.robot_.get(),
                                             joint_velocities);
+
+
+    if(i==1 || i==4||i==7||i==10){
+      sleep(3.0);
+    }
 
     sleep(0.1);
 

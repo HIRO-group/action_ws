@@ -221,6 +221,37 @@ void BasePlanner::init() {
   ROS_INFO_NAMED(LOGNAME, "init done");
 }
 
+
+bool BasePlanner::solveFK(std::vector<double> joint_values){
+    const kinematics::KinematicsBaseConstPtr ik_solver =
+      joint_model_group_->getSolverInstance();
+
+  std::vector<std::string> link_names;
+  link_names.emplace_back("panda_link8");
+  std::vector<geometry_msgs::Pose> poses;
+
+  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
+      planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
+  robot_state->setToDefaultValues(joint_model_group_, "ready");
+
+  robot_state->copyJointGroupPositions(joint_model_group_,joint_values);
+  bool status = ik_solver->getPositionFK(link_names,joint_values, poses);
+
+  std::cout << "fk status: " << status << std::endl;
+
+  for (std::size_t i = 0; i < poses.size(); i++) {
+    geometry_msgs::Pose pose = poses[i];
+    std::cout << "pose.position.x: " << pose.position.x << std::endl;
+    std::cout << "pose.position.y: " << pose.position.y << std::endl;
+    std::cout << "pose.position.z: " << pose.position.z << std::endl;
+    std::cout << "pose.orientation.x: " << pose.orientation.x << std::endl;
+    std::cout << "pose.orientation.y: " << pose.orientation.y << std::endl;
+    std::cout << "pose.orientation.z: " << pose.orientation.z << std::endl;
+    std::cout << "pose.orientation.w: " << pose.orientation.w << std::endl;
+  }
+  return status;
+}
+
 bool BasePlanner::solveIK(const geometry_msgs::Pose& ik_pose,
                           const std::vector<double>& ik_seed_state,
                           std::vector<double>& solution) {

@@ -131,6 +131,8 @@ class BasePlanner {
                const std::vector<double>& ik_seed_state,
                std::vector<double>& solution);
 
+  bool solveFK(std::vector<double> joint_values);
+
  protected:
   ros::NodeHandle nh_;
 
