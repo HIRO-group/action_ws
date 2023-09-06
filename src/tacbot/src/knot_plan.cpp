@@ -1,6 +1,8 @@
 
 
 // local
+#include <nlohmann/json.hpp>
+
 #include "base_planner.h"
 #include "my_moveit_context.h"
 #include "panda_interface.h"
@@ -8,11 +10,11 @@
 #include "utilities.h"
 #include "visualizer.h"
 
+using json = nlohmann::json;
+using namespace tacbot;
 constexpr char LOGNAME[] = "knot_plan";
 
-using namespace tacbot;
-
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ros::init(argc, argv, "knot_plan");
   ros::AsyncSpinner spinner(1);
   spinner.start();
@@ -26,8 +28,10 @@ int main(int argc, char **argv) {
   planner->init();
   planner->setObstacleScene(0);
 
-  std::vector<double> pos{
-      -0.00015798826144131084, -0.7855155831866529, 4.077083616493837e-05, -2.356070629900656, 3.513825316048269e-05, 1.5712720386575345, 0.7853804904391213};
+  std::vector<double> pos{-0.00015798826144131084, -0.7855155831866529,
+                          4.077083616493837e-05,   -2.356070629900656,
+                          3.513825316048269e-05,   1.5712720386575345,
+                          0.7853804904391213};
   planner->solveFK(pos);
 
   ROS_DEBUG_NAMED(LOGNAME, "planner->getVisualizerData()");
@@ -41,23 +45,26 @@ int main(int argc, char **argv) {
 
   std::vector<geometry_msgs::Point> waypoint_grid;
 
-  double start_x = 0.306891;
+  double start_x = 0.3;
   double start_y = 0.0;
   double start_z = 0.244;
 
-  double x_offset = 0.01;
-  double y_offset = 0.01;
+  double goal_x = 0.4;
+  double goal_y = 0.2;
+
+  double x_offset = 0.05;
+  double y_offset = 0.05;
   double z_offset = 0.05;
 
   double num_x_pts = 2;
   double num_y_pts = 2;
 
-  for (std::size_t i = 0; i < num_x_pts; i++) {
-    for (std::size_t j = 0; j < num_y_pts; j++) {
+  for (double x = start_x; x <= goal_x; x += x_offset) {
+    for (double y = start_y; y <= goal_y; y += y_offset) {
       geometry_msgs::Point pt1;
-      pt1.x = start_x + x_offset * i;
-      pt1.y = start_y + y_offset * j;
-      pt1.z = start_z + z_offset + 0.0584;
+      pt1.x = x;
+      pt1.y = y;
+      pt1.z = start_z + z_offset;
       waypoint_grid.emplace_back(pt1);
 
       geometry_msgs::Point pt2 = pt1;
@@ -69,10 +76,10 @@ int main(int argc, char **argv) {
   }
 
   visualizer->visualizePoints(waypoint_grid);
-  // bool status = utilities::promptUserInput();
-  // if (!status) {
-  //   return 0;
-  // }
+  bool status = utilities::promptUserInput();
+  if (!status) {
+    return 0;
+  }
 
   std::size_t num_waypoints = waypoint_grid.size();
   ROS_DEBUG_NAMED(LOGNAME, "num_waypoints: %ld", num_waypoints);
@@ -171,12 +178,11 @@ int main(int argc, char **argv) {
     // }
   }
 
-
+  ROS_DEBUG_NAMED(LOGNAME, "Continue to trajectory execution.");
   bool execute = utilities::promptUserInput();
   if (!execute) {
     return 0;
   }
-
 
   PandaInterface panda_interface;
   panda_interface.init();
@@ -184,6 +190,7 @@ int main(int argc, char **argv) {
 
   sleep(1.1);
 
+  std::size_t counter = 1;
 
   for (std::size_t i = 0; i < responses.size(); i++) {
     planning_interface::MotionPlanResponse res = responses[i];
@@ -196,9 +203,9 @@ int main(int argc, char **argv) {
     panda_interface.follow_joint_velocities(panda_interface.robot_.get(),
                                             joint_velocities);
 
-
-    if(i==1 || i==4||i==7||i==10){
+    if (i == counter) {
       sleep(3.0);
+      counter += 3;
     }
 
     sleep(0.1);

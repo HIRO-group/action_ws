@@ -221,9 +221,8 @@ void BasePlanner::init() {
   ROS_INFO_NAMED(LOGNAME, "init done");
 }
 
-
-bool BasePlanner::solveFK(std::vector<double> joint_values){
-    const kinematics::KinematicsBaseConstPtr ik_solver =
+bool BasePlanner::solveFK(std::vector<double> joint_values) {
+  const kinematics::KinematicsBaseConstPtr ik_solver =
       joint_model_group_->getSolverInstance();
 
   std::vector<std::string> link_names;
@@ -234,8 +233,8 @@ bool BasePlanner::solveFK(std::vector<double> joint_values){
       planning_scene_monitor::LockedPlanningSceneRO(psm_)->getCurrentState()));
   robot_state->setToDefaultValues(joint_model_group_, "ready");
 
-  robot_state->copyJointGroupPositions(joint_model_group_,joint_values);
-  bool status = ik_solver->getPositionFK(link_names,joint_values, poses);
+  robot_state->copyJointGroupPositions(joint_model_group_, joint_values);
+  bool status = ik_solver->getPositionFK(link_names, joint_values, poses);
 
   std::cout << "fk status: " << status << std::endl;
 

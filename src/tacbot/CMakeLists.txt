@@ -17,6 +17,8 @@ add_compile_options(-std=c++17)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 
+find_package(nlohmann_json 3.7.3 REQUIRED)
+
 find_package(catkin REQUIRED
   COMPONENTS
     # interactive_markers
@@ -255,6 +257,7 @@ target_link_libraries(knot_plan
   perception_planning
   visualizer
   panda_interface
+  nlohmann_json::nlohmann_json
 )
 
 target_link_libraries(generate_contact_plan
