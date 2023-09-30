@@ -13,7 +13,7 @@ constexpr char LOGNAME[] = "contact_planner";
 namespace tacbot {
 
 ContactPlanner::ContactPlanner() : BasePlanner() {
-  setObstacleScene(1);
+  setObstacleScene(3);
   setGoalState(1);
   contact_perception_ = std::make_shared<ContactPerception>();
 }
@@ -311,10 +311,10 @@ Eigen::VectorXd ContactPlanner::getRobtPtsVecDiffAvg(
     Eigen::Vector3d nearrand_av(av_x, av_y, av_z);
     Eigen::Vector3d link_to_obs = link_to_obs_vec[i];
 
-    std::cout << "nearrand_av: " << nearrand_av.transpose() << std::endl;
-    std::cout << "link_to_obs: " << link_to_obs.transpose() << std::endl;
+    // std::cout << "nearrand_av: " << nearrand_av.transpose() << std::endl;
+    // std::cout << "link_to_obs: " << link_to_obs.transpose() << std::endl;
     double dot = link_to_obs.dot(nearrand_av);
-    std::cout << "dot: " << dot << std::endl;
+    // std::cout << "dot: " << dot << std::endl;
 
     mean_per_link[i] = dot;
   }
@@ -380,7 +380,7 @@ std::vector<Eigen::Vector3d> ContactPlanner::getLinkToObsVec(
             att_vec = Eigen::VectorXd::Zero(3);
           }
 
-          vec = vec + 0.05 * att_vec;
+          vec = vec + 0.5 * att_vec;
           // std::cout << "vec: " << vec.transpose() << std::endl;
         }
 
@@ -738,6 +738,10 @@ std::vector<tacbot::ObstacleGroup> ContactPlanner::getSimObstaclePos() {
     pt.pos = pos;
     point_obstacles.emplace_back(pt);
   }
+  tacbot::ObstacleGroup obstacle_group;
+  obstacle_group.point_obstacles = point_obstacles;
+  obstacle_group.MAX_COST = 1;
+  obstacles.emplace_back(obstacle_group);
   return obstacles;
 };
 

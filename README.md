@@ -54,6 +54,6 @@ catkin build
 | moveit              | nataliya-dev    | ros-planning |
 | ruckig              | pantor          | n/a          |
 
-## TODO
 
-- Configure a json file and have planner settings reach from it. Allows you to set things like path simplification dynamically.
+## Citing this work
+CAT-RRT: Motion Planning that Admits Contact One Linke at a Time (IROS'23)

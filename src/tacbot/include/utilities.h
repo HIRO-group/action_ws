@@ -50,7 +50,7 @@ struct ObstacleGroup {
   Eigen::Vector3d center;  // optional for simulated obstacles
   double radius = 0.0;     // optinal simulated spherical obstacles
   double cost = 1.0;       //
-  double MAX_COST = 10;
+  double MAX_COST = 1;
 };
 
 namespace utilities {
