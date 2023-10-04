@@ -1,4 +1,4 @@
-# Interactive perception for a robot manipulator
+# Motion Planning Stack Enabling Robot Interaction with their Surroundings
 
 ## Installation
 
@@ -54,6 +54,11 @@ catkin build
 | moveit              | nataliya-dev    | ros-planning |
 | ruckig              | pantor          | n/a          |
 
-
 ## Citing this work
-CAT-RRT: Motion Planning that Admits Contact One Linke at a Time (IROS'23)
+
+```
+@INPROCEEDINGS{nechyporenko2023catrrt,
+  author={Nechyporenko, Nataliya and Escobedo, Caleb and Kadekodi, Shreyas and Roncone, Alessandro},
+  booktitle={2023 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  title={CAT-RRT: Motion Planning that Admits Contact One Linke at a Time}}
+```
