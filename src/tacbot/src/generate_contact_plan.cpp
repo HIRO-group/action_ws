@@ -20,11 +20,11 @@ int main(int argc, char* argv[]) {
   ROS_INFO_NAMED(LOGNAME, "planner->init()");
   planner->init();
 
-  std::string PLANNER_NAME = "ContactTRRTDuo";  // ContactTRRTDuo, RRTstar
+  std::string PLANNER_NAME = "BITstar";  // ContactTRRTDuo, RRTstar, BITstar
   std::string OBJECTIVE_NAME =
-      "FieldAlign";  // FieldMagnitude or UpstreamCost or FieldAlign
+      "FieldMagnitude";  // FieldMagnitude or UpstreamCost or FieldAlign
 
-  const std::size_t OBSTACLE_SCENE_OPT = 4;
+  const std::size_t OBSTACLE_SCENE_OPT = 2;
   const std::size_t GOAL_STATE_OPT = 1;
 
   planner->setPlannerName(PLANNER_NAME);
