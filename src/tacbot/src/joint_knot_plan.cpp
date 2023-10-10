@@ -1,6 +1,9 @@
 
 
 // local
+#include <fstream>
+#include <nlohmann/json.hpp>
+
 #include "base_planner.h"
 #include "my_moveit_context.h"
 #include "panda_interface.h"
@@ -8,11 +11,13 @@
 #include "utilities.h"
 #include "visualizer.h"
 
+using json = nlohmann::json;
+
 constexpr char LOGNAME[] = "knot_plan";
 
 using namespace tacbot;
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ros::init(argc, argv, "knot_plan");
   ros::AsyncSpinner spinner(1);
   spinner.start();
@@ -34,61 +39,68 @@ int main(int argc, char **argv) {
       planner->getPlanningSceneMonitor(), planner->getRobotModel());
   context->setSimplifySolution(true);
 
-  std::vector<double> start{
-      0, -0.785398163, 0, -2.35619449, 0, 1.57079632679, 0.785398163397};
-  std::vector<double> wp1{-1.80753,  -1.22744, 1.94936,  -1.356,
-                          -0.440299, 2.34236,  -0.313631};
-  std::vector<double> wp2{-2.02094,  -1.10387, 1.9391,   -1.61801,
-                          -0.440085, 1.69906,  -0.295163};
-  std::vector<double> goal{-2.02408,   -1.06383, 1.8716,    -1.80128,
-                           0.00569006, 0.713265, -0.0827766};
+  std::string package_path = ros::package::getPath("tacbot");
+  // std::cout << "package_path " << package_path << std::endl;
+
+  // Specify a relative file path within the package
+  std::string relative_path = package_path + "/bags/states.json";
+
+  // Open the JSON file for reading
+  std::ifstream input_file(relative_path);
+
+  // Check if the file is open
+  if (!input_file.is_open()) {
+    std::cerr << "Failed to open the JSON file." << std::endl;
+    return 1;
+  }
+
+  // Parse the JSON data from the file
+  json json_data;
+  input_file >> json_data;
+
+  // Close the file
+  input_file.close();
+
+  // Check if the "joint_states" key exists
+  if (json_data.find("joint_states") == json_data.end()) {
+    std::cerr << "The 'joint_states' key was not found in the JSON file."
+              << std::endl;
+    return 1;
+  }
 
   std::vector<std::vector<double>> knots;
-  knots.emplace_back(start);
-  // knots.emplace_back(wp1);
-  // knots.emplace_back(wp2);
-  knots.emplace_back(goal);
+  // Extract and process the arrays of 7-DOF joint states
+  for (const auto& joint_state : json_data["joint_states"]) {
+    std::vector<double> joint_states_7dof =
+        joint_state.get<std::vector<double>>();
+
+    knots.emplace_back(joint_states_7dof);
+
+    // Print the 7-DOF joint states
+    std::cout << "7-DOF Joint States: ";
+    for (const double& value : joint_states_7dof) {
+      std::cout << value << " ";
+    }
+    std::cout << std::endl;
+  }
 
   std::size_t num_jnts =
       planner->getJointModelGroup()->getActiveVariableCount();
 
-  moveit_msgs::Constraints cons1;
-  cons1.joint_constraints.resize(num_jnts);
-  for (std::size_t i = 0; i < num_jnts; ++i) {
-    cons1.joint_constraints[i].joint_name =
-        planner->getJointModelGroup()->getVariableNames()[i];
-    cons1.joint_constraints[i].position = knots[1].at(i);
-    cons1.joint_constraints[i].tolerance_above = 0.3;
-    cons1.joint_constraints[i].tolerance_below = 0.3;
-    cons1.joint_constraints[i].weight = 1.0;
-  }
-
-  // moveit_msgs::Constraints cons2;
-  // cons2.joint_constraints.resize(num_jnts);
-  // for (std::size_t i = 0; i < num_jnts; ++i) {
-  //   cons2.joint_constraints[i].joint_name =
-  //       planner->getJointModelGroup()->getVariableNames()[i];
-  //   cons2.joint_constraints[i].position = knots[2].at(i);
-  //   cons2.joint_constraints[i].tolerance_above = 0.001;
-  //   cons2.joint_constraints[i].tolerance_below = 0.001;
-  //   cons2.joint_constraints[i].weight = 1.0;
-  // }
-
-  // moveit_msgs::Constraints cons3;
-  // cons3.joint_constraints.resize(num_jnts);
-  // for (std::size_t i = 0; i < num_jnts; ++i) {
-  //   cons3.joint_constraints[i].joint_name =
-  //       planner->getJointModelGroup()->getVariableNames()[i];
-  //   cons3.joint_constraints[i].position = knots[3].at(i);
-  //   cons3.joint_constraints[i].tolerance_above = 0.001;
-  //   cons3.joint_constraints[i].tolerance_below = 0.001;
-  //   cons3.joint_constraints[i].weight = 1.0;
-  // }
-
   std::vector<moveit_msgs::Constraints> constraints;
-  constraints.emplace_back(cons1);
-  // constraints.emplace_back(cons2);
-  // constraints.emplace_back(cons3);
+  for (std::size_t i = 1; i < knots.size(); i++) {
+    moveit_msgs::Constraints goal_constraint;
+    goal_constraint.joint_constraints.resize(num_jnts);
+    for (std::size_t j = 0; j < num_jnts; ++j) {
+      goal_constraint.joint_constraints[j].joint_name =
+          planner->getJointModelGroup()->getVariableNames()[j];
+      goal_constraint.joint_constraints[j].position = knots[i].at(j);
+      goal_constraint.joint_constraints[j].tolerance_above = 0.001;
+      goal_constraint.joint_constraints[j].tolerance_below = 0.001;
+      goal_constraint.joint_constraints[j].weight = 1.0;
+    }
+    constraints.emplace_back(goal_constraint);
+  }
 
   std::vector<planning_interface::MotionPlanResponse> responses;
   for (std::size_t i = 0; i < constraints.size(); i++) {

@@ -41,7 +41,7 @@
   <rosparam command="load" file="$(find panda_moveit_config)/config/ompl_planning.yaml" subst_value="true"/>
   <rosparam command="load" file="$(find panda_moveit_config)/config/kinematics.yaml" subst_value="true"/>
 
-  <node name="knot_plan" pkg="tacbot" type="knot_plan" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
+  <node name="knot_plan" pkg="tacbot" type="joint_knot_plan" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
     <!-- Params for 3D sensors config -->
     <rosparam command="load" file="$(find tacbot)/config/sensors_3d.yaml" />
     <!-- Params for the octomap monitor -->

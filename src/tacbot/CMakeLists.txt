@@ -213,7 +213,7 @@ add_library(common STATIC src/common.cpp)
 add_executable(publish_pc_bag src/publish_pc_bag.cpp)
 add_executable(broadcast_tf src/broadcast_tf.cpp)
 add_executable(plan_and_execute src/plan_and_execute.cpp src/utilities.cpp)
-add_executable(knot_plan src/knot_plan.cpp src/utilities.cpp)
+add_executable(joint_knot_plan src/joint_knot_plan.cpp src/utilities.cpp)
 add_executable(generate_contact_plan src/generate_contact_plan.cpp src/utilities.cpp)
 
 ## Rename C++ executable without prefix
@@ -252,7 +252,7 @@ target_link_libraries(plan_and_execute
   panda_interface
 )
 
-target_link_libraries(knot_plan
+target_link_libraries(joint_knot_plan
   ${catkin_LIBRARIES}
   perception_planning
   visualizer
@@ -302,7 +302,7 @@ TARGETS
   publish_pc_bag
   broadcast_tf
   plan_and_execute
-  knot_plan
+  joint_knot_plan
   generate_contact_plan
 RUNTIME DESTINATION
   ${CATKIN_PACKAGE_BIN_DESTINATION}

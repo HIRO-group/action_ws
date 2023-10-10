@@ -1,7 +1,6 @@
 
 
 // local
-#include <nlohmann/json.hpp>
 
 #include "base_planner.h"
 #include "my_moveit_context.h"
@@ -10,7 +9,6 @@
 #include "utilities.h"
 #include "visualizer.h"
 
-using json = nlohmann::json;
 using namespace tacbot;
 constexpr char LOGNAME[] = "knot_plan";
 
