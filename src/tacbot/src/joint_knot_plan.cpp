@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
   // std::cout << "package_path " << package_path << std::endl;
 
   // Specify a relative file path within the package
-  std::string relative_path = package_path + "/bags/states.json";
+  std::string relative_path = package_path + "/bags/joint_states.json";
 
   // Open the JSON file for reading
   std::ifstream input_file(relative_path);
