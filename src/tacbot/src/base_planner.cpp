@@ -299,4 +299,40 @@ bool BasePlanner::solveIK(const geometry_msgs::Pose& ik_pose,
 
 std::string BasePlanner::getGroupName() { return group_name_; }
 
+bool BasePlanner::calculateEEPath() {
+  moveit_msgs::MotionPlanResponse msg;
+  plan_response_.getMessage(msg);
+  std::size_t num_pts = msg.trajectory.joint_trajectory.points.size();
+  ROS_INFO_NAMED(LOGNAME, "Trajectory num_pts: %ld", num_pts);
+
+  vis_data_->ee_path_pts_.clear();
+
+  for (std::size_t pt_idx = 0; pt_idx < num_pts; pt_idx++) {
+    // ROS_INFO_NAMED(LOGNAME, "Analyzing trajectory point number: %ld",
+    // pt_idx);
+
+    trajectory_msgs::JointTrajectoryPoint point =
+        msg.trajectory.joint_trajectory.points[pt_idx];
+
+    std::vector<double> joint_angles(dof_, 0.0);
+    for (std::size_t jnt_idx = 0; jnt_idx < dof_; jnt_idx++) {
+      joint_angles[jnt_idx] = point.positions[jnt_idx];
+    }
+
+    moveit::core::RobotState robot_state(
+        psm_->getPlanningScene()->getRobotModel());
+    robot_state.setJointGroupPositions(joint_model_group_, joint_angles);
+    robot_state.update();
+
+    std::vector<std::string> tips;
+    joint_model_group_->getEndEffectorTips(tips);
+    Eigen::Isometry3d tip_tf =
+        robot_state.getGlobalLinkTransform("panda_link8");
+    Eigen::Vector3d tip_pos{tip_tf.translation().x(), tip_tf.translation().y(),
+                            tip_tf.translation().z()};
+    vis_data_->ee_path_pts_.emplace_back(tip_pos);
+  }
+  return true;
+}
+
 }  // namespace tacbot

@@ -133,6 +133,8 @@ class BasePlanner {
 
   bool solveFK(std::vector<double> joint_values);
 
+  bool calculateEEPath();
+
  protected:
   ros::NodeHandle nh_;
 

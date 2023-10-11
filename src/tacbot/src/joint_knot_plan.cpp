@@ -23,18 +23,19 @@ int main(int argc, char** argv) {
   spinner.start();
   ros::NodeHandle node_handle;
 
-  ROS_DEBUG_NAMED(LOGNAME, "Start!");
+  ROS_INFO_NAMED(LOGNAME, "Start!");
 
   std::shared_ptr<PerceptionPlanner> planner =
       std::make_shared<PerceptionPlanner>();
-  ROS_DEBUG_NAMED(LOGNAME, "planner->init()");
+  ROS_INFO_NAMED(LOGNAME, "planner->init()");
   planner->init();
+  planner->setObstacleScene(0);
 
-  ROS_DEBUG_NAMED(LOGNAME, "planner->getVisualizerData()");
+  ROS_INFO_NAMED(LOGNAME, "planner->getVisualizerData()");
   std::shared_ptr<Visualizer> visualizer =
       std::make_shared<Visualizer>(planner->getVisualizerData());
 
-  ROS_DEBUG_NAMED(LOGNAME, "MyMoveitContext()");
+  ROS_INFO_NAMED(LOGNAME, "MyMoveitContext()");
   std::shared_ptr<MyMoveitContext> context = std::make_shared<MyMoveitContext>(
       planner->getPlanningSceneMonitor(), planner->getRobotModel());
   context->setSimplifySolution(true);
@@ -102,15 +103,19 @@ int main(int argc, char** argv) {
     constraints.emplace_back(goal_constraint);
   }
 
+  std::cout << "knots.size() " << knots.size() << std::endl;
+  std::cout << "constraints.size() " << constraints.size() << std::endl;
+
+  std::vector<Eigen::Vector3d> ee_path_pts;
   std::vector<planning_interface::MotionPlanResponse> responses;
   for (std::size_t i = 0; i < constraints.size(); i++) {
     planning_interface::MotionPlanRequest req;
     planning_interface::MotionPlanResponse res;
 
-    ROS_DEBUG_NAMED(LOGNAME, "setStartState");
+    ROS_INFO_NAMED(LOGNAME, "setStartState");
     planner->setStartState(req, knots[i]);
 
-    ROS_DEBUG_NAMED(LOGNAME, "req.goal_constraints");
+    ROS_INFO_NAMED(LOGNAME, "req.goal_constraints");
     req.goal_constraints.push_back(constraints[i]);
 
     req.group_name = planner->getGroupName();
@@ -119,25 +124,24 @@ int main(int argc, char** argv) {
     req.max_acceleration_scaling_factor = 0.5;
     req.max_velocity_scaling_factor = 0.5;
 
-    ROS_DEBUG_NAMED(LOGNAME, "visualizeGoalState");
-    visualizer->visualizeGoalState(planner->getJointNames(),
-                                   planner->getJointGoalPos());
+    ROS_INFO_NAMED(LOGNAME, "visualizeGoalState");
+    visualizer->visualizeGoalState(planner->getJointNames(), knots[i]);
 
-    ROS_DEBUG_NAMED(LOGNAME, "visualizeObstacleMarker");
+    ROS_INFO_NAMED(LOGNAME, "visualizeObstacleMarker");
     visualizer->visualizeObstacleMarker(planner->getObstacles());
 
-    ROS_DEBUG_NAMED(LOGNAME, "createPlanningContext");
+    ROS_INFO_NAMED(LOGNAME, "createPlanningContext");
     context->createPlanningContext(req);
 
-    ROS_DEBUG_NAMED(LOGNAME, "setPlanningContext");
+    ROS_INFO_NAMED(LOGNAME, "setPlanningContext");
     planner->setPlanningContext(context->getPlanningContext());
 
-    ROS_DEBUG_NAMED(LOGNAME, "planner->changePlanner()");
-    const std::string PLANNER_NAME = "BITstar";  //"BITstar, QRRTStar"
+    ROS_INFO_NAMED(LOGNAME, "planner->changePlanner()");
+    const std::string PLANNER_NAME = "RRTConnect";  //"BITstar, QRRTStar"
     planner->setPlannerName(PLANNER_NAME);
     planner->changePlanner();
 
-    ROS_DEBUG_NAMED(LOGNAME, "generatePlan");
+    ROS_INFO_NAMED(LOGNAME, "generatePlan");
     planner->generatePlan(res);
 
     if (res.error_code_.val != res.error_code_.SUCCESS) {
@@ -150,6 +154,14 @@ int main(int argc, char** argv) {
       return 1;
     }
 
+    ROS_INFO_NAMED(LOGNAME, "Calculate end-effector path.");
+    planner->calculateEEPath();
+    std::vector<Eigen::Vector3d> ee_pts =
+        planner->getVisualizerData()->ee_path_pts_;
+    ee_path_pts.insert(ee_path_pts.end(), ee_pts.begin(), ee_pts.end());
+    ROS_INFO_NAMED(LOGNAME, "Visualize end-effector path.");
+    visualizer->visualizeEEPath();
+
     moveit_msgs::MotionPlanResponse msg;
     res.getMessage(msg);
     visualizer->visualizeTrajectory(msg, "planned_path");
@@ -159,11 +171,15 @@ int main(int argc, char** argv) {
     responses.emplace_back(res);
 
     context->getPlanningContext()->clear();
-    // bool status = utilities::promptUserInput();
-    // if (!status) {
-    //   return 0;
-    // }
+    bool status = utilities::promptUserInput();
+    if (!status) {
+      return 0;
+    }
   }
+
+  ROS_INFO_NAMED(LOGNAME, "Visualize full end-effector path.");
+  planner->getVisualizerData()->ee_path_pts_ = ee_path_pts;
+  visualizer->visualizeEEPath();
 
   ROS_INFO_NAMED(LOGNAME, "Press continue to execute trajectory.");
   bool execute = utilities::promptUserInput();
