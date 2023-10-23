@@ -17,6 +17,46 @@ constexpr char LOGNAME[] = "knot_plan";
 
 using namespace tacbot;
 
+void writeJointDataToJson(
+    const std::vector<std::array<double, 7>>& jointPoints,
+    const std::vector<std::array<double, 7>>& jointVelocities,
+    const std::string& filename) {
+  json data;  // Create a JSON object
+
+  // Convert and add joint points to the JSON object
+  json points;
+  for (const auto& point : jointPoints) {
+    json pointArray;
+    for (const auto& value : point) {
+      pointArray.push_back(value);
+    }
+    points.push_back(pointArray);
+  }
+  data["joint_states"] = points;
+
+  // Add joint velocities to the JSON object
+  json velocities;
+  for (const auto& point : jointVelocities) {
+    json pointArray;
+    for (const auto& value : point) {
+      pointArray.push_back(value);
+    }
+    velocities.push_back(pointArray);
+  }
+
+  data["joint_velocities"] = velocities;
+
+  std::string package_path = ros::package::getPath("tacbot");
+  // std::cout << "package_path " << package_path << std::endl;
+
+  // Specify a relative file path within the package
+  std::string relative_path = package_path + "/bags/" + filename;
+
+  // Write the JSON data to a file
+  std::ofstream file(relative_path);
+  file << std::setw(4) << data << std::endl;
+}
+
 int main(int argc, char** argv) {
   ros::init(argc, argv, "knot_plan");
   ros::AsyncSpinner spinner(1);
@@ -171,10 +211,10 @@ int main(int argc, char** argv) {
     responses.emplace_back(res);
 
     context->getPlanningContext()->clear();
-    bool status = utilities::promptUserInput();
-    if (!status) {
-      return 0;
-    }
+    // bool status = utilities::promptUserInput();
+    // if (!status) {
+    //   return 0;
+    // }
   }
 
   ROS_INFO_NAMED(LOGNAME, "Visualize full end-effector path.");
@@ -187,11 +227,14 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  PandaInterface panda_interface;
-  panda_interface.init();
-  panda_interface.move_to_default_pose(panda_interface.robot_.get());
+  // PandaInterface panda_interface;
+  // panda_interface.init();
+  // panda_interface.move_to_default_pose(panda_interface.robot_.get());
 
   sleep(0.1);
+
+  std::vector<std::array<double, 7>> traj_waypoints;
+  std::vector<std::array<double, 7>> traj_velocities;
 
   for (std::size_t i = 0; i < responses.size(); i++) {
     planning_interface::MotionPlanResponse res = responses[i];
@@ -201,8 +244,14 @@ int main(int argc, char** argv) {
     std::vector<std::array<double, 7>> joint_velocities;
     utilities::toControlTrajectory(traj_msg, joint_waypoints, joint_velocities);
 
-    panda_interface.follow_joint_velocities(panda_interface.robot_.get(),
-                                            joint_velocities);
+    traj_waypoints.insert(traj_waypoints.end(), joint_waypoints.begin(),
+                          joint_waypoints.end());
+
+    traj_velocities.insert(traj_velocities.end(), joint_velocities.begin(),
+                           joint_velocities.end());
+
+    // panda_interface.follow_joint_velocities(panda_interface.robot_.get(),
+    //                                         joint_velocities);
 
     sleep(0.1);
 
@@ -211,6 +260,8 @@ int main(int argc, char** argv) {
     //   return 0;
     // }
   }
+
+  writeJointDataToJson(traj_waypoints, traj_velocities, "trajectory.json");
 
   std::cout << "Finished!" << std::endl;
 
