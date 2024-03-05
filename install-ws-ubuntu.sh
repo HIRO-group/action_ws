@@ -48,7 +48,12 @@ install_common_dependencies()
   ${SUDO} apt -y install ros-${ROS_DISTRO}-turtlesim
   ${SUDO} apt -y install ros-${ROS_DISTRO}-trac-ik-lib
   ${SUDO} apt -y install ros-${ROS_DISTRO}-nlopt
-}
+  ${SUDO} apt -y install ros-${ROS_DISTRO}-controller-interface
+  ${SUDO} apt -y install ros-${ROS_DISTRO}-controller-manager
+  ${SUDO} apt -y install ros-${ROS_DISTRO}-tf-conversions
+  ${SUDO} apt -y install ros-${ROS_DISTRO}-gazebo-ros-control
+} 
+
 
 install_moveit(){
   wstool init src
@@ -83,7 +88,10 @@ build_ompl()
   cd src/omplapp/ompl/build/Release
   cmake ../..
   make
-  ${SUDO} make install
+
+  # sub with checkinstall here
+  # ${SUDO} make install
+
   cd ../../../../../
 }
 
@@ -94,7 +102,10 @@ build_omplapp()
   cd src/omplapp/build/Release
   cmake ../..
   make
-  ${SUDO} make install
+ 
+  # sub with checkinstall here
+  #${SUDO} make install
+ 
   cd ../../../../
 }
 
@@ -104,7 +115,10 @@ build_ruckig(){
   cd src/ruckig/build/
   cmake -DCMAKE_BUILD_TYPE=Release ..
   make
-  ${SUDO} make install
+
+  # sub with checkinstall here
+  # ${SUDO} make install
+
   cd ../../../
 }
 
@@ -174,7 +188,7 @@ installer(){
   install_moveit
   build_ruckig
   build_libfranka
-  # build_ompl #omplapp already build ompl
+  # # build_ompl #omplapp already build ompl
   build_omplapp
   git submodule update --recursive
   # set_upstream_branches

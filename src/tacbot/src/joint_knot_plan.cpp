@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
       std::make_shared<PerceptionPlanner>();
   ROS_INFO_NAMED(LOGNAME, "planner->init()");
   planner->init();
-  planner->setObstacleScene(0);
+  planner->setObstacleScene(2);
 
   ROS_INFO_NAMED(LOGNAME, "planner->getVisualizerData()");
   std::shared_ptr<Visualizer> visualizer =
