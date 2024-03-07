@@ -2,6 +2,7 @@
 cmake_minimum_required(VERSION 3.18)
 
 project(Open3DCMakeFindPackage LANGUAGES C CXX)
+find_package(jsoncpp REQUIRED)
 
 # The options need to be the same as Open3D's default
 # If Open3D is configured and built with custom options, you'll also need to
@@ -18,7 +19,7 @@ find_package(Open3D REQUIRED)
 
 add_executable(Draw)
 target_sources(Draw PRIVATE Draw.cpp)
-target_link_libraries(Draw PRIVATE Open3D::Open3D)
+target_link_libraries(Draw PRIVATE Open3D::Open3D jsoncpp_lib)
 
 # On Windows if BUILD_SHARED_LIBS is enabled, copy .dll files to the executable directory
 if(WIN32)

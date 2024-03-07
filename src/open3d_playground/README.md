@@ -23,7 +23,7 @@ git clone --recursive https://github.com/intel-isl/Open3D.git
 cd Open3D
 mkdir build
 cd build
-cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${HOME}/open3d_install ..
+cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${HOME}/tacbot_planning/open3d_install ..
 make install -j 12
 cd ../..
 ```

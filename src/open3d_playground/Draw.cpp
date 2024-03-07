@@ -24,44 +24,98 @@
 // IN THE SOFTWARE.
 // ----------------------------------------------------------------------------
 
+#include <json/json.h>
+
+#include <fstream>
 #include <string>
 
 #include "open3d/Open3D.h"
+#include "open3d/utility/IJsonConvertible.h"
 
-int main(int argc, char *argv[]) {
-    // armadillo = o3d.data.ArmadilloMesh()
-    // mesh = o3d.io.read_triangle_mesh(armadillo.path)
-    // pcd = mesh.sample_points_poisson_disk(N)
-    // # fit to unit cube
-    // pcd.scale(1 / np.max(pcd.get_max_bound() - pcd.get_min_bound()),
-    //           center=pcd.get_center())
-    // pcd.colors = o3d.utility.Vector3dVector(np.random.uniform(0, 1, size=(N, 3)))
-    // o3d.visualization.draw_geometries([pcd])
-
-    // print('octree division')
-    // octree = o3d.geometry.Octree(max_depth=4)
-    // octree.convert_from_point_cloud(pcd, size_expand=0.01)
-    // o3d.visualization.draw_geometries([octree])
-
-
+int main(int argc, char* argv[]) {
     int N = 2000;
-    auto armadillo =  open3d::data::ArmadilloMesh();
+    auto armadillo = open3d::data::ArmadilloMesh();
     open3d::geometry::TriangleMesh mesh;
     open3d::io::ReadTriangleMesh(armadillo.GetPath(), mesh);
     auto pcd = mesh.SamplePointsPoissonDisk(N);
+    pcd->PaintUniformColor({100, 0, 0});
+    std::cout << "HasPoints: " << pcd->HasPoints() << std::endl;
+    std::cout << "HasNormals: " << pcd->HasNormals() << std::endl;
+    std::cout << "HasColors: " << pcd->HasColors() << std::endl;
+    // open3d::visualization::DrawGeometries({pcd});
 
+    std::size_t max_depth = 4;
+    auto octree = std::make_shared<open3d::geometry::Octree>(6);
+    octree->ConvertFromPointCloud(*pcd, 0.01);
+    // open3d::visualization::DrawGeometries({octree});
 
-    // if (argc == 2) {
-    //     std::string option(argv[1]);
-    //     if (option == "--skip-for-unit-test") {
-    //         open3d::utility::LogInfo("Skiped for unit test.");
-    //         return 0;
-    //     }
-    // }
+    // You can query an existing node
+    // If such a node did not originally exist in the plc
+    // Then the output is null
+    std::shared_ptr<open3d::geometry::OctreeLeafNode> node;
+    std::shared_ptr<open3d::geometry::OctreeNodeInfo> node_info;
+    std::tie(node, node_info) = octree->LocateLeafNode({0, 0, 0});
+    if (node_info != nullptr) {
+        std::cout << "node_info->origin_" << node_info->origin_ << std::endl;
+    } else {
+        std::cout << "node not found" << std::endl;
+    }
 
-    // auto sphere = open3d::geometry::TriangleMesh::CreateSphere(1.0);
-    // sphere->ComputeVertexNormals();
-    // sphere->PaintUniformColor({0.0, 1.0, 0.0});
-    // open3d::visualization::DrawGeometries({sphere});
+    // What does the IsPointInBound function do?
+
+    // Callback function for tree traversal
+    // How do we integrate this with the collision checker
+    // or cost function calculator
+    std::vector<Eigen::Vector3d> colors_traversed;
+    std::vector<size_t> child_indices_traversed;
+    auto f = [&colors_traversed, &child_indices_traversed](
+                     const std::shared_ptr<open3d::geometry::OctreeNode>& node,
+                     const std::shared_ptr<open3d::geometry::OctreeNodeInfo>&
+                             node_info) -> bool {
+        if (auto leaf_node = std::dynamic_pointer_cast<
+                    open3d::geometry::OctreeColorLeafNode>(node)) {
+            colors_traversed.push_back(leaf_node->color_);
+            child_indices_traversed.push_back(node_info->child_index_);
+        }
+        return false;
+    };
+
+    colors_traversed.clear();
+    child_indices_traversed.clear();
+    octree->Traverse(f);
+
+    std::cout << "colors_traversed.size(): " << colors_traversed.size()
+              << std::endl;
+    std::cout << "child_indices_traversed.size(): "
+              << child_indices_traversed.size() << std::endl;
+
+    // This is a way to write out the octree into a json file
+    // we can do this from the luxonis side, in python
+    // and then read from the c++ side
+    Json::Value json_value;
+    octree->ConvertToJsonValue(json_value);
+
+    // Create an ofstream file stream to write to a file
+    std::ofstream fileStream("output.json");
+
+    // Check if the file is open
+    if (fileStream.is_open()) {
+        // Create a Json::StreamWriterBuilder
+        Json::StreamWriterBuilder builder;
+        // Optional: You can modify the writer's settings here, for example:
+        // builder["commentStyle"] = "None";
+        // builder["indentation"] = "   ";  // Use 3 spaces for indentation
+
+        // Use the Json::StreamWriterBuilder to write the Json::Value to the
+        // file
+        std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
+        writer->write(json_value, &fileStream);
+
+        // Close the file stream
+        fileStream.close();
+    } else {
+        std::cerr << "Could not open file for writing.\n";
+    }
+
     return 0;
 }
