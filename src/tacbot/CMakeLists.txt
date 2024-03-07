@@ -19,6 +19,18 @@ add_compile_options(-std=c++17)
 
 find_package(nlohmann_json 3.7.3 REQUIRED)
 
+# set(CMAKE_LIBRARY_PATH ${HOME}/tacbot_planning/open3d-devel-linux-x86_64-cxx11-abi-0.18.0)
+# find_library(NAMES gtest)
+# find_package(Open3D REQUIRED)
+
+find_package(Open3D REQUIRED PATHS "/home/marmot/tacbot_planning/open3d-devel-linux-x86_64-cxx11-abi-0.18.0")
+
+
+# find_library(OPEN3D_LIBRARY
+#     NAMES Open3D
+#     HINTS "${HOME}/tacbot_planning/open3d-devel-linux-x86_64-cxx11-abi-0.18.0"
+# )
+
 find_package(catkin REQUIRED
   COMPONENTS
     # interactive_markers
@@ -231,6 +243,7 @@ target_link_libraries(visualizer PUBLIC ${catkin_LIBRARIES})
 target_link_libraries(contact_perception PUBLIC
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
+  Open3D::Open3D
   )
 
 target_link_libraries(base_planning PUBLIC ${catkin_LIBRARIES} visualizer)

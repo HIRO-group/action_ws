@@ -1,7 +1,7 @@
 [submodule "src/libfranka"]
 	path = src/libfranka
 	url = git@github.com:nataliya-dev/libfranka.git
-    branch = master 
+  branch = master 
 [submodule "src/franka_ros"]
 	path = src/franka_ros
 	url = git@github.com:nataliya-dev/franka_ros.git
@@ -21,3 +21,4 @@
 [submodule "src/ruckig"]
 	path = src/ruckig
 	url = git@github.com:pantor/ruckig.git
+	branch = main
