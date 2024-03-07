@@ -1,28 +1,5 @@
-// ----------------------------------------------------------------------------
-// -                        Open3D: www.open3d.org                            -
-// ----------------------------------------------------------------------------
-// The MIT License (MIT)
+// https://www.wobblyduckstudios.com/Octrees.php
 //
-// Copyright (c) 2021 www.open3d.org
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-// IN THE SOFTWARE.
-// ----------------------------------------------------------------------------
 
 #include <json/json.h>
 
@@ -33,12 +10,19 @@
 #include "open3d/utility/IJsonConvertible.h"
 
 int main(int argc, char* argv[]) {
-    int N = 2000;
-    auto armadillo = open3d::data::ArmadilloMesh();
-    open3d::geometry::TriangleMesh mesh;
-    open3d::io::ReadTriangleMesh(armadillo.GetPath(), mesh);
-    auto pcd = mesh.SamplePointsPoissonDisk(N);
+    // int N = 2000;
+    // auto armadillo = open3d::data::ArmadilloMesh();
+    // open3d::geometry::TriangleMesh mesh;
+    // open3d::io::ReadTriangleMesh(armadillo.GetPath(), mesh);
+    // auto pcd = mesh.SamplePointsPoissonDisk(N);
+
+    std::shared_ptr<open3d::geometry::PointCloud> pcd =
+            std::make_shared<open3d::geometry::PointCloud>();
+
+    pcd->points_ = {{0, 0, 0}, {1, 0, 0}, {1.1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+
     pcd->PaintUniformColor({100, 0, 0});
+
     std::cout << "HasPoints: " << pcd->HasPoints() << std::endl;
     std::cout << "HasNormals: " << pcd->HasNormals() << std::endl;
     std::cout << "HasColors: " << pcd->HasColors() << std::endl;
@@ -46,7 +30,13 @@ int main(int argc, char* argv[]) {
 
     std::size_t max_depth = 4;
     auto octree = std::make_shared<open3d::geometry::Octree>(6);
-    octree->ConvertFromPointCloud(*pcd, 0.01);
+
+    // size_expand A small expansion size such that the octree is
+    // slightly bigger than the original point cloud bounds to accommodate all
+    // points.
+
+    double size_expand = 0.01;
+    octree->ConvertFromPointCloud(*pcd, size_expand);
     // open3d::visualization::DrawGeometries({octree});
 
     // You can query an existing node
@@ -56,12 +46,18 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<open3d::geometry::OctreeNodeInfo> node_info;
     std::tie(node, node_info) = octree->LocateLeafNode({0, 0, 0});
     if (node_info != nullptr) {
-        std::cout << "node_info->origin_" << node_info->origin_ << std::endl;
+        std::cout << "node_info->origin_\n" << node_info->origin_ << std::endl;
     } else {
         std::cout << "node not found" << std::endl;
     }
 
     // What does the IsPointInBound function do?
+    // origin <= point < origin + size.
+    Eigen::Vector3d point{5, 0, 0};
+    Eigen::Vector3d origin{5, 0, 0};
+    double oc_size = 0.05;  // Size of the Octree.
+    bool is_inbound = octree->IsPointInBound(point, origin, oc_size);
+    std::cout << "is_inbound: " << is_inbound << std::endl;
 
     // Callback function for tree traversal
     // How do we integrate this with the collision checker
