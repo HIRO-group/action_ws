@@ -43,6 +43,9 @@ void ContactPerception::init() {
 
   // this keeps callback through the duration of the class not just once, not
   // sure why
+
+  // auto armadillo =  open3d::geometry::ArmadilloMesh()
+
   ros::spinOnce();
 }
 
