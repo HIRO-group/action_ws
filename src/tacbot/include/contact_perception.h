@@ -17,7 +17,7 @@
 #include "utilities.h"
 
 // Open3D
-#include "open3d/Open3D.h"
+// #include "open3d/Open3D.h"
 
 namespace tacbot {
 

@@ -10,16 +10,19 @@
 #include "open3d/utility/IJsonConvertible.h"
 
 int main(int argc, char* argv[]) {
-    // int N = 2000;
-    // auto armadillo = open3d::data::ArmadilloMesh();
-    // open3d::geometry::TriangleMesh mesh;
-    // open3d::io::ReadTriangleMesh(armadillo.GetPath(), mesh);
-    // auto pcd = mesh.SamplePointsPoissonDisk(N);
+    int N = 1000;
+    auto armadillo = open3d::data::ArmadilloMesh();
+    open3d::geometry::TriangleMesh mesh;
+    open3d::io::ReadTriangleMesh(armadillo.GetPath(), mesh);
+    auto pcd = mesh.SamplePointsPoissonDisk(N);
 
-    std::shared_ptr<open3d::geometry::PointCloud> pcd =
-            std::make_shared<open3d::geometry::PointCloud>();
+    // std::shared_ptr<open3d::geometry::TriangleMesh> mesh =
+    //         open3d::geometry::TriangleMesh::CreateBox(1, 1, 1);
+    // auto pcd = mesh->SamplePointsPoissonDisk(N);
 
-    pcd->points_ = {{0, 0, 0}, {1, 0, 0}, {1.1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    // std::shared_ptr<open3d::geometry::PointCloud> pcd =
+    //         std::make_shared<open3d::geometry::PointCloud>();
+    // pcd->points_ = {{0, 0, 0}, {1, 0, 0}, {1.1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
 
     pcd->PaintUniformColor({100, 0, 0});
 
@@ -28,23 +31,23 @@ int main(int argc, char* argv[]) {
     std::cout << "HasColors: " << pcd->HasColors() << std::endl;
     // open3d::visualization::DrawGeometries({pcd});
 
-    std::size_t max_depth = 4;
-    auto octree = std::make_shared<open3d::geometry::Octree>(6);
+    std::size_t max_depth = 5;
+    auto octree = std::make_shared<open3d::geometry::Octree>(max_depth);
 
     // size_expand A small expansion size such that the octree is
     // slightly bigger than the original point cloud bounds to accommodate all
     // points.
 
-    double size_expand = 0.01;
+    double size_expand = 0.1;
     octree->ConvertFromPointCloud(*pcd, size_expand);
-    // open3d::visualization::DrawGeometries({octree});
+    open3d::visualization::DrawGeometries({octree});
 
     // You can query an existing node
     // If such a node did not originally exist in the plc
     // Then the output is null
     std::shared_ptr<open3d::geometry::OctreeLeafNode> node;
     std::shared_ptr<open3d::geometry::OctreeNodeInfo> node_info;
-    std::tie(node, node_info) = octree->LocateLeafNode({0, 0, 0});
+    std::tie(node, node_info) = octree->LocateLeafNode({1.1, 0, 0});
     if (node_info != nullptr) {
         std::cout << "node_info->origin_\n" << node_info->origin_ << std::endl;
     } else {
@@ -64,7 +67,12 @@ int main(int argc, char* argv[]) {
     // or cost function calculator
     std::vector<Eigen::Vector3d> colors_traversed;
     std::vector<size_t> child_indices_traversed;
-    auto f = [&colors_traversed, &child_indices_traversed](
+    std::vector<size_t> depth_traversed;
+    std::vector<Eigen::Vector3d> origin_traversed;
+    std::vector<double> size_traversed;
+
+    auto f = [&colors_traversed, &child_indices_traversed, &depth_traversed,
+              &origin_traversed, &size_traversed](
                      const std::shared_ptr<open3d::geometry::OctreeNode>& node,
                      const std::shared_ptr<open3d::geometry::OctreeNodeInfo>&
                              node_info) -> bool {
@@ -72,6 +80,9 @@ int main(int argc, char* argv[]) {
                     open3d::geometry::OctreeColorLeafNode>(node)) {
             colors_traversed.push_back(leaf_node->color_);
             child_indices_traversed.push_back(node_info->child_index_);
+            depth_traversed.push_back(node_info->depth_);
+            origin_traversed.push_back(node_info->origin_);
+            size_traversed.push_back(node_info->size_);
         }
         return false;
     };
@@ -84,6 +95,10 @@ int main(int argc, char* argv[]) {
               << std::endl;
     std::cout << "child_indices_traversed.size(): "
               << child_indices_traversed.size() << std::endl;
+
+    // for (auto a : origin_traversed) {
+    //     std::cout << "a\n" << a << std::endl;
+    // }
 
     // This is a way to write out the octree into a json file
     // we can do this from the luxonis side, in python
