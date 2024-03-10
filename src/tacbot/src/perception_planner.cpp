@@ -3,6 +3,7 @@
 #include <moveit/collision_detection_bullet/collision_detector_allocator_bullet.h>
 #include <ompl/base/objectives/MinimizeContactObjective.h>
 #include <ompl/base/objectives/VFMagnitudeOptimizationObjective.h>
+#include <ompl/base/objectives/VFUpstreamCriterionOptimizationObjective.h>
 #include <ompl/geometric/planners/informedtrees/ABITstar.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/multilevel/datastructures/Projection.h>
@@ -141,6 +142,13 @@ void PerceptionPlanner::changePlanner() {
   ompl::base::SpaceInformationPtr si = simple_setup->getSpaceInformation();
   ompl::base::PlannerPtr planner;
 
+  ompl::geometric::PathSimplifierPtr simplifier =
+      simple_setup->getPathSimplifier();
+
+  std::function<Eigen::VectorXd(const ompl::base::State*,
+                                const ompl::base::State*)>
+      vFieldFuncDuo;
+
   if (planner_name_ == "BITstar") {
     std::function<double(const ompl::base::State*)> optFunc;
 
@@ -214,7 +222,10 @@ void PerceptionPlanner::changePlanner() {
     std::function<Eigen::VectorXd(const ompl::base::State*,
                                   const ompl::base::State*)>
         vFieldFuncDuo;
-    vFieldFuncDuo = std::bind(&PerceptionPlanner::obstacleFieldDuo, this,
+
+    // vFieldFuncDuo = std::bind(&PerceptionPlanner::obstacleFieldDuo, this,
+    //                           std::placeholders::_1, std::placeholders::_2);
+    vFieldFuncDuo = std::bind(&PerceptionPlanner::obstacleFieldCartesian, this,
                               std::placeholders::_1, std::placeholders::_2);
 
     std::function<Eigen::VectorXd(const ompl::base::State*)> vFieldFunc;
@@ -222,8 +233,12 @@ void PerceptionPlanner::changePlanner() {
                            std::placeholders::_1);
 
     optimization_objective_ =
-        std::make_shared<ompl::base::VFMagnitudeOptimizationObjective>(
+        std::make_shared<ompl::base::VFUpstreamCriterionOptimizationObjective>(
             si, vFieldFunc);
+
+    // optimization_objective_ =
+    //     std::make_shared<ompl::base::VFMagnitudeOptimizationObjective>(
+    //         si, vFieldFunc);
 
     simple_setup->setOptimizationObjective(optimization_objective_);
     planner = std::make_shared<ompl::geometric::ContactTRRT>(si, vFieldFuncDuo);
@@ -240,6 +255,378 @@ void PerceptionPlanner::changePlanner() {
   // optimization_objective_->setCostToGoHeuristic(
   //     &ompl::base::goalRegionCostToGo);
   simple_setup->setPlanner(planner);
+}
+
+void PerceptionPlanner::extractPtsFromModel(
+    const moveit::core::RobotStatePtr& robot_state,
+    const moveit::core::LinkModel* link_model,
+    std::vector<Eigen::Vector3d>& link_pts, std::size_t& num_pts) {
+  std::vector<shapes::ShapeConstPtr> shapes = link_model->getShapes();
+  std::size_t num_shapes = shapes.size();
+  for (std::size_t j = 0; j < num_shapes; ++j) {
+    Eigen::Isometry3d transform =
+        robot_state->getCollisionBodyTransform(link_model, j);
+
+    if (shapes[j]->type != shapes::MESH) {
+      // should somehow extract points from this as well
+      // ROS_ERROR_NAMED(LOGNAME, "Not a mesh shape");
+    } else {
+      shapes::Mesh* mesh = static_cast<shapes::Mesh*>(shapes[j]->clone());
+      mesh->mergeVertices(0.05);
+      // std::vector<Eigen::Vector3d> points(mesh->vertex_count);
+
+      // std::vector<Eigen::Vector3d> points(mesh->vertex_count);
+
+      for (unsigned int k = 0; k < mesh->vertex_count; ++k) {
+        Eigen::Vector3d mesh_pt(mesh->vertices[3 * k],
+                                mesh->vertices[3 * k + 1],
+                                mesh->vertices[3 * k + 2]);
+        // points[k] = transform * mesh_pt;
+        link_pts.emplace_back(transform * mesh_pt);
+        num_pts++;
+      }
+
+      // for (std::size_t p = 0; p < mesh->triangle_count; ++p) {
+      //   std::size_t i3 = p * 3;
+      //   Eigen::Vector3d s1(mesh->vertices[mesh->triangles[i3] * 3],
+      //                      mesh->vertices[mesh->triangles[i3] * 3 + 1],
+      //                      mesh->vertices[mesh->triangles[i3] * 3 + 2]);
+
+      //   Eigen::Vector3d s2(mesh->vertices[mesh->triangles[i3 + 1] * 3],
+      //                      mesh->vertices[mesh->triangles[i3 + 1] * 3 + 1],
+      //                      mesh->vertices[mesh->triangles[i3 + 1] * 3 +
+      //                      2]);
+
+      //   Eigen::Vector3d s3(mesh->vertices[mesh->triangles[i3 + 2] * 3],
+      //                      mesh->vertices[mesh->triangles[i3 + 2] * 3 + 1],
+      //                      mesh->vertices[mesh->triangles[i3 + 2] * 3 +
+      //                      2]);
+      //   points.emplace_back(transform * ((s1 + s2) / 2));
+      //   points.emplace_back(transform * ((s2 + s3) / 2));
+      //   points.emplace_back(transform * ((s3 + s1) / 2));
+      //   num_pts = num_pts + 3;
+      // }
+    }
+  }
+}
+
+std::size_t PerceptionPlanner::getPtsOnRobotSurface(
+    const moveit::core::RobotStatePtr& robot_state,
+    std::vector<std::vector<Eigen::Vector3d>>& rob_pts) {
+  const std::vector<std::string> link_names =
+      joint_model_group_->getLinkModelNames();
+
+  rob_pts.clear();
+  std::size_t num_links = link_names.size();
+  std::size_t num_pts = 0;
+  // std::cout << "num_links " << num_links << std::endl;
+
+  for (std::size_t i = 0; i < num_links; i++) {
+    // std::cout << "i: " << i << ", " << link_names[i] << std::endl;
+
+    const moveit::core::LinkModel* link_model =
+        robot_state->getLinkModel(link_names[i]);
+
+    const moveit::core::LinkTransformMap fixed_links =
+        link_model->getAssociatedFixedTransforms();
+
+    // std::cout << "link_tf_map.size(): " << link_tf_map.size() << std::endl;
+
+    std::vector<shapes::ShapeConstPtr> shapes = link_model->getShapes();
+    std::size_t num_shapes = shapes.size();
+
+    std::vector<Eigen::Vector3d> link_pts;
+
+    // the last link does not have a mesh for some reason
+    if (i >= dof_ - 1 || (num_shapes == 0 && fixed_links.size() > 0)) {
+      // std::cout << "i: " << i << ", " << link_names[i] << std::endl;
+      for (const std::pair<const moveit::core::LinkModel* const,
+                           Eigen::Isometry3d>& fixed_link : fixed_links) {
+        extractPtsFromModel(robot_state, fixed_link.first, link_pts, num_pts);
+      }
+
+      if (i == num_links - 1) {
+        // std::cout << "i: " << i << ", " << link_names[i] << std::endl;
+        rob_pts.emplace_back(link_pts);
+      }
+      continue;
+    }
+
+    extractPtsFromModel(robot_state, link_model, link_pts, num_pts);
+    rob_pts.emplace_back(link_pts);
+  }
+  // std::cout << "rob_pts.size() " << rob_pts.size() << std::endl;
+  return num_pts;
+}
+
+Eigen::VectorXd PerceptionPlanner::getRobtPtsVecDiffAvg(
+    const std::vector<std::vector<Eigen::Vector3d>>& near_state_rob_pts,
+    const std::vector<std::vector<Eigen::Vector3d>>& rand_state_rob_pts,
+    const std::vector<Eigen::Vector3d>& link_to_obs_vec) {
+  std::size_t num_links = near_state_rob_pts.size();
+  Eigen::VectorXd mean_per_link = Eigen::VectorXd::Zero(num_links);
+
+  std::size_t pt_num = 0;
+
+  for (std::size_t i = 0; i < num_links; i++) {
+    std::vector<Eigen::Vector3d> near_pts_on_link = near_state_rob_pts[i];
+    std::vector<Eigen::Vector3d> rand_pts_on_link = rand_state_rob_pts[i];
+
+    std::size_t num_pts_on_link = near_pts_on_link.size();
+    Eigen::MatrixXd diff_per_link = Eigen::MatrixXd::Zero(num_pts_on_link, 3);
+
+    for (std::size_t j = 0; j < num_pts_on_link; j++) {
+      Eigen::Vector3d near_pt_on_rob = near_pts_on_link[j];
+      Eigen::Vector3d rand_pt_on_rob = rand_pts_on_link[j];
+      Eigen::Vector3d nearrand_diff = rand_pt_on_rob - near_pt_on_rob;
+      nearrand_diff.normalize();
+      nearrand_diff *= 0.05;
+
+      diff_per_link(j, 0) = nearrand_diff[0];
+      diff_per_link(j, 1) = nearrand_diff[1];
+      diff_per_link(j, 2) = nearrand_diff[2];
+
+      // std::cout << "pt_num: " << pt_num << std::endl;
+      // std::cout << "sample_state_count_: " << sample_state_count_ <<
+      // std::endl;
+
+      vis_data_->saveNearRandVec(near_pt_on_rob, nearrand_diff, pt_num,
+                                 sample_state_count_);
+
+      pt_num++;
+    }
+
+    double av_x = diff_per_link.col(0).mean();
+    double av_y = diff_per_link.col(1).mean();
+    double av_z = diff_per_link.col(2).mean();
+
+    Eigen::Vector3d nearrand_av(av_x, av_y, av_z);
+    Eigen::Vector3d link_to_obs = link_to_obs_vec[i];
+
+    // std::cout << "nearrand_av: " << nearrand_av.transpose() << std::endl;
+    // std::cout << "link_to_obs: " << link_to_obs.transpose() << std::endl;
+    double dot = link_to_obs.dot(nearrand_av);
+    // std::cout << "dot: " << dot << std::endl;
+
+    mean_per_link[i] = dot;
+  }
+  vis_data_->saveNearRandDot(mean_per_link);
+  return mean_per_link;
+}
+
+Eigen::VectorXd PerceptionPlanner::obstacleFieldCartesian(
+    const ompl::base::State* near_state, const ompl::base::State* rand_state) {
+  const ompl::base::RealVectorStateSpace::StateType& vec_state1 =
+      *near_state->as<ompl::base::RealVectorStateSpace::StateType>();
+  std::vector<double> joint_angles1 = utilities::toStlVec(vec_state1, dof_);
+
+  moveit::core::RobotStatePtr robot_state1 =
+      std::make_shared<moveit::core::RobotState>(*robot_state_);
+  robot_state1->setJointGroupPositions(joint_model_group_, joint_angles1);
+  std::vector<std::vector<Eigen::Vector3d>> near_rob_pts;
+  std::size_t num_pts = getPtsOnRobotSurface(robot_state1, near_rob_pts);
+
+  // vis_data_->setTotalNumRepulsePts(num_pts);
+  // std::cout << "num pts from near state: " << num_pts << std::endl;
+  std::vector<Eigen::Vector3d> link_to_obs_vec = getLinkToObsVec(near_rob_pts);
+  // std::cout << "link_to_obs_vec.size(): " << link_to_obs_vec.size()
+  //           << std::endl;
+
+  const ompl::base::RealVectorStateSpace::StateType& vec_state2 =
+      *rand_state->as<ompl::base::RealVectorStateSpace::StateType>();
+  std::vector<double> joint_angles2 = utilities::toStlVec(vec_state2, dof_);
+
+  moveit::core::RobotStatePtr robot_state2 =
+      std::make_shared<moveit::core::RobotState>(*robot_state_);
+  robot_state2->setJointGroupPositions(joint_model_group_, joint_angles2);
+  std::vector<std::vector<Eigen::Vector3d>> rand_rob_pts;
+  num_pts = getPtsOnRobotSurface(robot_state2, rand_rob_pts);
+  // std::cout << "num pts from rand state: " << num_pts << std::endl;
+
+  Eigen::VectorXd vfield =
+      getRobtPtsVecDiffAvg(near_rob_pts, rand_rob_pts, link_to_obs_vec);
+
+  // vis_data_->saveRepulseAngles(joint_angles1, joint_angles2);
+  sample_state_count_++;
+  return vfield;
+}
+
+Eigen::Vector3d PerceptionPlanner::getAttractPt(std::size_t link_num,
+                                                std::size_t pt_num) {
+  std::vector<Eigen::Vector3d> pts_on_link = goal_rob_pts_[link_num];
+  Eigen::Vector3d pt_on_rob = pts_on_link[pt_num];
+  return pt_on_rob;
+}
+
+Eigen::Vector3d PerceptionPlanner::scaleToDist(Eigen::Vector3d vec) {
+  double y_max = 3.0;
+  double D = 50.0;
+  // double dist_max = 1.0;
+  // std::cout << "vec.norm() " << vec.norm() << std::endl;
+  Eigen::Vector3d vec_out = Eigen::VectorXd::Zero(3);
+
+  // double norm = vec.norm();
+  // double norm_max = 0.1;
+  // if (norm < norm_max) {
+  //   vec_out[0] = 1;
+  //   vec_out[1] = 1;
+  //   vec_out[2] = 1;
+  // } else {
+  //   vec_out[0] = 0;
+  //   vec_out[1] = 0;
+  //   vec_out[2] = 0;
+  // }
+
+  double prox_radius = 0.02;
+  if (planner_name_ == "ContactTRRTDuo" || planner_name_ == "VFRRT") {
+    prox_radius = 0.2;
+  }
+
+  if (vec.squaredNorm() > prox_radius) {
+    return vec_out;
+  }
+
+  if (planner_name_ != "ContactTRRTDuo") {
+    vec.normalize();
+    return vec;
+  }
+
+  vec_out = (vec * y_max) / (D * vec.squaredNorm() + 1.0);
+
+  // std::cout << "vec.squaredNorm() " << vec.squaredNorm() << std::endl;
+  // std::cout << "before scale " << vec.transpose() << std::endl;
+  // std::cout << "vec_out " << vec_out.transpose() << std::endl;
+  return vec_out;
+}
+
+std::vector<Eigen::Vector3d> PerceptionPlanner::getObstacles(
+    const Eigen::Vector3d& pt_on_rob) {
+  std::vector<Eigen::Vector3d> obstacles;
+  if (use_sim_obstacles_) {
+    vis_data_->saveObstaclePos(sim_obstacle_pos_, sample_state_count_);
+    return sim_obstacle_pos_;
+  }
+
+  bool status = contact_perception_->extractNearPts(pt_on_rob, obstacles);
+  if (status) {
+    vis_data_->saveObstaclePos(obstacles, sample_state_count_);
+    return obstacles;
+  }
+
+  // Store an empty obstacle vector when no obstacles have been found in
+  // proximity. This ensures that the size of the stored obstacles in an array
+  // are equal to the number of states that we considered.
+  vis_data_->saveObstaclePos(std::vector<Eigen::Vector3d>{},
+                             sample_state_count_);
+
+  // This yields a zero repulsion vector and will mean no repulsion will be
+  // applied by the vectors filed.
+  obstacles.emplace_back(pt_on_rob);
+
+  return obstacles;
+}
+
+std::vector<Eigen::Vector3d> PerceptionPlanner::getLinkToObsVec(
+    const std::vector<std::vector<Eigen::Vector3d>>& rob_pts) {
+  std::size_t num_links = rob_pts.size();
+
+  std::vector<Eigen::Vector3d> link_to_obs_vec(num_links,
+                                               Eigen::Vector3d::Zero(3));
+
+  std::size_t pt_num = 0;
+
+  for (std::size_t i = 0; i < num_links; i++) {
+    std::vector<Eigen::Vector3d> pts_on_link = rob_pts[i];
+    std::size_t num_pts_on_link = pts_on_link.size();
+    // std::cout << "link_num: " << i << std::endl;
+    // std::cout << "num_pts_on_link: " << num_pts_on_link << std::endl;
+
+    Eigen::MatrixXd pts_link_vec = Eigen::MatrixXd::Zero(num_pts_on_link, 3);
+
+    // std::cout << "getObstacles: " << std::endl;
+    std::vector<Eigen::Vector3d> obstacle_pos = getObstacles(pts_on_link[0]);
+
+    for (std::size_t j = 0; j < num_pts_on_link; j++) {
+      // std::cout << "pt j: " << j << std::endl;
+
+      Eigen::Vector3d pt_on_rob = pts_on_link[j];
+      // std::cout << "pt_on_rob: " << pt_on_rob.transpose() << std::endl;
+
+      // std::vector<Eigen::Vector3d> obstacle_pos = getObstacles(pt_on_rob);
+
+      std::size_t num_obstacles = obstacle_pos.size();
+      // std::cout << "num_obstacles: " << num_obstacles << std::endl;
+
+      Eigen::MatrixXd pt_to_obs = Eigen::MatrixXd::Zero(num_obstacles, 3);
+      for (std::size_t k = 0; k < num_obstacles; k++) {
+        Eigen::Vector3d vec = pt_on_rob - obstacle_pos[k];
+        // std::cout << "vec: " << vec.transpose() << std::endl;
+        // std::cout << "obstacle_pos: " << obstacle_pos[k].transpose()
+        //           << std::endl;
+        // std::cout << "pt_on_rob: " << pt_on_rob.transpose() << std::endl;
+
+        vec = scaleToDist(vec);
+        // std::cout << "vec: " << vec.transpose() << std::endl;
+
+        if (planner_name_ == "ContactTRRTDuo") {
+          Eigen::Vector3d att_pt = getAttractPt(i, j);
+
+          Eigen::Vector3d att_vec = att_pt - pt_on_rob;
+
+          if (vec.norm() == 0.0) {
+            att_vec = Eigen::VectorXd::Zero(3);
+          } else {
+            att_vec.normalize();
+          }
+
+          double dot = att_vec.dot(vec);
+          if (dot < -0.5) {
+            att_vec = Eigen::VectorXd::Zero(3);
+          }
+
+          vec = vec + 0.5 * att_vec;
+          // std::cout << "vec: " << vec.transpose() << std::endl;
+        }
+
+        pt_to_obs(k, 0) = vec[0];
+        pt_to_obs(k, 1) = vec[1];
+        pt_to_obs(k, 2) = vec[2];
+      }
+
+      double av_x = pt_to_obs.col(0).mean();
+      double av_y = pt_to_obs.col(1).mean();
+      double av_z = pt_to_obs.col(2).mean();
+
+      Eigen::Vector3d pt_to_obs_av(av_x, av_y, av_z);
+      // std::cout << "pt_to_obs_av: " << pt_to_obs_av.transpose() << std::endl;
+      // std::cout << "pt_num: " << pt_num << std::endl;
+      // std::cout << "sample_state_count_: " << sample_state_count_ <<
+      // std::endl; std::cout << "pt_on_rob: " << pt_on_rob.transpose() <<
+      // std::endl;
+
+      pts_link_vec(j, 0) = pt_to_obs_av[0];
+      pts_link_vec(j, 1) = pt_to_obs_av[1];
+      pts_link_vec(j, 2) = pt_to_obs_av[2];
+
+      // std::cout << "saveOriginVec: " << std::endl;
+
+      vis_data_->saveOriginVec(pt_on_rob, pt_to_obs_av, pt_num,
+                               sample_state_count_);
+      pt_num++;
+    }
+    // std::cout << "pts_link_vec.rows(): " << pts_link_vec.rows() << std::endl;
+    double av_x = pts_link_vec.col(0).mean();
+    double av_y = pts_link_vec.col(1).mean();
+    double av_z = pts_link_vec.col(2).mean();
+    Eigen::Vector3d link_to_obs_avg(av_x, av_y, av_z);
+    // std::cout << "link_to_obs_avg: " << link_to_obs_avg.transpose()
+    //           << std::endl;
+
+    link_to_obs_vec[i] = link_to_obs_avg;
+  }
+  vis_data_->saveAvgRepulseVec(link_to_obs_vec);
+
+  return link_to_obs_vec;
 }
 
 Eigen::VectorXd PerceptionPlanner::obstacleFieldDuo(

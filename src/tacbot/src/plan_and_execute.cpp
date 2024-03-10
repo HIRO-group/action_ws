@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
   planner->setPlanningContext(context->getPlanningContext());
 
   ROS_DEBUG_NAMED(LOGNAME, "planner->changePlanner()");
-  const std::string PLANNER_NAME = "BITstar";  //"BITstar, QRRTStar"
+  const std::string PLANNER_NAME = "BITstar";  //"BITstar, QRRTStar, CAT-RRT"
   planner->setPlannerName(PLANNER_NAME);
   planner->changePlanner();
 
